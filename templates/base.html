@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Research Assistant{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="top-nav">
+        <a href="/" class="nav-brand">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="24" height="24">
+                <circle cx="12" cy="12" r="11" fill="#ff4500" stroke="none"/>
+                <circle cx="8.5" cy="10" r="1.5" fill="white"/>
+                <circle cx="15.5" cy="10" r="1.5" fill="white"/>
+                <path d="M8 14.5c0 0 1.5 2.5 4 2.5s4-2.5 4-2.5" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+                <circle cx="18" cy="5" r="1.5" fill="#ff4500" stroke="white" stroke-width="0.5"/>
+                <line x1="15" y1="3" x2="18" y2="5" stroke="white" stroke-width="0.8"/>
+            </svg>
+            Research Assistant
+        </a>
+    </nav>
+
+    <div class="layout">
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+
+        <aside class="sidebar">
+            <a href="/" class="sidebar-new-btn">+ New Research</a>
+            <h3 class="sidebar-heading">History</h3>
+            <ul class="history-list" id="historyList">
+                {% for item in history %}
+                <li class="history-item {% if request.path == '/results/' + item.id %}active{% endif %}">
+                    <a href="/results/{{ item.id }}" class="history-link">
+                        <span class="history-question">{{ item.question[:60] }}{% if item.question|length > 60 %}...{% endif %}</span>
+                        <span class="history-meta">
+                            {{ item.num_comments or 0 }} comments
+                            &middot;
+                            {{ item.created_at[:10] }}
+                        </span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="history-empty">No research history yet</li>
+                {% endfor %}
+            </ul>
+        </aside>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

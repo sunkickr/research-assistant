@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}{{ research.question[:50] }} - Research Assistant{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <!-- Header -->
+    <div class="results-header">
+        <h1 class="results-question">{{ research.question }}</h1>
+        <p class="results-meta">
+            {{ research.num_threads or 0 }} threads &middot;
+            {{ research.num_comments or 0 }} comments scored &middot;
+            {{ research.created_at[:10] }}
+            {% if research.status == 'error' %}
+                &middot; <span style="color: #d93025;">Error during processing</span>
+            {% endif %}
+        </p>
+        <div class="results-actions">
+            <button
+                class="btn btn-primary"
+                id="summarizeBtn"
+                onclick="handleSummarize('{{ research_id }}')"
+                {% if research.num_comments == 0 %}disabled{% endif %}
+            >
+                {% if research.summary %}Regenerate Summary{% else %}Summarize Comments{% endif %}
+            </button>
+            <a href="/api/research/{{ research_id }}/export" class="btn btn-outline">
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary (show if already generated) -->
+    <div id="summarySection" class="summary-section" {% if not research.summary %}style="display: none;"{% endif %}>
+        {% if research.summary %}
+            <h3>Summary</h3>
+            <div class="summary-content" id="summaryContent"></div>
+        {% endif %}
+    </div>
+
+    <!-- Threads Table -->
+    <div class="table-section">
+        <h3>Threads</h3>
+        <p class="table-section-meta">Click a thread to filter comments from that thread</p>
+        <div id="threadsTableContainer">
+            <p class="summary-loading"><span class="spinner spinner-dark"></span> Loading threads...</p>
+        </div>
+    </div>
+
+    <!-- Comments Table -->
+    <div class="table-section">
+        <h3>Comments</h3>
+        <div id="threadFilterBanner" class="thread-filter-banner">
+            <span>Showing comments from: <strong id="filterThreadName"></strong></span>
+            <span class="thread-filter-clear" onclick="clearThreadFilter()">Show All</span>
+        </div>
+        <p class="table-section-meta" id="commentsMeta"></p>
+        <div id="commentsTableContainer">
+            <p class="summary-loading"><span class="spinner spinner-dark"></span> Loading comments...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tables.js') }}"></script>
+<script>
+    const RESEARCH_ID = '{{ research_id }}';
+    const EXISTING_SUMMARY = {{ research.summary | tojson if research.summary else 'null' }};
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadResults(RESEARCH_ID);
+        if (EXISTING_SUMMARY) {
+            renderSummary(EXISTING_SUMMARY);
+        }
+    });
+</script>
+{% endblock %}

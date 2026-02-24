@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Research Assistant{% endblock %}
+
+{% block content %}
+<div class="landing-container">
+    <!-- Search Form -->
+    <div id="searchSection" class="search-card">
+        <h1 class="search-title">What would you like to research?</h1>
+        <p class="search-subtitle">
+            Enter a question or topic and we'll search Reddit for relevant discussions,
+            score comments for relevancy, and help you find the crowd's wisdom.
+        </p>
+
+        <form id="researchForm" class="search-form">
+            <textarea
+                id="questionInput"
+                name="question"
+                class="search-input"
+                placeholder="e.g., What's the best way to learn Python in 2025?"
+                rows="3"
+                required
+            ></textarea>
+
+            <details class="settings-panel">
+                <summary class="settings-toggle">Settings</summary>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label for="maxThreads">
+                            Max threads to search:
+                            <span id="maxThreadsValue">{{ config.default_max_threads }}</span>
+                        </label>
+                        <input
+                            type="range"
+                            id="maxThreads"
+                            name="max_threads"
+                            min="5"
+                            max="{{ config.max_threads_limit }}"
+                            value="{{ config.default_max_threads }}"
+                            oninput="document.getElementById('maxThreadsValue').textContent = this.value"
+                        >
+                    </div>
+                    <div class="setting-group">
+                        <label for="maxComments">
+                            Max comments per thread:
+                            <span id="maxCommentsValue">{{ config.default_max_comments }}</span>
+                        </label>
+                        <input
+                            type="range"
+                            id="maxComments"
+                            name="max_comments_per_thread"
+                            min="25"
+                            max="{{ config.max_comments_limit }}"
+                            value="{{ config.default_max_comments }}"
+                            step="25"
+                            oninput="document.getElementById('maxCommentsValue').textContent = this.value"
+                        >
+                    </div>
+                    <div class="setting-group">
+                        <label for="timeFilter">Time range:</label>
+                        <select id="timeFilter" name="time_filter">
+                            <option value="all" selected>All time</option>
+                            <option value="year">Past year</option>
+                            <option value="month">Past month</option>
+                            <option value="week">Past week</option>
+                            <option value="day">Past day</option>
+                        </select>
+                    </div>
+                </div>
+            </details>
+
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                Research
+            </button>
+
+            <p class="search-limits">
+                Searches up to {{ config.max_threads_limit }} Reddit threads, collects up to
+                {{ config.max_comments_limit }} comments each, and scores all for relevancy using AI.
+            </p>
+        </form>
+    </div>
+
+    <!-- Progress Display (hidden by default) -->
+    <div id="progressSection" class="progress-card" style="display: none;">
+        <h2 class="progress-title">Researching...</h2>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+        </div>
+        <p class="progress-message" id="progressMessage">Starting research...</p>
+        <p class="progress-hint">This process collects Reddit comments and scores them for relevancy using AI.</p>
+    </div>
+
+    <!-- Error Display (hidden by default) -->
+    <div id="errorSection" class="error-card" style="display: none;">
+        <h2 class="error-title">Something went wrong</h2>
+        <p class="error-message" id="errorMessage"></p>
+        <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
+    </div>
+</div>
+{% endblock %}

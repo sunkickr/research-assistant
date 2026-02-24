@@ -145,3 +145,154 @@ function renderSummary(text) {
         <div class="summary-content">${html}</div>
     `;
 }
+
+// ===== Add Thread =====
+
+async function handleAddThread(researchId) {
+    const input = document.getElementById('addThreadUrl');
+    const btn = document.getElementById('addThreadBtn');
+    const progressEl = document.getElementById('addThreadProgress');
+    const progressBar = document.getElementById('addThreadProgressBar');
+    const progressMsg = document.getElementById('addThreadMessage');
+
+    const url = input.value.trim();
+    if (!url) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner-dark"></span>Processing...';
+    progressEl.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressMsg.textContent = 'Starting...';
+
+    try {
+        const resp = await fetch(`/api/research/${researchId}/add-thread`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            progressEl.style.display = 'none';
+            btn.innerHTML = 'Add Thread';
+            btn.disabled = false;
+            progressMsg.textContent = data.error || 'Failed to add thread';
+            progressEl.style.display = 'block';
+            return;
+        }
+
+        if (data.already_exists) {
+            btn.innerHTML = 'Add Thread';
+            btn.disabled = false;
+            progressBar.style.width = '100%';
+            progressMsg.textContent = data.message;
+            return;
+        }
+
+        // Listen to SSE stream for progress
+        const es = new EventSource(`/api/research/${researchId}/add-thread/stream`);
+        es.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            progressBar.style.width = msg.progress + '%';
+            progressMsg.textContent = msg.message;
+
+            if (msg.stage === 'complete') {
+                es.close();
+                input.value = '';
+                btn.innerHTML = 'Add Thread';
+                btn.disabled = false;
+                loadResults(researchId);
+            } else if (msg.stage === 'error') {
+                es.close();
+                btn.innerHTML = 'Add Thread';
+                btn.disabled = false;
+            }
+        };
+        es.onerror = () => {
+            es.close();
+            btn.innerHTML = 'Add Thread';
+            btn.disabled = false;
+        };
+    } catch (err) {
+        progressEl.style.display = 'none';
+        btn.innerHTML = 'Add Thread';
+        btn.disabled = false;
+    }
+}
+
+// ===== Find More Comments =====
+
+async function checkExpandStatus(researchId) {
+    try {
+        const resp = await fetch(`/api/research/${researchId}/expand/status`);
+        const data = await resp.json();
+        const btn = document.getElementById('findMoreBtn');
+        if (!btn) return;
+        if (!data.can_expand) {
+            btn.disabled = true;
+            btn.title = 'All search strategies have been tried for this query';
+        }
+    } catch (_) {}
+}
+
+async function handleFindMore(researchId) {
+    const btn = document.getElementById('findMoreBtn');
+    const progressEl = document.getElementById('expandProgress');
+    const progressBar = document.getElementById('expandProgressBar');
+    const progressMsg = document.getElementById('expandMessage');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner-dark"></span>Finding more...';
+    progressEl.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressMsg.textContent = 'Starting...';
+
+    try {
+        const resp = await fetch(`/api/research/${researchId}/expand`, { method: 'POST' });
+        if (!resp.ok) {
+            const data = await resp.json();
+            progressEl.style.display = 'none';
+            btn.innerHTML = 'Find More Comments';
+            btn.disabled = true;
+            btn.title = data.error || 'No more search strategies available';
+            return;
+        }
+
+        // Listen to SSE stream for progress
+        const es = new EventSource(`/api/research/${researchId}/expand/stream`);
+        es.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            progressBar.style.width = data.progress + '%';
+            progressMsg.textContent = data.message;
+
+            if (data.stage === 'complete') {
+                es.close();
+                progressEl.style.display = 'none';
+                btn.innerHTML = 'Find More Comments';
+                // Reload tables with new data
+                loadResults(researchId);
+                // Check if more expansions are still possible
+                checkExpandStatus(researchId);
+            } else if (data.stage === 'error') {
+                es.close();
+                progressEl.style.display = 'none';
+                progressMsg.textContent = 'Error: ' + data.message;
+                progressEl.style.display = 'block';
+                btn.innerHTML = 'Find More Comments';
+                btn.disabled = false;
+            }
+        };
+        es.onerror = () => {
+            es.close();
+            progressEl.style.display = 'none';
+            btn.innerHTML = 'Find More Comments';
+            btn.disabled = false;
+        };
+    } catch (err) {
+        progressEl.style.display = 'none';
+        btn.innerHTML = 'Find More Comments';
+        btn.disabled = false;
+    }
+}

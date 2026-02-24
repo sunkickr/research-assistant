@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 import threading
 import queue
@@ -19,10 +20,19 @@ from services.llm_provider import OpenAIProvider
 from services.scoring_service import ScoringService
 from services.summary_service import SummaryService
 from services.storage_service import StorageService
-from models.data_models import ScoredComment
+from services.web_search_service import WebSearchService
+from models.data_models import ScoredComment, RedditThread
 
 app = Flask(__name__)
 config = Config()
+
+# Custom Jinja2 filter to parse JSON in templates
+@app.template_filter("fromjson")
+def fromjson_filter(value):
+    try:
+        return json.loads(value)
+    except Exception:
+        return {}
 
 # Initialize services
 reddit_svc = RedditService(
@@ -32,9 +42,17 @@ llm = OpenAIProvider(config.OPENAI_API_KEY, config.LLM_MODEL)
 scoring_svc = ScoringService(llm, batch_size=config.LLM_BATCH_SIZE)
 summary_svc = SummaryService(llm)
 storage_svc = StorageService(config.DB_PATH, config.EXPORT_DIR)
+web_search_svc = WebSearchService(reddit_svc.reddit)
 
 # Active research streams: research_id -> queue.Queue
 progress_queues: dict[str, queue.Queue] = {}
+# Active expand streams: research_id -> queue.Queue
+expand_queues: dict[str, queue.Queue] = {}
+# Active add-thread streams: research_id -> queue.Queue
+add_thread_queues: dict[str, queue.Queue] = {}
+
+# Sort order cycle for successive "Find More" expansions
+EXPAND_SORTS = ["top", "new", "controversial", "hot"]
 
 
 # ----- Page Routes -----
@@ -119,25 +137,78 @@ def run_research_pipeline(
 ):
     """Background task that runs the full research pipeline."""
     try:
-        # Stage 1: Search threads
+        # Stage 1: Discover relevant subreddits
         q.put(
             {
                 "stage": "searching",
-                "message": "Searching Reddit for relevant threads...",
-                "progress": 5,
+                "message": "Finding relevant subreddits...",
+                "progress": 3,
+            }
+        )
+        suggested, search_queries = scoring_svc.suggest_subreddits(question)
+        validated = reddit_svc.validate_subreddits(suggested) if suggested else []
+
+        if validated:
+            subreddit_display = ", ".join(f"r/{s}" for s in validated)
+            q.put(
+                {
+                    "stage": "searching",
+                    "message": f"Searching in: {subreddit_display}",
+                    "progress": 8,
+                }
+            )
+        else:
+            q.put(
+                {
+                    "stage": "searching",
+                    "message": "Searching across all of Reddit...",
+                    "progress": 8,
+                }
+            )
+
+        # Store validated subreddits in settings for display on results page
+        storage_svc.update_research_subreddits(research_id, validated)
+
+        # Stage 2: Search threads within those subreddits
+        q.put(
+            {
+                "stage": "searching",
+                "message": "Searching for relevant threads...",
+                "progress": 10,
             }
         )
         threads = list(
             reddit_svc.search_threads(
-                question, max_threads=max_threads, time_filter=time_filter
+                question,
+                max_threads=max_threads,
+                time_filter=time_filter,
+                subreddits=validated or None,
             )
         )
-        storage_svc.save_threads(research_id, threads)
+
+        # Stage 2a: Web search for additional threads via DuckDuckGo
         q.put(
             {
                 "stage": "searching",
-                "message": f"Found {len(threads)} threads",
-                "progress": 15,
+                "message": f"Found {len(threads)} threads via Reddit — searching the web for more...",
+                "progress": 14,
+            }
+        )
+        web_queries = search_queries if search_queries else [question]
+        web_threads = web_search_svc.search_reddit_threads(web_queries, max_results=15, subreddits=validated or None, max_total=max_threads)
+        seen_ids = {t.id for t in threads}
+        web_added = 0
+        for wt in web_threads:
+            if wt.id not in seen_ids:
+                threads.append(wt)
+                seen_ids.add(wt.id)
+                web_added += 1
+
+        q.put(
+            {
+                "stage": "searching",
+                "message": f"Found {len(threads)} threads total ({web_added} from web search) — filtering for relevancy...",
+                "progress": 18,
             }
         )
 
@@ -152,14 +223,25 @@ def run_research_pipeline(
             )
             return
 
+        # Filter threads by relevancy before collecting comments
+        relevant_threads = scoring_svc.score_threads(question, threads)
+        q.put(
+            {
+                "stage": "searching",
+                "message": f"{len(relevant_threads)} of {len(threads)} threads are relevant",
+                "progress": 22,
+            }
+        )
+        storage_svc.save_threads(research_id, relevant_threads)
+
         # Stage 2: Collect comments
         all_comments = []
-        for i, thread in enumerate(threads):
+        for i, thread in enumerate(relevant_threads):
             q.put(
                 {
                     "stage": "collecting",
-                    "message": f"Collecting comments from thread {i + 1}/{len(threads)}: {thread.title[:60]}...",
-                    "progress": 15 + int(45 * (i / len(threads))),
+                    "message": f"Collecting comments from thread {i + 1}/{len(relevant_threads)}: {thread.title[:60]}...",
+                    "progress": 20 + int(40 * (i / len(relevant_threads))),
                 }
             )
             comments = reddit_svc.collect_comments(
@@ -182,7 +264,7 @@ def run_research_pipeline(
 
         if not all_comments:
             storage_svc.update_research_status(
-                research_id, "complete", len(threads), 0
+                research_id, "complete", len(relevant_threads), 0
             )
             q.put(
                 {
@@ -224,7 +306,7 @@ def run_research_pipeline(
         storage_svc.update_research_status(
             research_id,
             "complete",
-            num_threads=len(threads),
+            num_threads=len(relevant_threads),
             num_comments=len(scored_comments),
         )
         storage_svc.export_csv(research_id)
@@ -282,7 +364,8 @@ def summarize(research_id):
     if not research:
         return jsonify(error="Not found"), 404
     comments_data = storage_svc.get_comments(research_id)
-    comments = [ScoredComment(**c) for c in comments_data]
+    scored_fields = {f for f in ScoredComment.__dataclass_fields__}
+    comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
     summary = summary_svc.summarize(research["question"], comments)
     storage_svc.save_summary(research_id, summary)
     return jsonify(summary=summary)
@@ -297,6 +380,342 @@ def export(research_id):
 @app.route("/api/history")
 def history():
     return jsonify(history=storage_svc.get_history())
+
+
+@app.route("/api/research/<research_id>/expand", methods=["POST"])
+def expand_research(research_id):
+    """Start a 'Find More Comments' expansion using the next sort order."""
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+
+    settings = storage_svc.get_settings(research_id)
+    subreddits = settings.get("subreddits") or None
+    sorts_tried = settings.get("sorts_tried", [])
+    time_filter = settings.get("time_filter", "all")
+    max_comments = settings.get("max_comments_per_thread", config.DEFAULT_MAX_COMMENTS_PER_THREAD)
+
+    # Pick the next unused sort order
+    next_sort = next((s for s in EXPAND_SORTS if s not in sorts_tried), None)
+    if next_sort is None:
+        return jsonify(error="All search strategies have been tried for this query."), 400
+
+    q: queue.Queue = queue.Queue()
+    expand_queues[research_id] = q
+
+    t = threading.Thread(
+        target=run_expand_pipeline,
+        args=(research_id, research["question"], subreddits, next_sort, time_filter, max_comments, q),
+        daemon=True,
+    )
+    t.start()
+
+    return jsonify(sort_used=next_sort)
+
+
+def run_expand_pipeline(
+    research_id: str,
+    question: str,
+    subreddits,
+    sort: str,
+    time_filter: str,
+    max_comments: int,
+    q: queue.Queue,
+):
+    """Background task that finds more threads and merges results."""
+    try:
+        existing_thread_ids = storage_svc.get_existing_thread_ids(research_id)
+
+        subreddit_label = (
+            ", ".join(f"r/{s}" for s in subreddits) if subreddits else "all of Reddit"
+        )
+        q.put({
+            "stage": "searching",
+            "message": f"Searching {subreddit_label} sorted by {sort}...",
+            "progress": 5,
+        })
+
+        # Fetch more threads than usual to account for duplicates
+        candidates = list(
+            reddit_svc.search_threads(
+                question,
+                max_threads=config.MAX_THREADS_LIMIT,
+                time_filter=time_filter,
+                sort=sort,
+                subreddits=subreddits,
+            )
+        )
+
+        # Also search the web for additional threads
+        q.put({
+            "stage": "searching",
+            "message": f"Searching the web for more Reddit threads...",
+            "progress": 12,
+        })
+        web_threads = web_search_svc.search_reddit_threads(
+            [f"{question} {sort}"], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
+        )
+        seen_ids = {t.id for t in candidates}
+        for wt in web_threads:
+            if wt.id not in seen_ids:
+                candidates.append(wt)
+                seen_ids.add(wt.id)
+
+        # Remove threads already collected
+        new_threads = [t for t in candidates if t.id not in existing_thread_ids]
+        q.put({
+            "stage": "searching",
+            "message": f"Found {len(new_threads)} new threads — filtering for relevancy...",
+            "progress": 20,
+        })
+
+        if not new_threads:
+            storage_svc.update_settings(research_id, {
+                "sorts_tried": storage_svc.get_settings(research_id).get("sorts_tried", []) + [sort]
+            })
+            q.put({"stage": "complete", "message": "No new threads found with this strategy.", "progress": 100})
+            return
+
+        # Score threads for relevancy
+        relevant_threads = scoring_svc.score_threads(question, new_threads)
+        q.put({
+            "stage": "searching",
+            "message": f"{len(relevant_threads)} of {len(new_threads)} new threads are relevant",
+            "progress": 30,
+        })
+        # Note: threads are saved after scoring completes so they only appear
+        # in the UI once their comments are also ready.
+
+        # Collect comments
+        all_comments = []
+        for i, thread in enumerate(relevant_threads):
+            q.put({
+                "stage": "collecting",
+                "message": f"Collecting comments from thread {i + 1}/{len(relevant_threads)}: {thread.title[:60]}...",
+                "progress": 30 + int(35 * (i / len(relevant_threads))),
+            })
+            comments = reddit_svc.collect_comments(thread.id, max_comments=max_comments)
+            all_comments.extend(comments)
+
+        # Apply total cap to keep scoring time predictable
+        if len(all_comments) > config.TOTAL_COMMENTS_CAP:
+            all_comments.sort(key=lambda c: c.score, reverse=True)
+            all_comments = all_comments[: config.TOTAL_COMMENTS_CAP]
+
+        q.put({
+            "stage": "collecting",
+            "message": f"Collected {len(all_comments)} new comments",
+            "progress": 65,
+        })
+
+        if not all_comments:
+            storage_svc.update_settings(research_id, {
+                "sorts_tried": storage_svc.get_settings(research_id).get("sorts_tried", []) + [sort]
+            })
+            q.put({"stage": "complete", "message": "No new comments found.", "progress": 100})
+            return
+
+        # Score comments
+        def on_batch(batch_num, total_batches):
+            pct = 65 + int(30 * (batch_num / total_batches))
+            q.put({"stage": "scoring", "message": f"Scoring batch {batch_num}/{total_batches}...", "progress": pct})
+
+        scored = scoring_svc.score_comments(question, all_comments, progress_callback=on_batch)
+
+        # Save threads and comments together so they always appear as a pair
+        storage_svc.save_threads(research_id, relevant_threads)
+        storage_svc.save_scored_comments(research_id, scored)
+
+        # Update counts and mark this sort as tried
+        storage_svc.recalculate_counts(research_id)
+        settings = storage_svc.get_settings(research_id)
+        sorts_tried = settings.get("sorts_tried", []) + [sort]
+        storage_svc.update_settings(research_id, {"sorts_tried": sorts_tried})
+        storage_svc.export_csv(research_id)
+
+        q.put({"stage": "complete", "message": f"Added {len(scored)} new comments!", "progress": 100})
+
+    except Exception as e:
+        q.put({"stage": "error", "message": str(e), "progress": 0})
+    finally:
+        q.put(None)
+
+
+@app.route("/api/research/<research_id>/expand/stream")
+def expand_stream(research_id):
+    """SSE endpoint for expand progress updates."""
+    def generate():
+        q = expand_queues.get(research_id)
+        if not q:
+            yield f"data: {json.dumps({'stage': 'error', 'message': 'Expand task not found'})}\n\n"
+            return
+        while True:
+            try:
+                msg = q.get(timeout=300)
+            except queue.Empty:
+                yield f"data: {json.dumps({'stage': 'error', 'message': 'Expand timed out'})}\n\n"
+                break
+            if msg is None:
+                break
+            yield f"data: {json.dumps(msg)}\n\n"
+        expand_queues.pop(research_id, None)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.route("/api/research/<research_id>/expand/status")
+def expand_status(research_id):
+    """Return whether more expansions are possible."""
+    settings = storage_svc.get_settings(research_id)
+    sorts_tried = settings.get("sorts_tried", [])
+    remaining = [s for s in EXPAND_SORTS if s not in sorts_tried]
+    return jsonify(
+        can_expand=len(remaining) > 0,
+        next_sort=remaining[0] if remaining else None,
+        sorts_tried=sorts_tried,
+    )
+
+
+@app.route("/api/research/<research_id>/add-thread", methods=["POST"])
+def add_thread(research_id):
+    """Add a specific Reddit thread URL to an existing research."""
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+
+    data = request.get_json()
+    url = (data.get("url") or "").strip()
+    if not url:
+        return jsonify(error="URL is required"), 400
+
+    # Extract thread ID from full or short Reddit URLs
+    match = re.search(r"reddit\.com/r/\w+/comments/(\w+)", url)
+    if not match:
+        match = re.search(r"redd\.it/(\w+)", url)
+    if not match:
+        return jsonify(error="Invalid Reddit thread URL. Paste a full reddit.com link."), 400
+
+    thread_id = match.group(1)
+
+    # Check if thread has already been collected for this research
+    existing_ids = storage_svc.get_existing_thread_ids(research_id)
+    if thread_id in existing_ids:
+        return jsonify(
+            already_exists=True,
+            message="This thread has already been processed for this research.",
+        )
+
+    settings = storage_svc.get_settings(research_id)
+    max_comments = settings.get("max_comments_per_thread", config.DEFAULT_MAX_COMMENTS_PER_THREAD)
+
+    q: queue.Queue = queue.Queue()
+    add_thread_queues[research_id] = q
+    t = threading.Thread(
+        target=run_add_thread_pipeline,
+        args=(research_id, research["question"], thread_id, max_comments, q),
+        daemon=True,
+    )
+    t.start()
+    return jsonify(thread_id=thread_id)
+
+
+def run_add_thread_pipeline(
+    research_id: str,
+    question: str,
+    thread_id: str,
+    max_comments: int,
+    q: queue.Queue,
+):
+    """Fetch, score, and store comments for a single manually-added thread."""
+    try:
+        q.put({"stage": "fetching", "message": "Fetching thread details...", "progress": 10})
+
+        sub = reddit_svc.reddit.submission(id=thread_id)
+        thread = RedditThread(
+            id=sub.id,
+            title=sub.title,
+            subreddit=str(sub.subreddit),
+            score=sub.score,
+            num_comments=sub.num_comments,
+            url=sub.url,
+            permalink=f"https://reddit.com{sub.permalink}",
+            selftext=(sub.selftext or "")[:500],
+            created_utc=sub.created_utc,
+            author=str(sub.author) if sub.author else "[deleted]",
+        )
+        storage_svc.save_threads(research_id, [thread])
+
+        q.put({
+            "stage": "collecting",
+            "message": f"Collecting comments from: {thread.title[:60]}...",
+            "progress": 30,
+        })
+        comments = reddit_svc.collect_comments(thread_id, max_comments=max_comments)
+
+        if not comments:
+            storage_svc.recalculate_counts(research_id)
+            q.put({"stage": "complete", "message": "Thread added (no comments found).", "progress": 100})
+            return
+
+        q.put({
+            "stage": "scoring",
+            "message": f"Scoring {len(comments)} comments for relevancy...",
+            "progress": 55,
+        })
+
+        def on_batch(batch_num, total_batches):
+            pct = 55 + int(40 * (batch_num / total_batches))
+            q.put({
+                "stage": "scoring",
+                "message": f"Scoring batch {batch_num}/{total_batches}...",
+                "progress": pct,
+            })
+
+        scored = scoring_svc.score_comments(question, comments, progress_callback=on_batch)
+        storage_svc.save_scored_comments(research_id, scored)
+        storage_svc.recalculate_counts(research_id)
+        storage_svc.export_csv(research_id)
+
+        q.put({
+            "stage": "complete",
+            "message": f"Added \"{thread.title[:50]}\" with {len(scored)} comments!",
+            "progress": 100,
+        })
+
+    except Exception as e:
+        q.put({"stage": "error", "message": str(e), "progress": 0})
+    finally:
+        q.put(None)
+
+
+@app.route("/api/research/<research_id>/add-thread/stream")
+def add_thread_stream(research_id):
+    """SSE endpoint for add-thread progress updates."""
+    def generate():
+        q = add_thread_queues.get(research_id)
+        if not q:
+            yield f"data: {json.dumps({'stage': 'error', 'message': 'Task not found'})}\n\n"
+            return
+        while True:
+            try:
+                msg = q.get(timeout=120)
+            except queue.Empty:
+                yield f"data: {json.dumps({'stage': 'error', 'message': 'Timed out'})}\n\n"
+                break
+            if msg is None:
+                break
+            yield f"data: {json.dumps(msg)}\n\n"
+        add_thread_queues.pop(research_id, None)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 if __name__ == "__main__":

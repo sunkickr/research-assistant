@@ -371,6 +371,41 @@ a {
     flex-wrap: wrap;
 }
 
+/* ===== Add Thread Section ===== */
+.add-thread-section {
+    margin-top: 16px;
+}
+
+.add-thread-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.add-thread-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #edeff1;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #1a1a1b;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.add-thread-input:focus {
+    border-color: #ff4500;
+}
+
+.add-thread-input::placeholder {
+    color: #b0b3b8;
+}
+
+.add-thread-progress {
+    margin-top: 10px;
+}
+
 /* ===== Summary Section ===== */
 .summary-section {
     margin: 24px 0;
@@ -485,6 +520,15 @@ tbody tr.thread-row {
     cursor: pointer;
 }
 
+tbody tr.thread-row.active {
+    background: #fff3f0 !important;
+    border-left: 3px solid #ff4500;
+}
+
+tbody tr.thread-row.active:hover {
+    background: #ffe8e0 !important;
+}
+
 tbody td {
     padding: 10px 12px;
     vertical-align: top;
@@ -571,6 +615,11 @@ tbody td {
 .score-low {
     background: #f8d7da;
     color: #721c24;
+}
+
+.score-not-scored {
+    background: #e9ecef;
+    color: #6c757d;
 }
 
 /* External link icon */

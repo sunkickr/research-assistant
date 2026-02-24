@@ -29,7 +29,7 @@ class SummaryService:
         Filters to comments with relevancy >= min_relevancy,
         sorts by relevancy * upvotes to surface the best content.
         """
-        relevant = [c for c in comments if c.relevancy_score >= min_relevancy]
+        relevant = [c for c in comments if c.relevancy_score is not None and c.relevancy_score >= min_relevancy]
 
         if not relevant:
             return "No sufficiently relevant comments were found to summarize. Try broadening your search query."

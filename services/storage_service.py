@@ -134,6 +134,65 @@ class StorageService:
                     ),
                 )
 
+    def get_existing_thread_ids(self, research_id: str) -> set:
+        """Return the set of thread IDs already collected for this research."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT id FROM threads WHERE research_id=?", (research_id,)
+            ).fetchall()
+            return {row["id"] for row in rows}
+
+    def get_settings(self, research_id: str) -> dict:
+        """Return the parsed settings_json for a research."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT settings_json FROM researches WHERE id=?", (research_id,)
+            ).fetchone()
+            if row and row["settings_json"]:
+                return json.loads(row["settings_json"])
+            return {}
+
+    def update_settings(self, research_id: str, updates: dict):
+        """Merge updates into settings_json."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT settings_json FROM researches WHERE id=?", (research_id,)
+            ).fetchone()
+            settings = json.loads(row["settings_json"] or "{}") if row else {}
+            settings.update(updates)
+            conn.execute(
+                "UPDATE researches SET settings_json=? WHERE id=?",
+                (json.dumps(settings), research_id),
+            )
+
+    def recalculate_counts(self, research_id: str):
+        """Recount threads and comments and update the research record."""
+        with self._get_conn() as conn:
+            t_count = conn.execute(
+                "SELECT COUNT(*) FROM threads WHERE research_id=?", (research_id,)
+            ).fetchone()[0]
+            c_count = conn.execute(
+                "SELECT COUNT(*) FROM comments WHERE research_id=?", (research_id,)
+            ).fetchone()[0]
+            conn.execute(
+                "UPDATE researches SET num_threads=?, num_comments=? WHERE id=?",
+                (t_count, c_count, research_id),
+            )
+
+    def update_research_subreddits(self, research_id: str, subreddits: List[str]):
+        """Store the validated subreddits used for this research in settings_json."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT settings_json FROM researches WHERE id=?", (research_id,)
+            ).fetchone()
+            if row:
+                settings = json.loads(row["settings_json"] or "{}")
+                settings["subreddits"] = subreddits
+                conn.execute(
+                    "UPDATE researches SET settings_json=? WHERE id=?",
+                    (json.dumps(settings), research_id),
+                )
+
     def update_research_status(
         self,
         research_id: str,

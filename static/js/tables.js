@@ -3,6 +3,7 @@ let allThreads = [];
 let allComments = [];
 let filteredComments = [];
 let activeThreadFilter = null;
+let showUnscoredOnly = false;
 
 // Sorting state
 let threadSortCol = 'score';
@@ -41,6 +42,13 @@ async function loadResults(researchId) {
 function renderThreadsTable() {
     const sorted = sortData([...allThreads], threadSortCol, threadSortDir);
     const container = document.getElementById('threadsTableContainer');
+
+    const meta = document.getElementById('threadsMeta');
+    if (meta) {
+        meta.textContent = sorted.length > 0
+            ? `${sorted.length} thread${sorted.length === 1 ? '' : 's'} collected · Click a thread to filter comments`
+            : 'Click a thread to filter comments from that thread';
+    }
 
     if (sorted.length === 0) {
         container.innerHTML = '<p style="color: #7c7c7c; padding: 12px;">No threads found.</p>';
@@ -133,15 +141,18 @@ function renderCommentsTable() {
     html += '</tr></thead><tbody>';
 
     for (const comment of pageData) {
-        const scoreClass = comment.relevancy_score >= 8 ? 'score-high'
+        const isUnscored = comment.relevancy_score === null || comment.relevancy_score === undefined;
+        const scoreClass = isUnscored ? 'score-not-scored'
+            : comment.relevancy_score >= 8 ? 'score-high'
             : comment.relevancy_score >= 5 ? 'score-medium' : 'score-low';
+        const scoreDisplay = isUnscored ? '—' : comment.relevancy_score;
         const thread = allThreads.find(t => t.id === comment.thread_id);
         const threadTitle = thread ? thread.title.slice(0, 40) : comment.thread_id;
         const bodyPreview = comment.body.slice(0, 200);
         const hasMore = comment.body.length > 200;
 
         html += `<tr>`;
-        html += `<td><span class="score-badge ${scoreClass}">${comment.relevancy_score}</span></td>`;
+        html += `<td><span class="score-badge ${scoreClass}">${scoreDisplay}</span></td>`;
         html += `<td class="comment-body-cell">`;
         html += `<div class="comment-body-preview" id="preview-${comment.id}" onclick="toggleComment('${comment.id}')">${escapeHtml(bodyPreview)}${hasMore ? '...' : ''}</div>`;
         html += `<div class="comment-body-full" id="full-${comment.id}">${escapeHtml(comment.body)}</div>`;
@@ -192,44 +203,60 @@ function goToPage(page) {
 
 // ===== Thread Filtering =====
 
+function applyFilters() {
+    let base = activeThreadFilter
+        ? allComments.filter(c => c.thread_id === activeThreadFilter)
+        : [...allComments];
+    filteredComments = showUnscoredOnly
+        ? base.filter(c => c.relevancy_score === null || c.relevancy_score === undefined)
+        : base;
+    currentPage = 1;
+    renderThreadsTable();
+    renderCommentsTable();
+    updateCommentsMeta();
+}
+
 function filterByThread(threadId, threadTitle) {
     if (activeThreadFilter === threadId) {
         clearThreadFilter();
         return;
     }
     activeThreadFilter = threadId;
-    filteredComments = allComments.filter(c => c.thread_id === threadId);
-    currentPage = 1;
-
     document.getElementById('filterThreadName').textContent = threadTitle;
     document.getElementById('threadFilterBanner').classList.add('visible');
-
-    renderThreadsTable();
-    renderCommentsTable();
-    updateCommentsMeta();
+    applyFilters();
 }
 
 function clearThreadFilter() {
     activeThreadFilter = null;
-    filteredComments = [...allComments];
-    currentPage = 1;
-
     document.getElementById('threadFilterBanner').classList.remove('visible');
+    applyFilters();
+}
 
-    renderThreadsTable();
-    renderCommentsTable();
-    updateCommentsMeta();
+function toggleUnscoredFilter() {
+    showUnscoredOnly = !showUnscoredOnly;
+    applyFilters();
 }
 
 function updateCommentsMeta() {
     const meta = document.getElementById('commentsMeta');
     if (!meta) return;
 
-    if (activeThreadFilter) {
-        meta.textContent = `Showing ${filteredComments.length} of ${allComments.length} comments`;
-    } else {
-        meta.textContent = `${allComments.length} comments, sorted by relevancy`;
+    const unscoredCount = allComments.filter(
+        c => c.relevancy_score === null || c.relevancy_score === undefined
+    ).length;
+
+    let text = activeThreadFilter
+        ? `Showing ${filteredComments.length} of ${allComments.length} comments`
+        : `${allComments.length} comments, sorted by relevancy`;
+
+    if (showUnscoredOnly) {
+        text += ` · <strong>Showing not scored only</strong> — <a href="javascript:void(0)" onclick="toggleUnscoredFilter()" style="color:#ff4500;">Show all</a>`;
+    } else if (unscoredCount > 0) {
+        text += ` · <a href="javascript:void(0)" onclick="toggleUnscoredFilter()" style="color:#6c757d;">${unscoredCount} not scored</a>`;
     }
+
+    meta.innerHTML = text;
 }
 
 // ===== Comment Expansion =====

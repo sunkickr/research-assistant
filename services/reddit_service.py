@@ -1,5 +1,5 @@
 import praw
-from typing import List, Generator
+from typing import List, Optional, Generator
 from models.data_models import RedditThread, RedditComment
 
 
@@ -13,18 +13,42 @@ class RedditService:
             user_agent=user_agent,
         )
 
+    def validate_subreddits(self, names: List[str]) -> List[str]:
+        """
+        Check which subreddit names actually exist and are accessible.
+        Returns the validated subset.
+        """
+        valid = []
+        for name in names:
+            try:
+                sub = self.reddit.subreddit(name)
+                # Accessing .id forces a fetch; raises if subreddit doesn't exist
+                _ = sub.id
+                valid.append(name)
+            except Exception:
+                pass
+        return valid
+
     def search_threads(
         self,
         query: str,
         max_threads: int = 15,
         time_filter: str = "all",
         sort: str = "relevance",
+        subreddits: Optional[List[str]] = None,
     ) -> Generator[RedditThread, None, None]:
         """
         Search Reddit for threads matching the query.
-        Yields RedditThread objects as they are found.
+        If subreddits is provided, searches within those subreddits using
+        PRAW's multi-subreddit join (e.g. "databricks+dataengineering").
+        Falls back to r/all if subreddits is empty or None.
         """
-        for submission in self.reddit.subreddit("all").search(
+        if subreddits:
+            target = self.reddit.subreddit("+".join(subreddits))
+        else:
+            target = self.reddit.subreddit("all")
+
+        for submission in target.search(
             query, sort=sort, time_filter=time_filter, limit=max_threads
         ):
             yield RedditThread(
@@ -46,11 +70,13 @@ class RedditService:
         """
         Collect comments from a single thread.
         Uses replace_more(limit=0) to skip expanding collapsed comment chains.
+        Collects all available comments, then returns the top max_comments by
+        Reddit score so we always score the highest-quality comments.
         """
         submission = self.reddit.submission(id=thread_id)
         submission.comments.replace_more(limit=0)
         comments = []
-        for comment in submission.comments.list()[:max_comments]:
+        for comment in submission.comments.list():
             if (
                 hasattr(comment, "body")
                 and comment.body
@@ -70,4 +96,5 @@ class RedditService:
                         permalink=f"https://reddit.com{comment.permalink}",
                     )
                 )
-        return comments
+        comments.sort(key=lambda c: c.score, reverse=True)
+        return comments[:max_comments]

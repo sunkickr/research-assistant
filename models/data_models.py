@@ -38,7 +38,7 @@ class ScoredComment:
     created_utc: float
     depth: int
     permalink: str
-    relevancy_score: int
+    relevancy_score: Optional[int]
     reasoning: str
 
 

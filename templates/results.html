@@ -112,8 +112,8 @@
     const RESEARCH_ID = '{{ research_id }}';
     const EXISTING_SUMMARY = {{ research.summary | tojson if research.summary else 'null' }};
 
-    document.addEventListener('DOMContentLoaded', () => {
-        loadResults(RESEARCH_ID);
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadResults(RESEARCH_ID);
         if (EXISTING_SUMMARY) {
             renderSummary(EXISTING_SUMMARY);
         }

@@ -65,6 +65,8 @@ This document tracks all features and their functionality. Update this file when
   - Returns a score (1–10) and brief reasoning for each comment
   - Scoring criteria: 1–2 irrelevant, 3–4 tangential, 5–6 mentions topic but little actionable value, 7–8 relevant and useful, 9 directly addresses with specific information, 10 reserved for comments that completely answer the question with concrete actionable advice
   - Score 10 is intentionally rare — the prompt includes few-shot examples calibrating the LLM to only assign 10 to comments a researcher would call out as "exactly what I was looking for"
+  - Named-entity floor rule: if the question asks about a specific product/company/tool, any comment that explicitly names and discusses it scores at least 5; first-hand user experience with it ("we use it", "I tried it") scores at least 7 — prevents niche products from being under-scored due to lack of Reddit coverage
+  - Two sets of few-shot examples: one for a mainstream topic (Databricks cost optimization) and one for a niche product (Keebo AI) to calibrate both scenarios
   - Truncates comment bodies to 500 chars in prompts to control costs
   - If the LLM call fails for a batch, all comments in that batch are saved with `relevancy_score = null` and reasoning "Not scored — API timeout or error"
 
@@ -116,6 +118,7 @@ This document tracks all features and their functionality. Update this file when
 - **Details**:
   - Question input textarea
   - Collapsible settings panel: max threads (slider), max comments per thread (slider), time range (dropdown)
+  - Collapsible "Add specific threads (optional)" panel for seed URLs (see Feature 19)
   - Displays collection limits to set user expectations
   - Red "Research" submit button
 
@@ -133,12 +136,13 @@ This document tracks all features and their functionality. Update this file when
 - **Description**: Sortable table displaying all discovered threads
 - **Location**: `templates/results.html`, `static/js/tables.js`
 - **Details**:
-  - Columns: Title, Subreddit, Score, Comments, Date, Link
+  - Columns: Title, Subreddit, Score, Comments, Date, Link, Remove
   - Sortable by clicking column headers (with sort direction indicators)
   - Live thread count shown above the table ("N threads collected · Click a thread to filter comments")
   - Clickable rows filter the Comments table to show only that thread's comments
   - Toggle off filter by clicking the same thread again
   - External "View" links open the thread on Reddit
+  - "Remove" button per row to delete the thread and its comments (see Feature 20)
 
 ### 14. Comments Table
 - **Description**: Sortable, paginated table of scored comments
@@ -200,3 +204,27 @@ This document tracks all features and their functionality. Update this file when
   - Error handling with status tracking (pending, processing, complete, error)
   - SSE stream timeouts: 120 seconds for main research and add-thread streams; 300 seconds for the expand stream (which processes more threads)
   - OpenAI client is initialized with `timeout=60.0` to prevent any single LLM call from hanging indefinitely; failed batches fall back to null scores rather than blocking
+
+### 19. Seed Thread URLs
+- **Description**: Allows users to provide specific Reddit thread URLs on the homepage to bypass automatic thread discovery
+- **Location**: `templates/index.html`, `static/js/app.js` - `handleResearchSubmit()`, `app.py` - `run_research_pipeline()`
+- **Details**:
+  - Collapsible "Add specific threads (optional)" panel on the landing page, below the settings panel
+  - Textarea for pasting one Reddit URL per line (supports `reddit.com/r/.../comments/...` and `redd.it/` formats)
+  - Explanatory copy: "For niche topics, Reddit's search can miss relevant threads you already know about"
+  - When seed URLs are provided, `run_research_pipeline()` skips stages 1–2 (subreddit discovery, Reddit search, web search, LLM thread filtering) entirely
+  - Instead fetches each thread directly via PRAW (same as the add-thread pipeline), then proceeds to comment collection and scoring as normal
+  - Invalid or unparseable URLs are silently skipped; if none are valid, research completes with an explanatory message
+  - When the textarea is left empty, the normal automatic discovery pipeline runs unchanged
+
+### 20. Remove Thread
+- **Description**: Allows users to delete a thread and all its associated comments from a research result
+- **Location**: `static/js/tables.js` - `removeThread()`, `app.py` - `delete_thread()`, `services/storage_service.py` - `delete_thread()`
+- **Details**:
+  - "Remove" button in the last column of each thread row in the threads table
+  - Clicking shows a browser `confirm()` dialog explaining the thread and all its comments will be permanently deleted
+  - On confirmation, sends `DELETE /api/research/<id>/threads/<thread_id>` to the server
+  - Server deletes from both `threads` and `comments` tables, then calls `recalculate_counts()` to keep `num_threads`/`num_comments` accurate
+  - If the removed thread was the active filter in the comments table, the filter is automatically cleared
+  - Both tables reload via `loadResults()` after deletion
+  - Button uses `event.stopPropagation()` so clicking it does not trigger the row's thread-filter click handler

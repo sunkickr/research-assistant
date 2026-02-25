@@ -441,6 +441,44 @@ a {
     margin-bottom: 10px;
 }
 
+.summary-content blockquote {
+    margin: 12px 0 14px 0;
+    padding: 10px 16px;
+    border-left: 4px solid #ff4500;
+    background: #fff3f0;
+    border-radius: 0 6px 6px 0;
+    font-style: italic;
+    color: #222;
+    line-height: 1.65;
+    font-size: 13.5px;
+}
+
+.summary-content ul {
+    margin: 8px 0 14px 20px;
+    padding: 0;
+}
+
+.summary-content li {
+    margin-bottom: 6px;
+    line-height: 1.6;
+}
+
+.citation-link {
+    display: inline-block;
+    font-size: 11px;
+    color: #ff4500;
+    text-decoration: none;
+    vertical-align: super;
+    line-height: 1;
+    margin-left: 1px;
+    opacity: 0.8;
+}
+
+.citation-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
 .summary-loading {
     text-align: center;
     padding: 20px;
@@ -620,6 +658,53 @@ tbody td {
 .score-not-scored {
     background: #e9ecef;
     color: #6c757d;
+}
+
+/* Seed threads panel */
+.seed-threads-hint {
+    font-size: 13px;
+    color: #7c7c7c;
+    line-height: 1.5;
+}
+
+.seed-threads-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #edeff1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    line-height: 1.4;
+    color: #1a1a1b;
+}
+
+.seed-threads-input:focus {
+    outline: none;
+    border-color: #ff4500;
+}
+
+.seed-threads-note {
+    font-size: 12px;
+    color: #b8b8b8;
+}
+
+/* Remove thread button */
+.btn-remove {
+    background: none;
+    border: none;
+    color: #d93025;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: inherit;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.btn-remove:hover {
+    background: #fdecea;
 }
 
 /* External link icon */

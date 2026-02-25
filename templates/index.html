@@ -69,6 +69,23 @@
                 </div>
             </details>
 
+            <details class="settings-panel">
+                <summary class="settings-toggle">Add specific threads (optional)</summary>
+                <div class="settings-content">
+                    <p class="seed-threads-hint">
+                        For niche topics, Reddit's search can miss relevant threads you already know about.
+                        Paste URLs below and we'll skip the search and score only those threads.
+                    </p>
+                    <textarea
+                        id="seedThreadUrls"
+                        class="seed-threads-input"
+                        placeholder="https://reddit.com/r/subreddit/comments/..."
+                        rows="4"
+                    ></textarea>
+                    <p class="seed-threads-note">One URL per line. Leave empty to search Reddit automatically.</p>
+                </div>
+            </details>
+
             <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
                 Research
             </button>

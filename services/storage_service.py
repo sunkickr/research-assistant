@@ -165,6 +165,19 @@ class StorageService:
                 (json.dumps(settings), research_id),
             )
 
+    def delete_thread(self, research_id: str, thread_id: str):
+        """Delete a thread and all its comments from a research, then recalculate counts."""
+        with self._get_conn() as conn:
+            conn.execute(
+                "DELETE FROM threads WHERE id=? AND research_id=?",
+                (thread_id, research_id),
+            )
+            conn.execute(
+                "DELETE FROM comments WHERE thread_id=? AND research_id=?",
+                (thread_id, research_id),
+            )
+        self.recalculate_counts(research_id)
+
     def recalculate_counts(self, research_id: str):
         """Recount threads and comments and update the research record."""
         with self._get_conn() as conn:

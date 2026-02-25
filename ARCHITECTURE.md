@@ -74,7 +74,7 @@ research-assistant/
 The core data flow when a user submits a research question:
 
 ```
-1. User submits question
+1. User submits question (+ optional seed_urls)
    │
    ├─► POST /api/research
    │   └─► Creates research record in SQLite (status: pending)
@@ -85,13 +85,19 @@ The core data flow when a user submits a research question:
    │
    └─► Background Thread Pipeline:
        │
-       ├─► Stage 1: SUBREDDIT DISCOVERY
+       ├─► [If seed_urls provided] SEED THREAD PATH:
+       │   └─► Fetch each URL's thread directly via PRAW (skip stages 1–2)
+       │   └─► Save threads to SQLite
+       │   └─► SSE: "Loaded N thread(s) — collecting comments..."
+       │   └─► ─── jump to Stage 3 ───►
+       │
+       ├─► [Normal path] Stage 1: SUBREDDIT DISCOVERY
        │   └─► LLM: suggest 4-8 relevant subreddits + 2-4 search query variants
        │   └─► PRAW: validate each subreddit exists
        │   └─► Store validated subreddits in settings_json
        │   └─► SSE: "Searching in r/sub1, r/sub2, ..."
        │
-       ├─► Stage 2: THREAD DISCOVERY (two sources, merged)
+       ├─► [Normal path] Stage 2: THREAD DISCOVERY (two sources, merged)
        │   ├─► Source A: PRAW search within validated subreddits (or r/all)
        │   └─► Source B: DuckDuckGo web search using LLM-generated keyword queries
        │       └─► Broad site:reddit.com search + per-subreddit searches
@@ -99,7 +105,7 @@ The core data flow when a user submits a research question:
        │   └─► Merge and deduplicate by thread ID
        │   └─► SSE: "Found N threads total (M from web search)"
        │
-       ├─► Stage 2a: THREAD FILTERING
+       ├─► [Normal path] Stage 2a: THREAD FILTERING
        │   └─► LLM: score each thread title/description 1-10
        │   └─► Keep only threads scoring >= 6
        │   └─► Save relevant threads to SQLite
@@ -168,6 +174,22 @@ User pastes a Reddit URL and clicks "Add Thread"
        └─► SSE: "complete" → browser reloads tables
 ```
 
+### Remove Thread Flow
+
+```
+User clicks "Remove" on a thread row
+   │
+   ├─► browser confirm() dialog — warns thread + all comments will be deleted
+   │   └─► If cancelled: no action
+   │
+   └─► DELETE /api/research/{id}/threads/{thread_id}
+       ├─► DELETE FROM threads WHERE id=? AND research_id=?
+       ├─► DELETE FROM comments WHERE thread_id=? AND research_id=?
+       ├─► recalculate_counts() — updates num_threads / num_comments on research record
+       └─► Browser clears active thread filter (if it was the deleted thread)
+       └─► loadResults() — reloads both tables from the API
+```
+
 ### Summarization Flow
 
 ```
@@ -200,6 +222,7 @@ User clicks "Summarize Comments"
 | GET | `/api/research/<id>/expand/status` | Check if expansion is still possible |
 | POST | `/api/research/<id>/add-thread` | Add a specific thread by URL |
 | GET | `/api/research/<id>/add-thread/stream` | SSE: add-thread progress |
+| DELETE | `/api/research/<id>/threads/<thread_id>` | Remove a thread and its comments |
 
 ## Service Layer Design
 
@@ -344,6 +367,8 @@ base.html (shared layout)
 
 index.html (landing page)
 ├── Search form with settings
+│   ├── Collapsible settings panel (max threads, max comments, time range)
+│   └── Collapsible seed threads panel (optional URLs to bypass discovery)
 ├── Progress display (hidden, shown during research)
 └── Error display (hidden, shown on error)
 
@@ -353,7 +378,7 @@ results.html (results page)
 ├── Expand progress bar (hidden, shown during expansion)
 ├── Add Thread input + progress bar
 ├── Summary section (hidden until generated)
-├── Threads table
+├── Threads table (with Remove button per row)
 └── Comments table with pagination
 ```
 

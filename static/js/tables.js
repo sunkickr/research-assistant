@@ -62,6 +62,7 @@ function renderThreadsTable() {
         { key: 'num_comments', label: 'Comments' },
         { key: 'created_utc', label: 'Date' },
         { key: 'link', label: 'Link', nosort: true },
+        { key: 'remove', label: '', nosort: true },
     ];
 
     let html = '<div class="table-wrapper"><table>';
@@ -84,6 +85,7 @@ function renderThreadsTable() {
         html += `<td>${formatNumber(thread.num_comments)}</td>`;
         html += `<td>${formatDate(thread.created_utc)}</td>`;
         html += `<td><a href="${escapeHtml(thread.permalink)}" target="_blank" class="link-external" onclick="event.stopPropagation()">View</a></td>`;
+        html += `<td><button class="btn-remove" onclick="removeThread(event, '${thread.id}', '${escapeHtml(thread.title).replace(/'/g, "\\'")}')">Remove</button></td>`;
         html += '</tr>';
     }
 
@@ -279,6 +281,30 @@ function toggleComment(commentId) {
         reasoning.classList.add('expanded');
         preview.classList.add('collapsed');
         if (toggle) toggle.textContent = 'Show less';
+    }
+}
+
+// ===== Remove Thread =====
+
+async function removeThread(event, threadId, threadTitle) {
+    event.stopPropagation();
+    const confirmed = confirm(
+        `Remove "${threadTitle}"?\n\nThis will also delete all comments from this thread. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+        const resp = await fetch(`/api/research/${RESEARCH_ID}/threads/${threadId}`, {
+            method: 'DELETE',
+        });
+        if (!resp.ok) throw new Error('Failed to remove thread');
+        if (activeThreadFilter === threadId) {
+            activeThreadFilter = null;
+            document.getElementById('threadFilterBanner').classList.remove('visible');
+        }
+        loadResults(RESEARCH_ID);
+    } catch (err) {
+        alert('Failed to remove thread: ' + err.message);
     }
 }
 

@@ -80,6 +80,12 @@ SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will recei
 - 9: Directly addresses the question with specific, substantive information or clear personal experience relevant to the question
 - 10: ONLY for comments that directly and completely answer the research question with concrete, actionable advice, detailed technical specifics, or highly valuable first-hand experience that someone could act on immediately
 
+CRITICAL RULE — Named subjects (products, companies, tools, people):
+If the research question asks about a specific named entity (a product, company, software tool, service, or person), apply these minimum floors:
+- Any comment that explicitly names and discusses that subject: score at least 5
+- First-hand user experience with the named subject ("we use it", "I tried it", "our company uses"): score at least 7, even if the details are brief
+Reason: for niche or obscure topics with limited Reddit coverage, even a short first-hand account is extremely valuable to a researcher. Do not penalize brevity when the named entity is directly mentioned.
+
 Reserve 10 for comments that a researcher would call out as "this is exactly what I was looking for." A comment that is merely topically related, expresses an opinion, asks a question, or discusses adjacent issues should never score above 8 even if well-written.
 
 --- EXAMPLES (question: "How to save money on Databricks?") ---
@@ -104,6 +110,20 @@ Score: 10 — directly answers the question with a concrete, actionable step and
 
 Comment: "Move to serverless where possible, make aggressive use of job clusters instead of all-purpose compute, look at serving data out of SQL Endpoints rather than keeping clusters alive, and audit your photon usage — it adds cost but isn't always faster for your workload."
 Score: 10 — comprehensive, actionable, directly answers the question with multiple specific techniques
+
+--- EXAMPLES (question: "Is Keebo AI a good product?") ---
+
+Comment: "What is Keebo?"
+Score: 2 — no useful information, just a question
+
+Comment: "AI tools in the data warehouse space are very hit or miss."
+Score: 3 — generic opinion that does not mention Keebo at all
+
+Comment: "We use Keebo. Saves a boatload on ad-hoc warehouse costs. It is less effective on fixed workloads, but can still help there too."
+Score: 8 — direct first-hand user experience naming the product; answers whether it is good with a concrete strength (ad-hoc cost savings) and an honest limitation; highly valuable for a niche product with little Reddit coverage
+
+Comment: "Tried Keebo for 3 months. Cut our Snowflake bill by 30% on query-heavy workloads. Support was responsive and onboarding was smooth, but pricing scales steeply."
+Score: 9 — specific first-hand experience with a concrete metric, directly and completely answers whether the product is worth it
 
 --- END EXAMPLES ---
 

@@ -17,6 +17,9 @@ async function handleResearchSubmit(e) {
     const maxComments = document.getElementById('maxComments').value;
     const timeFilter = document.getElementById('timeFilter').value;
 
+    const seedRaw = document.getElementById('seedThreadUrls')?.value || '';
+    const seedUrls = seedRaw.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+
     // Hide search, show progress
     document.getElementById('searchSection').style.display = 'none';
     document.getElementById('progressSection').style.display = 'block';
@@ -30,6 +33,7 @@ async function handleResearchSubmit(e) {
                 max_threads: parseInt(maxThreads),
                 max_comments_per_thread: parseInt(maxComments),
                 time_filter: timeFilter,
+                seed_urls: seedUrls,
             }),
         });
 
@@ -124,26 +128,63 @@ async function handleSummarize(researchId) {
 function renderSummary(text) {
     const section = document.getElementById('summarySection');
 
-    // Simple markdown-like rendering: headers and paragraphs
-    const html = text
-        .split('\n')
-        .map(line => {
-            line = line.trim();
-            if (!line) return '';
-            if (line.startsWith('#### ')) return `<h4>${line.slice(5)}</h4>`;
-            if (line.startsWith('### ')) return `<h3>${line.slice(4)}</h3>`;
-            if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`;
-            if (line.startsWith('# ')) return `<h1>${line.slice(2)}</h1>`;
-            if (line.startsWith('- ') || line.startsWith('* ')) return `<li>${line.slice(2)}</li>`;
-            if (line.startsWith('**') && line.endsWith('**')) return `<h4>${line.slice(2, -2)}</h4>`;
-            return `<p>${line}</p>`;
-        })
-        .join('\n');
+    // Build a map of comment id -> permalink from the globally loaded comments
+    const commentMap = {};
+    if (typeof allComments !== 'undefined') {
+        for (const c of allComments) {
+            if (c.id && c.permalink) commentMap[c.id] = c.permalink;
+        }
+    }
+
+    // Resolve [#id] citation markers into clickable links
+    const resolved = text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+        const permalink = commentMap[id];
+        if (permalink) {
+            return `<a href="${escapeHtmlAttr(permalink)}" target="_blank" class="citation-link" title="View source comment on Reddit">&#8599;</a>`;
+        }
+        return ''; // Drop unresolvable markers silently
+    });
+
+    // Process inline markdown: **bold** → <strong>
+    function inlineMd(text) {
+        return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+
+    // Track whether we're inside a <ul> list
+    let inList = false;
+    const lines = resolved.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            if (inList) { inList = false; return '</ul>'; }
+            return '';
+        }
+        if (trimmed.startsWith('#### ')) return `<h4>${inlineMd(trimmed.slice(5))}</h4>`;
+        if (trimmed.startsWith('### ')) return `<h3>${inlineMd(trimmed.slice(4))}</h3>`;
+        if (trimmed.startsWith('## ')) return `<h2>${inlineMd(trimmed.slice(3))}</h2>`;
+        if (trimmed.startsWith('# ')) return `<h1>${inlineMd(trimmed.slice(2))}</h1>`;
+        if (trimmed.startsWith('> ')) {
+            const content = inlineMd(trimmed.slice(2));
+            if (inList) { inList = false; return `</ul><blockquote>${content}</blockquote>`; }
+            return `<blockquote>${content}</blockquote>`;
+        }
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            const item = `<li>${inlineMd(trimmed.slice(2))}</li>`;
+            if (!inList) { inList = true; return `<ul>${item}`; }
+            return item;
+        }
+        if (inList) { inList = false; return `</ul><p>${inlineMd(trimmed)}</p>`; }
+        return `<p>${inlineMd(trimmed)}</p>`;
+    });
+    if (inList) lines.push('</ul>');
 
     section.innerHTML = `
         <h3>Summary</h3>
-        <div class="summary-content">${html}</div>
+        <div class="summary-content">${lines.join('\n')}</div>
     `;
+}
+
+function escapeHtmlAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ===== Add Thread =====

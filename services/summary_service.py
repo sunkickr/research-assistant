@@ -7,11 +7,18 @@ SUMMARY_SYSTEM_PROMPT = """You are a research summarizer. You will receive a res
 Structure your response exactly as follows:
 
 ## Key Takeaways
-Write 3–5 concise bullet points (one idea each) that capture the most important findings a reader needs to know. These should be scannable, punchy, and cover the main themes.
+Write 3–5 concise bullet points (one idea each) that capture the most important findings a reader needs to know. These should be scannable, punchy, cover the main themes, and most importantly answer the question asked or relate to it in some way.
 
 ## [Section heading]
-Write 2–4 thematic sections with descriptive headings. Within each section:
-- Make specific claims backed by what commenters actually said
+Create a comprehensive summary broken into sections that:
+1. Identify the most common answers, themes, and opinions — weight by how frequently they appear and their upvote counts
+2. Highlight the most insightful or highly-rated responses
+3. Note any significant disagreements or contrasting viewpoints
+4. Separate factual claims from opinions and personal anecdotes
+5. Indicate when an answer was rare or poorly received (downvoted)
+6. Provide an overall consensus if one exists
+
+Be thorough but concise. Use descriptive prose that references evidence from comments (e.g., "Multiple commenters noted...", "A highly-upvoted response suggested..."). Support key points with direct quotes:
 - When quoting a commenter, put the quote on its own line using blockquote format: > "quote text" [#comment_id]
 - Keep quotes under 20 words; use "..." to trim longer passages
 - Short inline quotes within a sentence are fine too, but any standalone quote must use the > format
@@ -29,12 +36,10 @@ The research question provides context, but do NOT use it to fill in gaps or inf
 - Before citing a comment, ask: does this comment actually say what I'm about to claim? If the comment says "I saved 60% by manually refactoring pipelines" — that is a claim about manual work, not about any tool, and must not be summarized as a tool benefit.
 - When in doubt, quote the comment directly rather than paraphrasing, so the reader can judge for themselves.
 
-Also note any significant disagreements or contrasting viewpoints, and separate factual claims from opinions.
-
 ## Conclusion
 End every summary with a "## Conclusion" section (use that exact heading). Write 2–4 sentences that directly answer the research question based on the evidence in the comments. If the evidence is mixed or inconclusive, say so plainly. Do not introduce new claims here — only synthesize what was covered above.
 
-Aim for 300–500 words total (excluding the Key Takeaways and Conclusion)."""
+Aim for 300–600 words total (excluding the Key Takeaways and Conclusion)."""
 
 
 class SummaryService:

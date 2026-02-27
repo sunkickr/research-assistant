@@ -418,6 +418,56 @@ def delete_thread(research_id, thread_id):
     return jsonify(success=True)
 
 
+@app.route("/api/research/<research_id>/comments/<comment_id>/user-relevancy", methods=["PUT"])
+def set_user_relevancy(research_id, comment_id):
+    """Set or clear user relevancy score for a comment."""
+    data = request.get_json()
+    score = data.get("score")
+    if score is not None:
+        score = int(score)
+        if score < 1 or score > 10:
+            return jsonify(error="Score must be 1-10"), 400
+    storage_svc.set_user_relevancy(research_id, comment_id, score)
+    return jsonify(success=True, user_relevancy_score=score)
+
+
+@app.route("/api/research/<research_id>/comments/<comment_id>/star", methods=["POST"])
+def toggle_star(research_id, comment_id):
+    """Toggle starred status for a comment."""
+    new_val = storage_svc.toggle_star(research_id, comment_id)
+    return jsonify(success=True, starred=new_val)
+
+
+@app.route("/api/research/<research_id>/archive", methods=["POST"])
+def archive_research(research_id):
+    """Archive a research (remove from sidebar)."""
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+    storage_svc.archive_research(research_id)
+    return jsonify(success=True)
+
+
+@app.route("/api/research/<research_id>/unarchive", methods=["POST"])
+def unarchive_research(research_id):
+    """Restore an archived research to the sidebar."""
+    storage_svc.unarchive_research(research_id)
+    return jsonify(success=True)
+
+
+@app.route("/api/research/<research_id>/delete", methods=["DELETE"])
+def delete_research(research_id):
+    """Permanently delete a research and all its data (not CSV files)."""
+    storage_svc.delete_research(research_id)
+    return jsonify(success=True)
+
+
+@app.route("/api/archived")
+def get_archived():
+    """List all archived research entries."""
+    return jsonify(archived=storage_svc.get_archived())
+
+
 @app.route("/api/research/<research_id>/expand", methods=["POST"])
 def expand_research(research_id):
     """Start a 'Find More Comments' expansion using the next sort order."""

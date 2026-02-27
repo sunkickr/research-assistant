@@ -40,6 +40,8 @@ class ScoredComment:
     permalink: str
     relevancy_score: Optional[int]
     reasoning: str
+    user_relevancy_score: Optional[int] = None
+    starred: int = 0
 
 
 @dataclass

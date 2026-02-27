@@ -33,12 +33,36 @@
                             {{ item.created_at[:10] }}
                         </span>
                     </a>
+                    <button class="btn-archive-sidebar" onclick="showArchiveConfirm('{{ item.id }}', event)" title="Archive">&times;</button>
                 </li>
                 {% else %}
                 <li class="history-empty">No research history yet</li>
                 {% endfor %}
             </ul>
+            <button class="sidebar-archived-btn" onclick="openArchivedPopup()">Archived Research</button>
         </aside>
+    </div>
+
+    <!-- Archive Confirm Popover -->
+    <div id="archiveConfirm" class="archive-confirm-popover" style="display:none;">
+        <p>Archive this research?</p>
+        <div class="archive-confirm-actions">
+            <button class="btn btn-sm btn-danger" id="archiveConfirmYes">Archive</button>
+            <button class="btn btn-sm btn-outline" onclick="hideArchiveConfirm()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Archived Research Popup -->
+    <div id="archivedOverlay" class="archived-overlay" onclick="closeArchivedPopup()" style="display:none;">
+        <div class="archived-popup" onclick="event.stopPropagation()">
+            <div class="archived-popup-header">
+                <h3>Archived Research</h3>
+                <span class="archived-popup-close" onclick="closeArchivedPopup()">&times;</span>
+            </div>
+            <div class="archived-popup-body" id="archivedList">
+                <p style="color:#7c7c7c;">Loading...</p>
+            </div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

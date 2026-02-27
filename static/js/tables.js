@@ -4,6 +4,7 @@ let allComments = [];
 let filteredComments = [];
 let activeThreadFilter = null;
 let showUnscoredOnly = false;
+let showStarredOnly = false;
 
 // Sorting state
 let threadSortCol = 'score';
@@ -122,13 +123,15 @@ function renderCommentsTable() {
     const pageData = sorted.slice(start, start + PAGE_SIZE);
 
     const cols = [
-        { key: 'relevancy_score', label: 'Relevancy' },
+        { key: 'relevancy_score', label: 'AI Rel.' },
+        { key: 'user_relevancy_score', label: 'Your Score', nosort: true },
         { key: 'body', label: 'Comment', nosort: true },
         { key: 'author', label: 'Author' },
         { key: 'score', label: 'Score' },
         { key: 'thread_id', label: 'Thread', nosort: true },
         { key: 'created_utc', label: 'Date' },
         { key: 'link', label: 'Link', nosort: true },
+        { key: 'starred', label: '', nosort: true },
     ];
 
     let html = '<div class="table-wrapper"><table>';
@@ -153,8 +156,25 @@ function renderCommentsTable() {
         const bodyPreview = comment.body.slice(0, 200);
         const hasMore = comment.body.length > 200;
 
-        html += `<tr>`;
+        const rowClass = comment.starred ? 'starred-row' : '';
+        html += `<tr class="${rowClass}">`;
         html += `<td><span class="score-badge ${scoreClass}">${scoreDisplay}</span></td>`;
+
+        // User relevancy dropdown
+        const userScore = comment.user_relevancy_score;
+        html += `<td class="user-relevancy-cell">`;
+        html += `<select class="user-relevancy-select" onchange="setUserRelevancy('${comment.id}', this.value)">`;
+        html += `<option value="">--</option>`;
+        for (let i = 10; i >= 1; i--) {
+            const selected = userScore === i ? 'selected' : '';
+            html += `<option value="${i}" ${selected}>${i}</option>`;
+        }
+        html += `</select>`;
+        if (userScore !== null && userScore !== undefined) {
+            html += ` <span class="user-relevancy-clear" onclick="clearUserRelevancy('${comment.id}')" title="Clear your score">&times;</span>`;
+        }
+        html += `</td>`;
+
         html += `<td class="comment-body-cell">`;
         html += `<div class="comment-body-preview" id="preview-${comment.id}" onclick="toggleComment('${comment.id}')">${escapeHtml(bodyPreview)}${hasMore ? '...' : ''}</div>`;
         html += `<div class="comment-body-full" id="full-${comment.id}">${escapeHtml(comment.body)}</div>`;
@@ -168,6 +188,11 @@ function renderCommentsTable() {
         html += `<td title="${escapeHtml(thread ? thread.title : '')}">${escapeHtml(threadTitle)}${threadTitle.length < (thread ? thread.title.length : 0) ? '...' : ''}</td>`;
         html += `<td>${formatDate(comment.created_utc)}</td>`;
         html += `<td><a href="${escapeHtml(comment.permalink)}" target="_blank" class="link-external">View</a></td>`;
+
+        // Star column
+        const starClass = comment.starred ? 'starred' : '';
+        html += `<td class="star-cell"><span class="star-icon ${starClass}" onclick="toggleStar('${comment.id}')" title="Star this comment">${comment.starred ? '&#9733;' : '&#9734;'}</span></td>`;
+
         html += '</tr>';
     }
 
@@ -209,9 +234,13 @@ function applyFilters() {
     let base = activeThreadFilter
         ? allComments.filter(c => c.thread_id === activeThreadFilter)
         : [...allComments];
-    filteredComments = showUnscoredOnly
-        ? base.filter(c => c.relevancy_score === null || c.relevancy_score === undefined)
-        : base;
+    if (showUnscoredOnly) {
+        base = base.filter(c => c.relevancy_score === null || c.relevancy_score === undefined);
+    }
+    if (showStarredOnly) {
+        base = base.filter(c => c.starred);
+    }
+    filteredComments = base;
     currentPage = 1;
     renderThreadsTable();
     renderCommentsTable();
@@ -240,6 +269,11 @@ function toggleUnscoredFilter() {
     applyFilters();
 }
 
+function toggleStarredFilter() {
+    showStarredOnly = !showStarredOnly;
+    applyFilters();
+}
+
 function updateCommentsMeta() {
     const meta = document.getElementById('commentsMeta');
     if (!meta) return;
@@ -247,10 +281,17 @@ function updateCommentsMeta() {
     const unscoredCount = allComments.filter(
         c => c.relevancy_score === null || c.relevancy_score === undefined
     ).length;
+    const starredCount = allComments.filter(c => c.starred).length;
 
     let text = activeThreadFilter
         ? `Showing ${filteredComments.length} of ${allComments.length} comments`
         : `${allComments.length} comments, sorted by relevancy`;
+
+    if (showStarredOnly) {
+        text += ` · <strong>Showing starred only (${starredCount})</strong> — <a href="javascript:void(0)" onclick="toggleStarredFilter()" style="color:#ff4500;">Show all</a>`;
+    } else if (starredCount > 0) {
+        text += ` · <a href="javascript:void(0)" onclick="toggleStarredFilter()" style="color:#daa520;">${starredCount} starred</a>`;
+    }
 
     if (showUnscoredOnly) {
         text += ` · <strong>Showing not scored only</strong> — <a href="javascript:void(0)" onclick="toggleUnscoredFilter()" style="color:#ff4500;">Show all</a>`;
@@ -312,8 +353,15 @@ async function removeThread(event, threadId, threadTitle) {
 
 function sortData(data, col, dir) {
     return data.sort((a, b) => {
-        let valA = a[col];
-        let valB = b[col];
+        let valA, valB;
+        if (col === 'relevancy_score') {
+            // Use effective_relevancy (user score + 0.5 or AI score) for sorting
+            valA = a.effective_relevancy !== undefined ? a.effective_relevancy : (a.relevancy_score || 0);
+            valB = b.effective_relevancy !== undefined ? b.effective_relevancy : (b.relevancy_score || 0);
+        } else {
+            valA = a[col];
+            valB = b[col];
+        }
 
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
@@ -322,6 +370,47 @@ function sortData(data, col, dir) {
         if (valA > valB) return dir === 'asc' ? 1 : -1;
         return 0;
     });
+}
+
+// ===== User Relevancy =====
+
+async function setUserRelevancy(commentId, value) {
+    const score = value === '' ? null : parseInt(value);
+    try {
+        await fetch(`/api/research/${RESEARCH_ID}/comments/${commentId}/user-relevancy`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score }),
+        });
+        const comment = allComments.find(c => c.id === commentId);
+        if (comment) {
+            comment.user_relevancy_score = score;
+            comment.effective_relevancy = score !== null ? score + 0.5 : (comment.relevancy_score || 0);
+        }
+        applyFilters();
+    } catch (err) {
+        alert('Failed to set relevancy: ' + err.message);
+    }
+}
+
+async function clearUserRelevancy(commentId) {
+    await setUserRelevancy(commentId, '');
+}
+
+// ===== Star Comments =====
+
+async function toggleStar(commentId) {
+    try {
+        const resp = await fetch(`/api/research/${RESEARCH_ID}/comments/${commentId}/star`, {
+            method: 'POST',
+        });
+        const data = await resp.json();
+        const comment = allComments.find(c => c.id === commentId);
+        if (comment) comment.starred = data.starred;
+        applyFilters();
+    } catch (err) {
+        alert('Failed to toggle star: ' + err.message);
+    }
 }
 
 function escapeHtml(text) {

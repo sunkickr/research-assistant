@@ -277,6 +277,133 @@ async function checkExpandStatus(researchId) {
     } catch (_) {}
 }
 
+// ===== Archive Research =====
+
+let _pendingArchiveId = null;
+
+function showArchiveConfirm(researchId, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    _pendingArchiveId = researchId;
+    const popover = document.getElementById('archiveConfirm');
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+
+    // Position the popover to the left of the button
+    popover.style.display = 'block';
+    popover.style.top = rect.top + 'px';
+    popover.style.left = (rect.left - popover.offsetWidth - 8) + 'px';
+
+    // Wire up the confirm button
+    document.getElementById('archiveConfirmYes').onclick = async () => {
+        hideArchiveConfirm();
+        try {
+            const resp = await fetch(`/api/research/${researchId}/archive`, { method: 'POST' });
+            if (!resp.ok) throw new Error('Failed to archive');
+            if (window.location.pathname === `/results/${researchId}`) {
+                window.location.href = '/';
+            } else {
+                refreshSidebar();
+            }
+        } catch (err) {
+            alert('Failed to archive: ' + err.message);
+        }
+    };
+}
+
+function hideArchiveConfirm() {
+    document.getElementById('archiveConfirm').style.display = 'none';
+    _pendingArchiveId = null;
+}
+
+// Close popover when clicking elsewhere
+document.addEventListener('click', (e) => {
+    const popover = document.getElementById('archiveConfirm');
+    if (popover && popover.style.display === 'block' && !popover.contains(e.target)) {
+        hideArchiveConfirm();
+    }
+});
+
+async function refreshSidebar() {
+    try {
+        const resp = await fetch('/api/history');
+        const data = await resp.json();
+        const list = document.getElementById('historyList');
+        if (!list) return;
+        if (data.history.length === 0) {
+            list.innerHTML = '<li class="history-empty">No research history yet</li>';
+            return;
+        }
+        list.innerHTML = data.history.map(item => {
+            const isActive = window.location.pathname === `/results/${item.id}`;
+            const question = item.question.length > 60 ? item.question.slice(0, 60) + '...' : item.question;
+            return `<li class="history-item ${isActive ? 'active' : ''}">
+                <a href="/results/${item.id}" class="history-link">
+                    <span class="history-question">${escapeHtmlAttr(question)}</span>
+                    <span class="history-meta">${item.num_comments || 0} comments &middot; ${item.created_at.slice(0, 10)}</span>
+                </a>
+                <button class="btn-archive-sidebar" onclick="showArchiveConfirm('${item.id}', event)" title="Archive">&times;</button>
+            </li>`;
+        }).join('');
+    } catch (_) {}
+}
+
+async function openArchivedPopup() {
+    document.getElementById('archivedOverlay').style.display = 'flex';
+    const listEl = document.getElementById('archivedList');
+    listEl.innerHTML = '<p style="color:#7c7c7c;">Loading...</p>';
+    try {
+        const resp = await fetch('/api/archived');
+        const data = await resp.json();
+        if (data.archived.length === 0) {
+            listEl.innerHTML = '<p style="color:#7c7c7c;">No archived research.</p>';
+            return;
+        }
+        listEl.innerHTML = data.archived.map(item => {
+            const question = item.question.length > 60 ? item.question.slice(0, 60) + '...' : item.question;
+            return `<div class="archived-item">
+                <div class="archived-item-info">
+                    <span class="archived-item-question">${escapeHtmlAttr(question)}</span>
+                    <span class="archived-item-meta">${item.num_comments || 0} comments &middot; ${item.created_at.slice(0, 10)}</span>
+                </div>
+                <div class="archived-item-actions">
+                    <button class="btn btn-outline btn-sm" onclick="restoreResearch('${item.id}')">Restore</button>
+                    <button class="btn btn-danger btn-sm" onclick="permanentlyDelete('${item.id}')">Delete</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (err) {
+        listEl.innerHTML = `<p class="error-message">Failed to load: ${err.message}</p>`;
+    }
+}
+
+function closeArchivedPopup() {
+    document.getElementById('archivedOverlay').style.display = 'none';
+}
+
+async function restoreResearch(researchId) {
+    if (!confirm('Restore this research to the sidebar?')) return;
+    try {
+        await fetch(`/api/research/${researchId}/unarchive`, { method: 'POST' });
+        openArchivedPopup();
+        refreshSidebar();
+    } catch (err) {
+        alert('Failed to restore: ' + err.message);
+    }
+}
+
+async function permanentlyDelete(researchId) {
+    if (!confirm('Permanently delete this research? This cannot be undone. (CSV export files will be preserved.)')) return;
+    try {
+        await fetch(`/api/research/${researchId}/delete`, { method: 'DELETE' });
+        openArchivedPopup();
+    } catch (err) {
+        alert('Failed to delete: ' + err.message);
+    }
+}
+
+// ===== Find More Comments =====
+
 async function handleFindMore(researchId) {
     const btn = document.getElementById('findMoreBtn');
     const progressEl = document.getElementById('expandProgress');

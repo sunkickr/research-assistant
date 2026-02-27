@@ -75,6 +75,16 @@ class StorageService:
                     ON researches(created_at DESC);
             """
             )
+            # Migrations for new columns (idempotent)
+            for stmt in [
+                "ALTER TABLE comments ADD COLUMN user_relevancy_score INTEGER",
+                "ALTER TABLE comments ADD COLUMN starred INTEGER DEFAULT 0",
+                "ALTER TABLE researches ADD COLUMN archived INTEGER DEFAULT 0",
+            ]:
+                try:
+                    conn.execute(stmt)
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
     def create_research(self, research_id: str, question: str, settings: dict):
         with self._get_conn() as conn:
@@ -116,9 +126,14 @@ class StorageService:
         with self._get_conn() as conn:
             for c in comments:
                 conn.execute(
-                    """INSERT OR REPLACE INTO comments
+                    """INSERT INTO comments
                     (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id, research_id) DO UPDATE SET
+                        thread_id=excluded.thread_id, author=excluded.author, body=excluded.body,
+                        score=excluded.score, created_utc=excluded.created_utc, depth=excluded.depth,
+                        permalink=excluded.permalink, relevancy_score=excluded.relevancy_score,
+                        reasoning=excluded.reasoning""",
                     (
                         c.id,
                         research_id,
@@ -250,11 +265,42 @@ class StorageService:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    def set_user_relevancy(
+        self, research_id: str, comment_id: str, score: Optional[int]
+    ):
+        """Set or clear user relevancy score for a comment."""
+        with self._get_conn() as conn:
+            conn.execute(
+                "UPDATE comments SET user_relevancy_score=? WHERE id=? AND research_id=?",
+                (score, comment_id, research_id),
+            )
+
+    def toggle_star(self, research_id: str, comment_id: str) -> int:
+        """Toggle starred status. Returns new value (0 or 1)."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT starred FROM comments WHERE id=? AND research_id=?",
+                (comment_id, research_id),
+            ).fetchone()
+            if not row:
+                return 0
+            new_val = 0 if row["starred"] else 1
+            conn.execute(
+                "UPDATE comments SET starred=? WHERE id=? AND research_id=?",
+                (new_val, comment_id, research_id),
+            )
+            return new_val
+
     def get_comments(self, research_id: str) -> List[dict]:
         with self._get_conn() as conn:
             rows = conn.execute(
-                """SELECT * FROM comments WHERE research_id=?
-                   ORDER BY relevancy_score DESC, score DESC""",
+                """SELECT *,
+                    CASE WHEN user_relevancy_score IS NOT NULL
+                         THEN user_relevancy_score + 0.5
+                         ELSE COALESCE(relevancy_score, 0)
+                    END AS effective_relevancy
+                   FROM comments WHERE research_id=?
+                   ORDER BY effective_relevancy DESC, score DESC""",
                 (research_id,),
             ).fetchall()
             return [dict(r) for r in rows]
@@ -263,9 +309,45 @@ class StorageService:
         with self._get_conn() as conn:
             rows = conn.execute(
                 """SELECT id, question, status, num_threads, num_comments, created_at
-                   FROM researches ORDER BY created_at DESC LIMIT 50"""
+                   FROM researches
+                   WHERE (archived IS NULL OR archived = 0)
+                   ORDER BY created_at DESC LIMIT 50"""
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def get_archived(self) -> List[dict]:
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                """SELECT id, question, status, num_threads, num_comments, created_at
+                   FROM researches WHERE archived = 1
+                   ORDER BY created_at DESC"""
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def archive_research(self, research_id: str):
+        with self._get_conn() as conn:
+            conn.execute(
+                "UPDATE researches SET archived=1 WHERE id=?", (research_id,)
+            )
+
+    def unarchive_research(self, research_id: str):
+        with self._get_conn() as conn:
+            conn.execute(
+                "UPDATE researches SET archived=0 WHERE id=?", (research_id,)
+            )
+
+    def delete_research(self, research_id: str):
+        """Permanently delete a research and all its data (not CSV files)."""
+        with self._get_conn() as conn:
+            conn.execute(
+                "DELETE FROM comments WHERE research_id=?", (research_id,)
+            )
+            conn.execute(
+                "DELETE FROM threads WHERE research_id=?", (research_id,)
+            )
+            conn.execute(
+                "DELETE FROM researches WHERE id=?", (research_id,)
+            )
 
     def export_csv(self, research_id: str) -> str:
         """Export scored comments as CSV. Returns file path."""
@@ -286,10 +368,12 @@ class StorageService:
             "body",
             "score",
             "relevancy_score",
+            "user_relevancy_score",
             "reasoning",
             "permalink",
             "depth",
             "created_utc",
+            "starred",
         ]
 
         with open(filepath, "w", newline="", encoding="utf-8") as f:

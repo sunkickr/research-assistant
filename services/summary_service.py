@@ -48,28 +48,41 @@ class SummaryService:
     def __init__(self, llm: LLMProvider):
         self.llm = llm
 
+    @staticmethod
+    def _effective_relevancy(c: ScoredComment) -> float:
+        """User relevancy gets +0.5 boost to rank above same AI score."""
+        if c.user_relevancy_score is not None:
+            return c.user_relevancy_score + 0.5
+        return c.relevancy_score if c.relevancy_score is not None else 0
+
     def summarize(
         self, question: str, comments: List[ScoredComment], min_relevancy: int = 4
     ) -> str:
         """
         Generate a summary of relevant comments.
-        Filters to comments with relevancy >= min_relevancy,
-        sorts by relevancy * upvotes to surface the best content.
+        Filters to comments with effective relevancy >= min_relevancy,
+        sorts by effective relevancy * upvotes to surface the best content.
+        User relevancy supersedes AI relevancy when set.
         """
-        relevant = [c for c in comments if c.relevancy_score is not None and c.relevancy_score >= min_relevancy]
+        relevant = [c for c in comments if self._effective_relevancy(c) >= min_relevancy]
 
         if not relevant:
             return "No sufficiently relevant comments were found to summarize. Try broadening your search query."
 
         relevant.sort(
-            key=lambda c: c.relevancy_score * max(c.score, 1), reverse=True
+            key=lambda c: self._effective_relevancy(c) * max(c.score, 1), reverse=True
         )
 
         # Take top 50 most relevant for the summary prompt
         top_comments = relevant[:50]
 
+        def _format_relevancy(c: ScoredComment) -> str:
+            if c.user_relevancy_score is not None:
+                return f"{c.user_relevancy_score}/10 (user)"
+            return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
+
         comments_text = "\n\n".join(
-            f"[ID: {c.id} | Relevancy: {c.relevancy_score}/10 | Upvotes: {c.score}]\n{c.body[:600]}"
+            f"[ID: {c.id} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
             for c in top_comments
         )
         user_prompt = (

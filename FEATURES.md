@@ -228,3 +228,44 @@ This document tracks all features and their functionality. Update this file when
   - If the removed thread was the active filter in the comments table, the filter is automatically cleared
   - Both tables reload via `loadResults()` after deletion
   - Button uses `event.stopPropagation()` so clicking it does not trigger the row's thread-filter click handler
+
+## User-Managed Comment Features
+
+### 21. User Relevancy Scores
+- **Description**: Allows users to override AI-assigned relevancy scores with their own 1–10 rating
+- **Location**: `static/js/tables.js` - `setUserRelevancy()`, `clearUserRelevancy()`, `app.py` - `set_user_relevancy()`, `services/storage_service.py` - `set_user_relevancy()`
+- **Details**:
+  - "Your Score" dropdown column in the comments table, next to the AI Relevancy column
+  - User scores supersede AI scores for sorting using a +0.5 boost: user_relevancy=10 → effective 10.5 (ranks above AI=10)
+  - AI relevancy still displays for reference in its own column
+  - Small × button clears the user score, falling back to AI relevancy
+  - User scores are validated to be 1–10 only
+  - Effective relevancy is used consistently in: table sorting, summary service ordering, and DB query ordering
+  - User scores persist across sessions (stored in SQLite)
+  - Protected from being overwritten by "Find More" or "Add Thread" operations via `ON CONFLICT ... DO UPDATE` that skips user columns
+
+### 22. Starred Comments
+- **Description**: Allows users to bookmark interesting comments for easy retrieval
+- **Location**: `static/js/tables.js` - `toggleStar()`, `app.py` - `toggle_star()`, `services/storage_service.py` - `toggle_star()`
+- **Details**:
+  - Star icon (☆/★) in the last column of each comment row
+  - Clicking toggles between starred (filled gold ★) and unstarred (outline ☆)
+  - Starred rows are highlighted with a light yellow background
+  - Starring does not affect relevancy or sort order — it is purely for bookmarking
+  - Filter link in the comments meta area to show only starred comments
+  - Starred filter composes with existing thread and unscored filters (all are AND-composed)
+  - Stars persist across sessions (stored in SQLite)
+
+### 23. Archive Research
+- **Description**: Allows users to archive old research questions to declutter the sidebar
+- **Location**: `templates/base.html`, `static/js/app.js` - `archiveResearch()`, `openArchivedPopup()`, `restoreResearch()`, `permanentlyDelete()`, `app.py` - archive/unarchive/delete endpoints, `services/storage_service.py` - archive/unarchive/delete methods
+- **Details**:
+  - Archive button (📥) appears on hover for each sidebar history item
+  - Archiving requires confirmation via browser `confirm()` dialog
+  - Archived research is removed from the sidebar but not deleted — direct URLs still work
+  - "Archived Research" button at the bottom of the sidebar opens a modal popup
+  - Popup lists all archived research with Restore and Delete buttons for each
+  - Restore returns the research to the sidebar (requires confirmation)
+  - Delete permanently removes the research from the database (requires confirmation) but preserves CSV export files
+  - Sidebar refreshes dynamically after archive/restore operations without a full page reload
+  - If the user archives the research they are currently viewing, they are redirected to the home page

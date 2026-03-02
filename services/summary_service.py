@@ -10,13 +10,16 @@ Structure your response exactly as follows:
 Write 3–5 concise bullet points (one idea each) that capture the most important findings a reader needs to know. These should be scannable, punchy, cover the main themes, and most importantly answer the question asked or relate to it in some way.
 
 ## [Section heading]
-Create a comprehensive summary broken into sections that:
-1. Identify the most common answers, themes, and opinions — weight by how frequently they appear and their upvote counts
-2. Highlight the most insightful or highly-rated responses
-3. Note any significant disagreements or contrasting viewpoints
-4. Separate factual claims from opinions and personal anecdotes
-5. Indicate when an answer was rare or poorly received (downvoted)
-6. Provide an overall consensus if one exists
+Create a comprehensive summary broken into sections. CRITICAL — the first section must directly answer the research question with specific, actionable information (e.g., named recommendations, concrete answers, specific solutions). Do not bury the answer under background context or general discussion. Supporting themes and context belong in later sections.
+
+Across all sections:
+1. Lead with the most direct answers to the research question — specific names, recommendations, or solutions that commenters provided
+2. Identify common themes and opinions — weight by how frequently they appear and their upvote counts
+3. Highlight the most insightful or highly-rated responses
+4. Note any significant disagreements or contrasting viewpoints
+5. Separate factual claims from opinions and personal anecdotes
+6. Indicate when an answer was rare or poorly received (downvoted)
+7. Provide an overall consensus if one exists
 
 Be thorough but concise. Use descriptive prose that references evidence from comments (e.g., "Multiple commenters noted...", "A highly-upvoted response suggested..."). Support key points with direct quotes:
 - When quoting a commenter, put the quote on its own line using blockquote format: > "quote text" [#comment_id]

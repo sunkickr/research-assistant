@@ -435,3 +435,21 @@ function formatDate(utc) {
         day: 'numeric',
     });
 }
+
+// ===== Live Comment Insertion (for expand/add-thread SSE) =====
+
+function insertLiveComments(newComments) {
+    const existingIds = new Set(allComments.map(c => c.id));
+    let added = 0;
+    for (const c of newComments) {
+        if (existingIds.has(c.id)) continue;
+        allComments.push(c);
+        existingIds.add(c.id);
+        added++;
+    }
+    if (added > 0) {
+        applyFilters();
+        renderCommentsTable();
+        updateCommentsMeta();
+    }
+}

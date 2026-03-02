@@ -50,15 +50,103 @@ async function handleResearchSubmit(e) {
     }
 }
 
+// ===== Activity Feed Helpers =====
+
+function appendFeedItem(feedEl, message, status) {
+    // Mark previous active item as completed
+    const prev = feedEl.querySelector('.feed-item.active');
+    if (prev && status !== 'update') {
+        prev.classList.remove('active');
+        prev.classList.add('completed');
+        prev.querySelector('.feed-icon').textContent = '\u2713';
+    }
+    if (status === 'update') {
+        // Update the last item in-place instead of adding a new one
+        const last = feedEl.querySelector('.feed-item:last-child');
+        if (last) {
+            last.querySelector('.feed-text').textContent = message;
+            feedEl.scrollTop = feedEl.scrollHeight;
+            return;
+        }
+    }
+    const item = document.createElement('div');
+    item.className = `feed-item ${status === 'completed' ? 'completed' : 'active'}`;
+    const icon = status === 'completed' ? '\u2713' : '';
+    item.innerHTML = `<span class="feed-icon">${icon}</span><span class="feed-text">${escapeHtml(message)}</span>`;
+    feedEl.appendChild(item);
+    feedEl.scrollTop = feedEl.scrollHeight;
+}
+
+function completeFeed(feedEl) {
+    const active = feedEl.querySelector('.feed-item.active');
+    if (active) {
+        active.classList.remove('active');
+        active.classList.add('completed');
+        active.querySelector('.feed-icon').textContent = '\u2713';
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ===== Live Preview Table (index.html) =====
+
+let livePreviewCount = 0;
+let livePreviewRows = [];
+
+function addLivePreviewComments(comments) {
+    const preview = document.getElementById('livePreview');
+    const tbody = document.getElementById('livePreviewBody');
+    const counter = document.getElementById('livePreviewCount');
+    if (!preview || !tbody) return;
+
+    preview.style.display = 'block';
+
+    for (const c of comments) {
+        livePreviewCount++;
+        if (c.relevancy_score === null || c.relevancy_score < 4) continue;
+
+        const row = document.createElement('tr');
+        row.className = 'live-preview-row';
+        const scoreClass = c.relevancy_score >= 7 ? 'high' : 'mid';
+        const body = c.body.length > 120 ? c.body.slice(0, 120) + '...' : c.body;
+        row.innerHTML = `<td><span class="relevancy-badge ${scoreClass}">${c.relevancy_score}</span></td><td class="preview-body">${escapeHtml(body)}</td><td>${c.score}</td>`;
+
+        // Insert sorted by relevancy desc
+        let inserted = false;
+        for (let i = 0; i < livePreviewRows.length; i++) {
+            if (c.relevancy_score > livePreviewRows[i].score) {
+                tbody.insertBefore(row, livePreviewRows[i].el);
+                livePreviewRows.splice(i, 0, { score: c.relevancy_score, el: row });
+                inserted = true;
+                break;
+            }
+        }
+        if (!inserted) {
+            tbody.appendChild(row);
+            livePreviewRows.push({ score: c.relevancy_score, el: row });
+        }
+    }
+    if (counter) counter.textContent = livePreviewCount;
+}
+
+// ===== Main Research SSE =====
+
 function listenToProgress(researchId) {
     const eventSource = new EventSource(`/api/research/${researchId}/stream`);
+    const feedEl = document.getElementById('activityFeed');
+    const progressBar = document.getElementById('progressBar');
+    let lastStage = '';
 
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
         if (data.stage === 'complete') {
+            completeFeed(feedEl);
+            appendFeedItem(feedEl, data.message, 'completed');
             eventSource.close();
-            window.location.href = `/results/${researchId}`;
+            setTimeout(() => { window.location.href = `/results/${researchId}`; }, 500);
             return;
         }
 
@@ -68,15 +156,23 @@ function listenToProgress(researchId) {
             return;
         }
 
-        // Update progress UI
-        const progressBar = document.getElementById('progressBar');
-        const progressMessage = document.getElementById('progressMessage');
+        if (progressBar) progressBar.style.width = data.progress + '%';
 
-        if (progressBar) {
-            progressBar.style.width = data.progress + '%';
+        // Determine if this is a new step or an update to the current one
+        const isNewStage = data.stage !== lastStage;
+        lastStage = data.stage;
+
+        // Add feed item
+        if (data.thread_comments !== undefined) {
+            // Collection completion: update in place
+            appendFeedItem(feedEl, data.message, 'update');
+        } else {
+            appendFeedItem(feedEl, data.message, isNewStage ? 'new' : 'new');
         }
-        if (progressMessage) {
-            progressMessage.textContent = data.message;
+
+        // Live preview: push scored comments during scoring phase
+        if (data.comments && data.comments.length > 0) {
+            addLivePreviewComments(data.comments);
         }
     };
 
@@ -95,11 +191,32 @@ function showError(message) {
 
 // ===== Summarize Button =====
 
-async function handleSummarize(researchId) {
-    const btn = document.getElementById('summarizeBtn');
-    const summarySection = document.getElementById('summarySection');
+function toggleFeedbackPanel() {
+    const panel = document.getElementById('feedbackPanel');
+    panel.classList.toggle('visible');
+    if (panel.classList.contains('visible')) {
+        document.getElementById('feedbackInput').focus();
+    }
+}
 
+async function handleSummarize(researchId, withFeedback = false) {
+    const btn = document.getElementById('summarizeBtn');
+    const feedbackToggle = document.getElementById('feedbackToggleBtn');
+    const summarySection = document.getElementById('summarySection');
+    const feedbackPanel = document.getElementById('feedbackPanel');
+
+    let feedback = null;
+    if (withFeedback) {
+        feedback = document.getElementById('feedbackInput').value.trim();
+        if (!feedback) {
+            document.getElementById('feedbackInput').focus();
+            return;
+        }
+    }
+
+    feedbackPanel.classList.remove('visible');
     btn.disabled = true;
+    feedbackToggle.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Summarizing...';
 
     summarySection.style.display = 'block';
@@ -108,6 +225,8 @@ async function handleSummarize(researchId) {
     try {
         const response = await fetch(`/api/research/${researchId}/summarize`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(feedback ? { feedback } : {}),
         });
 
         if (!response.ok) {
@@ -118,10 +237,12 @@ async function handleSummarize(researchId) {
         renderSummary(summary);
         btn.textContent = 'Regenerate Summary';
         btn.disabled = false;
+        feedbackToggle.disabled = false;
     } catch (err) {
         summarySection.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
         btn.textContent = 'Retry Summary';
         btn.disabled = false;
+        feedbackToggle.disabled = false;
     }
 }
 
@@ -194,7 +315,6 @@ async function handleAddThread(researchId) {
     const btn = document.getElementById('addThreadBtn');
     const progressEl = document.getElementById('addThreadProgress');
     const progressBar = document.getElementById('addThreadProgressBar');
-    const progressMsg = document.getElementById('addThreadMessage');
 
     const url = input.value.trim();
     if (!url) return;
@@ -203,7 +323,6 @@ async function handleAddThread(researchId) {
     btn.innerHTML = '<span class="spinner spinner-dark"></span>Processing...';
     progressEl.style.display = 'block';
     progressBar.style.width = '0%';
-    progressMsg.textContent = 'Starting...';
 
     try {
         const resp = await fetch(`/api/research/${researchId}/add-thread`, {
@@ -215,11 +334,11 @@ async function handleAddThread(researchId) {
         const data = await resp.json();
 
         if (!resp.ok) {
-            progressEl.style.display = 'none';
+            progressEl.style.display = 'block';
+            const feedEl = document.getElementById('addThreadFeed');
+            if (feedEl) appendFeedItem(feedEl, data.error || 'Failed to add thread', 'completed');
             btn.innerHTML = 'Add Thread';
             btn.disabled = false;
-            progressMsg.textContent = data.error || 'Failed to add thread';
-            progressEl.style.display = 'block';
             return;
         }
 
@@ -227,19 +346,29 @@ async function handleAddThread(researchId) {
             btn.innerHTML = 'Add Thread';
             btn.disabled = false;
             progressBar.style.width = '100%';
-            progressMsg.textContent = data.message;
+            const feedEl = document.getElementById('addThreadFeed');
+            if (feedEl) appendFeedItem(feedEl, data.message, 'completed');
             return;
         }
 
         // Listen to SSE stream for progress
+        const feedEl = document.getElementById('addThreadFeed');
+        if (feedEl) feedEl.innerHTML = '';
         const es = new EventSource(`/api/research/${researchId}/add-thread/stream`);
         es.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             progressBar.style.width = msg.progress + '%';
-            progressMsg.textContent = msg.message;
+
+            if (feedEl) appendFeedItem(feedEl, msg.message, 'new');
+
+            // Live insert scored comments into existing table
+            if (msg.comments && msg.comments.length > 0 && typeof insertLiveComments === 'function') {
+                insertLiveComments(msg.comments);
+            }
 
             if (msg.stage === 'complete') {
                 es.close();
+                if (feedEl) completeFeed(feedEl);
                 input.value = '';
                 btn.innerHTML = 'Add Thread';
                 btn.disabled = false;
@@ -408,13 +537,11 @@ async function handleFindMore(researchId) {
     const btn = document.getElementById('findMoreBtn');
     const progressEl = document.getElementById('expandProgress');
     const progressBar = document.getElementById('expandProgressBar');
-    const progressMsg = document.getElementById('expandMessage');
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner spinner-dark"></span>Finding more...';
     progressEl.style.display = 'block';
     progressBar.style.width = '0%';
-    progressMsg.textContent = 'Starting...';
 
     try {
         const resp = await fetch(`/api/research/${researchId}/expand`, { method: 'POST' });
@@ -428,15 +555,24 @@ async function handleFindMore(researchId) {
         }
 
         // Listen to SSE stream for progress
+        const feedEl = document.getElementById('expandFeed');
+        if (feedEl) feedEl.innerHTML = '';
         const es = new EventSource(`/api/research/${researchId}/expand/stream`);
         es.onmessage = (event) => {
             const data = JSON.parse(event.data);
 
             progressBar.style.width = data.progress + '%';
-            progressMsg.textContent = data.message;
+
+            if (feedEl) appendFeedItem(feedEl, data.message, 'new');
+
+            // Live insert scored comments into existing table
+            if (data.comments && data.comments.length > 0 && typeof insertLiveComments === 'function') {
+                insertLiveComments(data.comments);
+            }
 
             if (data.stage === 'complete') {
                 es.close();
+                if (feedEl) completeFeed(feedEl);
                 progressEl.style.display = 'none';
                 btn.innerHTML = 'Find More Comments';
                 // Reload tables with new data
@@ -446,8 +582,6 @@ async function handleFindMore(researchId) {
             } else if (data.stage === 'error') {
                 es.close();
                 progressEl.style.display = 'none';
-                progressMsg.textContent = 'Error: ' + data.message;
-                progressEl.style.display = 'block';
                 btn.innerHTML = 'Find More Comments';
                 btn.disabled = false;
             }

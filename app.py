@@ -131,6 +131,21 @@ def start_research():
     return jsonify(research_id=research_id)
 
 
+def _comments_for_sse(scored_comments):
+    """Serialize scored comments for SSE live preview (minimal fields)."""
+    return [
+        {
+            "id": c.id,
+            "body": c.body[:150],
+            "score": c.score,
+            "relevancy_score": c.relevancy_score,
+            "permalink": c.permalink,
+            "thread_id": c.thread_id,
+        }
+        for c in scored_comments
+    ]
+
+
 def run_research_pipeline(
     research_id: str,
     question: str,
@@ -208,6 +223,7 @@ def run_research_pipeline(
                     "stage": "searching",
                     "message": f"Searching in: {subreddit_display}",
                     "progress": 8,
+                    "subreddits": validated,
                 })
             else:
                 q.put({
@@ -271,6 +287,8 @@ def run_research_pipeline(
                 "stage": "searching",
                 "message": f"{len(relevant_threads)} of {len(threads)} threads are relevant",
                 "progress": 22,
+                "threads_relevant": len(relevant_threads),
+                "threads_total": len(threads),
             })
             storage_svc.save_threads(research_id, relevant_threads)
 
@@ -281,11 +299,19 @@ def run_research_pipeline(
                 "stage": "collecting",
                 "message": f"Collecting comments from thread {i + 1}/{len(relevant_threads)}: {thread.title[:60]}...",
                 "progress": 20 + int(40 * (i / len(relevant_threads))),
+                "thread_title": thread.title[:60],
             })
             comments = reddit_svc.collect_comments(
                 thread.id, max_comments=max_comments
             )
             all_comments.extend(comments)
+            q.put({
+                "stage": "collecting",
+                "message": f"Collected {len(comments)} comments from \"{thread.title[:40]}\"",
+                "progress": 20 + int(40 * ((i + 1) / len(relevant_threads))),
+                "thread_title": thread.title[:60],
+                "thread_comments": len(comments),
+            })
 
         # Apply total cap
         if len(all_comments) > config.TOTAL_COMMENTS_CAP:
@@ -316,12 +342,13 @@ def run_research_pipeline(
             "progress": 62,
         })
 
-        def on_batch_progress(batch_num, total_batches):
+        def on_batch_progress(batch_num, total_batches, batch_results):
             pct = 62 + int(33 * (batch_num / total_batches))
             q.put({
                 "stage": "scoring",
                 "message": f"Scoring batch {batch_num}/{total_batches}...",
                 "progress": pct,
+                "comments": _comments_for_sse(batch_results),
             })
 
         scored_comments = scoring_svc.score_comments(
@@ -389,10 +416,15 @@ def summarize(research_id):
     research = storage_svc.get_research(research_id)
     if not research:
         return jsonify(error="Not found"), 404
+    data = request.get_json(silent=True) or {}
+    user_feedback = (data.get("feedback") or "").strip() or None
+    if user_feedback and len(user_feedback) > 500:
+        user_feedback = user_feedback[:500]
+
     comments_data = storage_svc.get_comments(research_id)
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
     comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
-    summary = summary_svc.summarize(research["question"], comments)
+    summary = summary_svc.summarize(research["question"], comments, user_feedback=user_feedback)
     storage_svc.save_summary(research_id, summary)
     return jsonify(summary=summary)
 
@@ -568,6 +600,8 @@ def run_expand_pipeline(
             "stage": "searching",
             "message": f"{len(relevant_threads)} of {len(new_threads)} new threads are relevant",
             "progress": 30,
+            "threads_relevant": len(relevant_threads),
+            "threads_total": len(new_threads),
         })
         # Note: threads are saved after scoring completes so they only appear
         # in the UI once their comments are also ready.
@@ -579,9 +613,17 @@ def run_expand_pipeline(
                 "stage": "collecting",
                 "message": f"Collecting comments from thread {i + 1}/{len(relevant_threads)}: {thread.title[:60]}...",
                 "progress": 30 + int(35 * (i / len(relevant_threads))),
+                "thread_title": thread.title[:60],
             })
             comments = reddit_svc.collect_comments(thread.id, max_comments=max_comments)
             all_comments.extend(comments)
+            q.put({
+                "stage": "collecting",
+                "message": f"Collected {len(comments)} comments from \"{thread.title[:40]}\"",
+                "progress": 30 + int(35 * ((i + 1) / len(relevant_threads))),
+                "thread_title": thread.title[:60],
+                "thread_comments": len(comments),
+            })
 
         # Apply total cap to keep scoring time predictable
         if len(all_comments) > config.TOTAL_COMMENTS_CAP:
@@ -590,7 +632,7 @@ def run_expand_pipeline(
 
         q.put({
             "stage": "collecting",
-            "message": f"Collected {len(all_comments)} new comments",
+            "message": f"Collected {len(all_comments)} new comments total",
             "progress": 65,
         })
 
@@ -602,9 +644,14 @@ def run_expand_pipeline(
             return
 
         # Score comments
-        def on_batch(batch_num, total_batches):
+        def on_batch(batch_num, total_batches, batch_results):
             pct = 65 + int(30 * (batch_num / total_batches))
-            q.put({"stage": "scoring", "message": f"Scoring batch {batch_num}/{total_batches}...", "progress": pct})
+            q.put({
+                "stage": "scoring",
+                "message": f"Scoring batch {batch_num}/{total_batches}...",
+                "progress": pct,
+                "comments": _comments_for_sse(batch_results),
+            })
 
         scored = scoring_svc.score_comments(question, all_comments, progress_callback=on_batch)
 
@@ -718,7 +765,7 @@ def run_add_thread_pipeline(
 ):
     """Fetch, score, and store comments for a single manually-added thread."""
     try:
-        q.put({"stage": "fetching", "message": "Fetching thread details...", "progress": 10})
+        q.put({"stage": "fetching", "message": "Fetching thread details...", "progress": 10, "event": "fetch_start"})
 
         sub = reddit_svc.reddit.submission(id=thread_id)
         thread = RedditThread(
@@ -739,6 +786,7 @@ def run_add_thread_pipeline(
             "stage": "collecting",
             "message": f"Collecting comments from: {thread.title[:60]}...",
             "progress": 30,
+            "thread_title": thread.title[:60],
         })
         comments = reddit_svc.collect_comments(thread_id, max_comments=max_comments)
 
@@ -748,17 +796,26 @@ def run_add_thread_pipeline(
             return
 
         q.put({
+            "stage": "collecting",
+            "message": f"Collected {len(comments)} comments",
+            "progress": 50,
+            "thread_title": thread.title[:60],
+            "thread_comments": len(comments),
+        })
+
+        q.put({
             "stage": "scoring",
             "message": f"Scoring {len(comments)} comments for relevancy...",
             "progress": 55,
         })
 
-        def on_batch(batch_num, total_batches):
+        def on_batch(batch_num, total_batches, batch_results):
             pct = 55 + int(40 * (batch_num / total_batches))
             q.put({
                 "stage": "scoring",
                 "message": f"Scoring batch {batch_num}/{total_batches}...",
                 "progress": pct,
+                "comments": _comments_for_sse(batch_results),
             })
 
         scored = scoring_svc.score_comments(question, comments, progress_callback=on_batch)

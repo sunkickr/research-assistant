@@ -103,8 +103,22 @@
         <div class="progress-bar-container">
             <div class="progress-bar" id="progressBar" style="width: 0%"></div>
         </div>
-        <p class="progress-message" id="progressMessage">Starting research...</p>
-        <p class="progress-hint">This process collects Reddit comments and scores them for relevancy using AI.</p>
+        <div class="activity-feed" id="activityFeed"></div>
+
+        <!-- Live preview table (shown during scoring) -->
+        <div id="livePreview" class="live-preview" style="display: none;">
+            <h3 class="live-preview-header">Results so far — <span id="livePreviewCount">0</span> comments scored</h3>
+            <table class="live-preview-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">Score</th>
+                        <th>Comment</th>
+                        <th style="width: 70px;">Upvotes</th>
+                    </tr>
+                </thead>
+                <tbody id="livePreviewBody"></tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Error Display (hidden by default) -->

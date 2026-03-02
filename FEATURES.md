@@ -269,3 +269,30 @@ This document tracks all features and their functionality. Update this file when
   - Delete permanently removes the research from the database (requires confirmation) but preserves CSV export files
   - Sidebar refreshes dynamically after archive/restore operations without a full page reload
   - If the user archives the research they are currently viewing, they are redirected to the home page
+
+### 24. Summary Feedback
+- **Description**: Allows users to provide optional feedback/instructions when generating or regenerating a summary, guiding what the AI focuses on
+- **Location**: `templates/results.html`, `static/js/app.js`, `app.py`, `services/summary_service.py`
+- **Details**:
+  - Split button UI: "Summarize Comments | with feedback" appears as a unified button with two distinct halves
+  - Clicking "with feedback" toggles a feedback panel with a textarea, submit button, and cancel button
+  - Feedback is sent as JSON in the POST body to `/api/research/{id}/summarize`
+  - The summary service appends user feedback to the LLM prompt, clearly labeled
+  - Prompt injection guard: system prompt instructs the LLM to ignore feedback that asks for content unrelated to summarizing comments
+  - Feedback is capped at 500 characters server-side
+  - Empty feedback is rejected client-side (textarea is focused instead of submitting)
+  - The normal "Summarize Comments" button continues to work without feedback
+
+### 25. Live Progress Feedback
+- **Description**: Replaces static progress bars with a scrolling activity feed and live preview table during research, showing real-time pipeline progress
+- **Location**: `app.py`, `services/scoring_service.py`, `templates/index.html`, `templates/results.html`, `static/js/app.js`, `static/js/tables.js`
+- **Details**:
+  - **Activity feed**: Dark terminal-styled scrolling feed shows events as they happen — subreddits discovered, threads found, comments collected per-thread, scoring progress
+  - **Live preview table** (main research): During scoring, a preview table builds up showing scored comments sorted by relevancy with color-coded score badges (green 7+, yellow 4-6)
+  - **Live table insertion** (expand/add-thread): Scored comments are inserted into the existing results table in real-time via `insertLiveComments()` as batches complete
+  - **Mini feeds**: Find More and Add Thread flows show compact activity feeds in their progress areas
+  - Scoring callback enhanced to pass batch results: `progress_callback(batch_num, total_batches, batch_results)`
+  - SSE events enriched with optional data fields (subreddits, thread titles, comment counts, scored comment arrays) — backward compatible
+  - Feed items show spinner animation for active items, green checkmark for completed
+  - No additional API calls — all data was already flowing through the pipeline
+  - Negligible performance impact (microseconds of queue overhead between existing API calls)

@@ -27,14 +27,25 @@
         <p class="results-meta">Searched across all of Reddit (r/all)</p>
         {% endif %}
         <div class="results-actions">
-            <button
-                class="btn btn-primary"
-                id="summarizeBtn"
-                onclick="handleSummarize('{{ research_id }}')"
-                {% if research.num_comments == 0 %}disabled{% endif %}
-            >
-                {% if research.summary %}Regenerate Summary{% else %}Summarize Comments{% endif %}
-            </button>
+            <div class="btn-group-summarize">
+                <button
+                    class="btn btn-primary"
+                    id="summarizeBtn"
+                    onclick="handleSummarize('{{ research_id }}')"
+                    {% if research.num_comments == 0 %}disabled{% endif %}
+                >
+                    {% if research.summary %}Regenerate Summary{% else %}Summarize Comments{% endif %}
+                </button>
+                <button
+                    class="btn-feedback"
+                    id="feedbackToggleBtn"
+                    onclick="toggleFeedbackPanel()"
+                    {% if research.num_comments == 0 %}disabled{% endif %}
+                    title="Add instructions for the summary"
+                >
+                    with feedback
+                </button>
+            </div>
             <button class="btn btn-outline" id="findMoreBtn" onclick="handleFindMore('{{ research_id }}')">
                 Find More Comments
             </button>
@@ -43,12 +54,26 @@
             </a>
         </div>
 
+        <!-- Summary feedback panel -->
+        <div id="feedbackPanel" class="feedback-panel">
+            <textarea
+                id="feedbackInput"
+                placeholder="e.g. Focus on the most controversial opinions, or Only summarize comments about pricing..."
+                rows="3"
+            ></textarea>
+            <p class="feedback-hint">Tell the AI what to focus on or emphasize in the summary. Must relate to summarizing the comments.</p>
+            <div class="feedback-actions">
+                <button class="btn btn-primary" onclick="handleSummarize('{{ research_id }}', true)">Generate with Feedback</button>
+                <button class="btn btn-outline" onclick="toggleFeedbackPanel()">Cancel</button>
+            </div>
+        </div>
+
         <!-- Expand progress (hidden until active) -->
         <div id="expandProgress" class="expand-progress" style="display: none;">
             <div class="progress-bar-container" style="margin: 10px 0 6px;">
                 <div class="progress-bar" id="expandProgressBar" style="width: 0%"></div>
             </div>
-            <p class="progress-message" id="expandMessage" style="font-size: 13px;"></p>
+            <div class="activity-feed mini" id="expandFeed"></div>
         </div>
 
         <!-- Add Thread -->
@@ -69,7 +94,7 @@
                 <div class="progress-bar-container" style="margin: 8px 0 4px;">
                     <div class="progress-bar" id="addThreadProgressBar" style="width: 0%"></div>
                 </div>
-                <p class="progress-message" id="addThreadMessage" style="font-size: 13px;"></p>
+                <div class="activity-feed mini" id="addThreadFeed"></div>
             </div>
         </div>
     </div>

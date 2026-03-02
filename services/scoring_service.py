@@ -202,9 +202,11 @@ class ScoringService:
         self,
         question: str,
         comments: List[RedditComment],
-        progress_callback: Optional[Callable[[int, int], None]] = None,
+        progress_callback: Optional[Callable] = None,
     ) -> List[ScoredComment]:
-        """Score all comments in batches. Returns ScoredComment objects."""
+        """Score all comments in batches. Returns ScoredComment objects.
+        progress_callback(batch_num, total_batches, batch_results) is called after each batch.
+        """
         scored = []
         total_batches = (len(comments) + self.batch_size - 1) // self.batch_size
 
@@ -212,11 +214,11 @@ class ScoringService:
             batch_num = i // self.batch_size + 1
             batch = comments[i : i + self.batch_size]
 
-            if progress_callback:
-                progress_callback(batch_num, total_batches)
-
             batch_scored = self._score_batch(question, batch)
             scored.extend(batch_scored)
+
+            if progress_callback:
+                progress_callback(batch_num, total_batches, batch_scored)
 
         return scored
 

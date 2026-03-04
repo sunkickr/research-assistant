@@ -21,6 +21,8 @@ from services.scoring_service import ScoringService
 from services.summary_service import SummaryService
 from services.storage_service import StorageService
 from services.web_search_service import WebSearchService
+from services.hn_service import HNService
+from services.article_service import ArticleService
 from models.data_models import ScoredComment, RedditThread
 
 app = Flask(__name__)
@@ -43,6 +45,8 @@ scoring_svc = ScoringService(llm, batch_size=config.LLM_BATCH_SIZE)
 summary_svc = SummaryService(llm)
 storage_svc = StorageService(config.DB_PATH, config.EXPORT_DIR)
 web_search_svc = WebSearchService(reddit_svc.reddit)
+hn_svc = HNService()
+article_svc = ArticleService(llm)
 
 # Active research streams: research_id -> queue.Queue
 progress_queues: dict[str, queue.Queue] = {}
@@ -52,7 +56,7 @@ expand_queues: dict[str, queue.Queue] = {}
 add_thread_queues: dict[str, queue.Queue] = {}
 
 # Sort order cycle for successive "Find More" expansions
-EXPAND_SORTS = ["top", "new", "controversial", "hot"]
+EXPAND_SORTS = ["top", "new", "controversial", "hot", "hn", "web"]
 
 
 # ----- Page Routes -----
@@ -110,11 +114,16 @@ def start_research():
     if not isinstance(seed_urls, list):
         seed_urls = []
 
+    sources = data.get("sources", ["reddit", "hackernews", "web"])
+    if not isinstance(sources, list) or not sources:
+        sources = ["reddit", "hackernews", "web"]
+
     research_id = uuid.uuid4().hex[:12]
     settings = {
         "max_threads": max_threads,
         "max_comments_per_thread": max_comments,
         "time_filter": time_filter,
+        "sources": sources,
     }
     storage_svc.create_research(research_id, question, settings)
 
@@ -123,7 +132,7 @@ def start_research():
     progress_queues[research_id] = q
     t = threading.Thread(
         target=run_research_pipeline,
-        args=(research_id, question, max_threads, max_comments, time_filter, q, seed_urls),
+        args=(research_id, question, max_threads, max_comments, time_filter, q, seed_urls, sources),
         daemon=True,
     )
     t.start()
@@ -141,6 +150,7 @@ def _comments_for_sse(scored_comments):
             "relevancy_score": c.relevancy_score,
             "permalink": c.permalink,
             "thread_id": c.thread_id,
+            "source": c.source,
         }
         for c in scored_comments
     ]
@@ -154,8 +164,11 @@ def run_research_pipeline(
     time_filter: str,
     q: queue.Queue,
     seed_urls: list = None,
+    sources: list = None,
 ):
     """Background task that runs the full research pipeline."""
+    if sources is None:
+        sources = ["reddit", "hackernews", "web"]
     try:
         if seed_urls:
             # --- Seed URL flow: skip discovery, fetch user-provided threads directly ---
@@ -166,27 +179,65 @@ def run_research_pipeline(
             })
             relevant_threads = []
             for url in seed_urls:
-                match = re.search(r"reddit\.com/r/\w+/comments/(\w+)", url)
-                if not match:
-                    match = re.search(r"redd\.it/(\w+)", url)
-                if not match:
-                    continue
-                thread_id = match.group(1)
                 try:
-                    sub = reddit_svc.reddit.submission(id=thread_id)
-                    thread = RedditThread(
-                        id=sub.id,
-                        title=sub.title,
-                        subreddit=str(sub.subreddit),
-                        score=sub.score,
-                        num_comments=sub.num_comments,
-                        url=sub.url,
-                        permalink=f"https://reddit.com{sub.permalink}",
-                        selftext=(sub.selftext or "")[:500],
-                        created_utc=sub.created_utc,
-                        author=str(sub.author) if sub.author else "[deleted]",
-                    )
-                    relevant_threads.append(thread)
+                    # Try Reddit URL
+                    match = re.search(r"reddit\.com/r/\w+/comments/(\w+)", url)
+                    if not match:
+                        match = re.search(r"redd\.it/(\w+)", url)
+                    if match:
+                        thread_id = match.group(1)
+                        sub = reddit_svc.reddit.submission(id=thread_id)
+                        thread = RedditThread(
+                            id=sub.id,
+                            title=sub.title,
+                            subreddit=str(sub.subreddit),
+                            score=sub.score,
+                            num_comments=sub.num_comments,
+                            url=sub.url,
+                            permalink=f"https://reddit.com{sub.permalink}",
+                            selftext=(sub.selftext or "")[:500],
+                            created_utc=sub.created_utc,
+                            author=str(sub.author) if sub.author else "[deleted]",
+                        )
+                        relevant_threads.append(thread)
+                        continue
+
+                    # Try Hacker News URL
+                    if "news.ycombinator.com" in url:
+                        hn_match = re.search(r"id=(\d+)", url)
+                        if hn_match:
+                            numeric_id = hn_match.group(1)
+                            hn_thread_id = f"hn_{numeric_id}"
+                            import requests as _requests
+                            resp = _requests.get(
+                                f"https://hn.algolia.com/api/v1/items/{numeric_id}",
+                                timeout=15,
+                            )
+                            resp.raise_for_status()
+                            item = resp.json()
+                            thread = RedditThread(
+                                id=hn_thread_id,
+                                title=item.get("title") or "",
+                                subreddit="Hacker News",
+                                score=item.get("points") or 0,
+                                num_comments=len(item.get("children", [])),
+                                url=item.get("url") or f"https://news.ycombinator.com/item?id={numeric_id}",
+                                permalink=f"https://news.ycombinator.com/item?id={numeric_id}",
+                                selftext=(item.get("text") or "")[:500],
+                                created_utc=float(item.get("created_at_i") or 0),
+                                author=item.get("author") or "",
+                                source="hackernews",
+                            )
+                            relevant_threads.append(thread)
+                            continue
+
+                    # Fall back to web article
+                    result = article_svc.fetch_article(url)
+                    if result:
+                        title, body = result
+                        thread = article_svc.make_thread(url, title, body)
+                        article_svc.extract_quotes(thread.id, url, title, body, question)
+                        relevant_threads.append(thread)
                 except Exception:
                     continue
 
@@ -194,7 +245,7 @@ def run_research_pipeline(
                 storage_svc.update_research_status(research_id, "complete", 0, 0)
                 q.put({
                     "stage": "complete",
-                    "message": "None of the provided URLs are valid Reddit threads.",
+                    "message": "None of the provided URLs could be fetched.",
                     "progress": 100,
                 })
                 return
@@ -207,69 +258,132 @@ def run_research_pipeline(
             })
 
         else:
-            # --- Normal flow: discover subreddits, search Reddit + web ---
-            # Stage 1: Discover relevant subreddits
-            q.put({
-                "stage": "searching",
-                "message": "Finding relevant subreddits...",
-                "progress": 3,
-            })
-            suggested, search_queries = scoring_svc.suggest_subreddits(question)
-            validated = reddit_svc.validate_subreddits(suggested) if suggested else []
+            # --- Normal flow: discover sources and search ---
+            threads = []
+            seen_ids = set()
+            validated = []
+            search_queries = []
 
-            if validated:
-                subreddit_display = ", ".join(f"r/{s}" for s in validated)
+            # Stage 1: Generate search queries (and subreddits if Reddit is enabled)
+            if "reddit" in sources:
                 q.put({
                     "stage": "searching",
-                    "message": f"Searching in: {subreddit_display}",
-                    "progress": 8,
-                    "subreddits": validated,
+                    "message": "Finding relevant subreddits...",
+                    "progress": 3,
                 })
+                suggested, search_queries = scoring_svc.suggest_subreddits(question)
+                validated = reddit_svc.validate_subreddits(suggested) if suggested else []
+
+                if validated:
+                    subreddit_display = ", ".join(f"r/{s}" for s in validated)
+                    q.put({
+                        "stage": "searching",
+                        "message": f"Searching in: {subreddit_display}",
+                        "progress": 8,
+                        "subreddits": validated,
+                    })
+                else:
+                    q.put({
+                        "stage": "searching",
+                        "message": "Searching across all of Reddit...",
+                        "progress": 8,
+                    })
+                storage_svc.update_research_subreddits(research_id, validated)
             else:
+                # Still need search queries for HN/web even without Reddit
                 q.put({
                     "stage": "searching",
-                    "message": "Searching across all of Reddit...",
-                    "progress": 8,
+                    "message": "Generating search queries...",
+                    "progress": 3,
+                })
+                _, search_queries = scoring_svc.suggest_subreddits(question)
+
+            web_queries = search_queries if search_queries else [question]
+
+            # Stage 2: Reddit search (if enabled)
+            if "reddit" in sources:
+                q.put({
+                    "stage": "searching",
+                    "message": "Searching Reddit for relevant threads...",
+                    "progress": 10,
+                })
+                reddit_threads = list(
+                    reddit_svc.search_threads(
+                        question,
+                        max_threads=max_threads,
+                        time_filter=time_filter,
+                        subreddits=validated or None,
+                    )
+                )
+                for t in reddit_threads:
+                    if t.id not in seen_ids:
+                        threads.append(t)
+                        seen_ids.add(t.id)
+
+                # Stage 2a: Web search for additional Reddit threads
+                q.put({
+                    "stage": "searching",
+                    "message": f"Found {len(threads)} Reddit threads — searching the web for more...",
+                    "progress": 14,
+                })
+                web_threads = web_search_svc.search_reddit_threads(web_queries, max_results=15, subreddits=validated or None, max_total=max_threads)
+                web_added = 0
+                for wt in web_threads:
+                    if wt.id not in seen_ids:
+                        threads.append(wt)
+                        seen_ids.add(wt.id)
+                        web_added += 1
+
+            # Stage 2b: Hacker News search (if enabled)
+            if "hackernews" in sources:
+                q.put({
+                    "stage": "searching",
+                    "message": "Searching Hacker News...",
+                    "progress": 16,
+                })
+                hn_stories = hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES)
+                hn_added = 0
+                for story in hn_stories:
+                    if story.id not in seen_ids:
+                        threads.append(story)
+                        seen_ids.add(story.id)
+                        hn_added += 1
+                q.put({
+                    "stage": "searching",
+                    "message": f"Found {hn_added} Hacker News discussions",
+                    "progress": 17,
                 })
 
-            # Store validated subreddits in settings for display on results page
-            storage_svc.update_research_subreddits(research_id, validated)
-
-            # Stage 2: Search threads within those subreddits
-            q.put({
-                "stage": "searching",
-                "message": "Searching for relevant threads...",
-                "progress": 10,
-            })
-            threads = list(
-                reddit_svc.search_threads(
-                    question,
-                    max_threads=max_threads,
-                    time_filter=time_filter,
-                    subreddits=validated or None,
-                )
-            )
-
-            # Stage 2a: Web search for additional threads via DuckDuckGo
-            q.put({
-                "stage": "searching",
-                "message": f"Found {len(threads)} threads via Reddit — searching the web for more...",
-                "progress": 14,
-            })
-            web_queries = search_queries if search_queries else [question]
-            web_threads = web_search_svc.search_reddit_threads(web_queries, max_results=15, subreddits=validated or None, max_total=max_threads)
-            seen_ids = {t.id for t in threads}
-            web_added = 0
-            for wt in web_threads:
-                if wt.id not in seen_ids:
-                    threads.append(wt)
-                    seen_ids.add(wt.id)
-                    web_added += 1
+            # Stage 2c: Web article search (if enabled)
+            if "web" in sources:
+                q.put({
+                    "stage": "searching",
+                    "message": "Searching the web for articles...",
+                    "progress": 18,
+                })
+                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES)
+                web_articles_added = 0
+                for url in article_urls:
+                    result = article_svc.fetch_article(url)
+                    if result:
+                        title, body = result
+                        thread = article_svc.make_thread(url, title, body)
+                        if thread.id not in seen_ids:
+                            # Extract quotes now and cache them
+                            article_svc.extract_quotes(thread.id, url, title, body, question)
+                            threads.append(thread)
+                            seen_ids.add(thread.id)
+                            web_articles_added += 1
+                q.put({
+                    "stage": "searching",
+                    "message": f"Found {web_articles_added} relevant web articles",
+                    "progress": 19,
+                })
 
             q.put({
                 "stage": "searching",
-                "message": f"Found {len(threads)} threads total ({web_added} from web search) — filtering for relevancy...",
-                "progress": 18,
+                "message": f"Found {len(threads)} threads/articles total — filtering for relevancy...",
+                "progress": 20,
             })
 
             if not threads:
@@ -292,7 +406,7 @@ def run_research_pipeline(
             })
             storage_svc.save_threads(research_id, relevant_threads)
 
-        # --- Shared: collect comments ---
+        # --- Shared: collect comments (dispatch by source) ---
         all_comments = []
         for i, thread in enumerate(relevant_threads):
             q.put({
@@ -301,9 +415,14 @@ def run_research_pipeline(
                 "progress": 20 + int(40 * (i / len(relevant_threads))),
                 "thread_title": thread.title[:60],
             })
-            comments = reddit_svc.collect_comments(
-                thread.id, max_comments=max_comments
-            )
+            if thread.source == "hackernews":
+                comments = hn_svc.collect_comments(thread.id, max_comments=max_comments)
+            elif thread.source == "web":
+                comments = article_svc.get_cached_quotes(thread.id)
+            else:
+                comments = reddit_svc.collect_comments(
+                    thread.id, max_comments=max_comments
+                )
             all_comments.extend(comments)
             q.put({
                 "stage": "collecting",
@@ -371,6 +490,7 @@ def run_research_pipeline(
         storage_svc.update_research_status(research_id, "error")
         q.put({"stage": "error", "message": str(e), "progress": 0})
     finally:
+        article_svc.clear_cache()
         q.put(None)  # Signal stream end
 
 
@@ -513,8 +633,18 @@ def expand_research(research_id):
     time_filter = settings.get("time_filter", "all")
     max_comments = settings.get("max_comments_per_thread", config.DEFAULT_MAX_COMMENTS_PER_THREAD)
 
-    # Pick the next unused sort order
-    next_sort = next((s for s in EXPAND_SORTS if s not in sorts_tried), None)
+    # Pick the next unused sort order, respecting enabled sources
+    research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
+    available_sorts = []
+    for s in EXPAND_SORTS:
+        if s == "hn" and "hackernews" not in research_sources:
+            continue
+        if s == "web" and "web" not in research_sources:
+            continue
+        if s not in ("hn", "web") and "reddit" not in research_sources:
+            continue
+        available_sorts.append(s)
+    next_sort = next((s for s in available_sorts if s not in sorts_tried), None)
     if next_sort is None:
         return jsonify(error="All search strategies have been tried for this query."), 400
 
@@ -543,41 +673,72 @@ def run_expand_pipeline(
     """Background task that finds more threads and merges results."""
     try:
         existing_thread_ids = storage_svc.get_existing_thread_ids(research_id)
+        settings = storage_svc.get_settings(research_id)
+        research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
 
-        subreddit_label = (
-            ", ".join(f"r/{s}" for s in subreddits) if subreddits else "all of Reddit"
-        )
-        q.put({
-            "stage": "searching",
-            "message": f"Searching {subreddit_label} sorted by {sort}...",
-            "progress": 5,
-        })
+        candidates = []
 
-        # Fetch more threads than usual to account for duplicates
-        candidates = list(
-            reddit_svc.search_threads(
-                question,
-                max_threads=config.MAX_THREADS_LIMIT,
-                time_filter=time_filter,
-                sort=sort,
-                subreddits=subreddits,
+        if sort == "hn":
+            # Hacker News expansion
+            q.put({
+                "stage": "searching",
+                "message": "Searching Hacker News for more discussions...",
+                "progress": 5,
+            })
+            _, search_queries = scoring_svc.suggest_subreddits(question)
+            web_queries = search_queries if search_queries else [question]
+            candidates = hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES)
+
+        elif sort == "web":
+            # Web article expansion
+            q.put({
+                "stage": "searching",
+                "message": "Searching the web for more articles...",
+                "progress": 5,
+            })
+            _, search_queries = scoring_svc.suggest_subreddits(question)
+            web_queries = search_queries if search_queries else [question]
+            article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES)
+            for url in article_urls:
+                result = article_svc.fetch_article(url)
+                if result:
+                    title, body = result
+                    thread = article_svc.make_thread(url, title, body)
+                    article_svc.extract_quotes(thread.id, url, title, body, question)
+                    candidates.append(thread)
+
+        else:
+            # Reddit expansion (existing behavior)
+            subreddit_label = (
+                ", ".join(f"r/{s}" for s in subreddits) if subreddits else "all of Reddit"
             )
-        )
-
-        # Also search the web for additional threads
-        q.put({
-            "stage": "searching",
-            "message": f"Searching the web for more Reddit threads...",
-            "progress": 12,
-        })
-        web_threads = web_search_svc.search_reddit_threads(
-            [f"{question} {sort}"], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
-        )
-        seen_ids = {t.id for t in candidates}
-        for wt in web_threads:
-            if wt.id not in seen_ids:
-                candidates.append(wt)
-                seen_ids.add(wt.id)
+            q.put({
+                "stage": "searching",
+                "message": f"Searching {subreddit_label} sorted by {sort}...",
+                "progress": 5,
+            })
+            candidates = list(
+                reddit_svc.search_threads(
+                    question,
+                    max_threads=config.MAX_THREADS_LIMIT,
+                    time_filter=time_filter,
+                    sort=sort,
+                    subreddits=subreddits,
+                )
+            )
+            q.put({
+                "stage": "searching",
+                "message": f"Searching the web for more Reddit threads...",
+                "progress": 12,
+            })
+            web_threads = web_search_svc.search_reddit_threads(
+                [f"{question} {sort}"], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
+            )
+            seen_ids = {t.id for t in candidates}
+            for wt in web_threads:
+                if wt.id not in seen_ids:
+                    candidates.append(wt)
+                    seen_ids.add(wt.id)
 
         # Remove threads already collected
         new_threads = [t for t in candidates if t.id not in existing_thread_ids]
@@ -606,7 +767,7 @@ def run_expand_pipeline(
         # Note: threads are saved after scoring completes so they only appear
         # in the UI once their comments are also ready.
 
-        # Collect comments
+        # Collect comments (dispatch by source)
         all_comments = []
         for i, thread in enumerate(relevant_threads):
             q.put({
@@ -615,7 +776,12 @@ def run_expand_pipeline(
                 "progress": 30 + int(35 * (i / len(relevant_threads))),
                 "thread_title": thread.title[:60],
             })
-            comments = reddit_svc.collect_comments(thread.id, max_comments=max_comments)
+            if thread.source == "hackernews":
+                comments = hn_svc.collect_comments(thread.id, max_comments=max_comments)
+            elif thread.source == "web":
+                comments = article_svc.get_cached_quotes(thread.id)
+            else:
+                comments = reddit_svc.collect_comments(thread.id, max_comments=max_comments)
             all_comments.extend(comments)
             q.put({
                 "stage": "collecting",
@@ -671,6 +837,7 @@ def run_expand_pipeline(
     except Exception as e:
         q.put({"stage": "error", "message": str(e), "progress": 0})
     finally:
+        article_svc.clear_cache()
         q.put(None)
 
 
@@ -705,7 +872,18 @@ def expand_status(research_id):
     """Return whether more expansions are possible."""
     settings = storage_svc.get_settings(research_id)
     sorts_tried = settings.get("sorts_tried", [])
-    remaining = [s for s in EXPAND_SORTS if s not in sorts_tried]
+    research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
+    # Only offer sorts relevant to enabled sources
+    available_sorts = []
+    for s in EXPAND_SORTS:
+        if s == "hn" and "hackernews" not in research_sources:
+            continue
+        if s == "web" and "web" not in research_sources:
+            continue
+        if s not in ("hn", "web") and "reddit" not in research_sources:
+            continue
+        available_sorts.append(s)
+    remaining = [s for s in available_sorts if s not in sorts_tried]
     return jsonify(
         can_expand=len(remaining) > 0,
         next_sort=remaining[0] if remaining else None,
@@ -715,7 +893,7 @@ def expand_status(research_id):
 
 @app.route("/api/research/<research_id>/add-thread", methods=["POST"])
 def add_thread(research_id):
-    """Add a specific Reddit thread URL to an existing research."""
+    """Add a specific thread or article URL to an existing research."""
     research = storage_svc.get_research(research_id)
     if not research:
         return jsonify(error="Not found"), 404
@@ -725,18 +903,36 @@ def add_thread(research_id):
     if not url:
         return jsonify(error="URL is required"), 400
 
-    # Extract thread ID from full or short Reddit URLs
+    # Detect source from URL
+    source = None
+    thread_id = None
+
+    # Try Reddit
     match = re.search(r"reddit\.com/r/\w+/comments/(\w+)", url)
     if not match:
         match = re.search(r"redd\.it/(\w+)", url)
-    if not match:
-        return jsonify(error="Invalid Reddit thread URL. Paste a full reddit.com link."), 400
+    if match:
+        source = "reddit"
+        thread_id = match.group(1)
 
-    thread_id = match.group(1)
+    # Try Hacker News
+    if not source and "news.ycombinator.com" in url:
+        hn_match = re.search(r"id=(\d+)", url)
+        if hn_match:
+            source = "hackernews"
+            thread_id = f"hn_{hn_match.group(1)}"
+
+    # Fall back to web article
+    if not source:
+        source = "web"
+        # Pre-compute thread_id for dedup check
+        import hashlib as _hashlib
+        url_hash = _hashlib.md5(url.encode()).hexdigest()[:10]
+        thread_id = f"web_{url_hash}"
 
     # Check if thread has already been collected for this research
     existing_ids = storage_svc.get_existing_thread_ids(research_id)
-    if thread_id in existing_ids:
+    if thread_id and thread_id in existing_ids:
         return jsonify(
             already_exists=True,
             message="This thread has already been processed for this research.",
@@ -749,11 +945,11 @@ def add_thread(research_id):
     add_thread_queues[research_id] = q
     t = threading.Thread(
         target=run_add_thread_pipeline,
-        args=(research_id, research["question"], thread_id, max_comments, q),
+        args=(research_id, research["question"], thread_id, max_comments, q, source, url),
         daemon=True,
     )
     t.start()
-    return jsonify(thread_id=thread_id)
+    return jsonify(thread_id=thread_id or "pending", source=source)
 
 
 def run_add_thread_pipeline(
@@ -762,33 +958,83 @@ def run_add_thread_pipeline(
     thread_id: str,
     max_comments: int,
     q: queue.Queue,
+    source: str = "reddit",
+    url: str = "",
 ):
     """Fetch, score, and store comments for a single manually-added thread."""
     try:
         q.put({"stage": "fetching", "message": "Fetching thread details...", "progress": 10, "event": "fetch_start"})
 
-        sub = reddit_svc.reddit.submission(id=thread_id)
-        thread = RedditThread(
-            id=sub.id,
-            title=sub.title,
-            subreddit=str(sub.subreddit),
-            score=sub.score,
-            num_comments=sub.num_comments,
-            url=sub.url,
-            permalink=f"https://reddit.com{sub.permalink}",
-            selftext=(sub.selftext or "")[:500],
-            created_utc=sub.created_utc,
-            author=str(sub.author) if sub.author else "[deleted]",
-        )
-        storage_svc.save_threads(research_id, [thread])
+        if source == "hackernews":
+            # Fetch HN story details via Algolia item endpoint
+            import requests as _requests
+            numeric_id = thread_id.replace("hn_", "")
+            resp = _requests.get(f"https://hn.algolia.com/api/v1/items/{numeric_id}", timeout=15)
+            resp.raise_for_status()
+            item = resp.json()
+            thread = RedditThread(
+                id=thread_id,
+                title=item.get("title") or "",
+                subreddit="Hacker News",
+                score=item.get("points") or 0,
+                num_comments=len(item.get("children", [])),
+                url=item.get("url") or f"https://news.ycombinator.com/item?id={numeric_id}",
+                permalink=f"https://news.ycombinator.com/item?id={numeric_id}",
+                selftext=(item.get("text") or "")[:500],
+                created_utc=float(item.get("created_at_i") or 0),
+                author=item.get("author") or "",
+                source="hackernews",
+            )
+            storage_svc.save_threads(research_id, [thread])
+            q.put({
+                "stage": "collecting",
+                "message": f"Collecting comments from: {thread.title[:60]}...",
+                "progress": 30,
+                "thread_title": thread.title[:60],
+            })
+            comments = hn_svc.collect_comments(thread_id, max_comments=max_comments)
 
-        q.put({
-            "stage": "collecting",
-            "message": f"Collecting comments from: {thread.title[:60]}...",
-            "progress": 30,
-            "thread_title": thread.title[:60],
-        })
-        comments = reddit_svc.collect_comments(thread_id, max_comments=max_comments)
+        elif source == "web":
+            # Fetch and extract web article
+            result = article_svc.fetch_article(url)
+            if not result:
+                q.put({"stage": "error", "message": "Could not extract content from this URL.", "progress": 0})
+                return
+            title, body = result
+            thread = article_svc.make_thread(url, title, body)
+            thread_id = thread.id
+            storage_svc.save_threads(research_id, [thread])
+            q.put({
+                "stage": "collecting",
+                "message": f"Extracting quotes from: {thread.title[:60]}...",
+                "progress": 30,
+                "thread_title": thread.title[:60],
+            })
+            comments = article_svc.extract_quotes(thread_id, url, title, body, question)
+
+        else:
+            # Reddit (existing behavior)
+            sub = reddit_svc.reddit.submission(id=thread_id)
+            thread = RedditThread(
+                id=sub.id,
+                title=sub.title,
+                subreddit=str(sub.subreddit),
+                score=sub.score,
+                num_comments=sub.num_comments,
+                url=sub.url,
+                permalink=f"https://reddit.com{sub.permalink}",
+                selftext=(sub.selftext or "")[:500],
+                created_utc=sub.created_utc,
+                author=str(sub.author) if sub.author else "[deleted]",
+            )
+            storage_svc.save_threads(research_id, [thread])
+            q.put({
+                "stage": "collecting",
+                "message": f"Collecting comments from: {thread.title[:60]}...",
+                "progress": 30,
+                "thread_title": thread.title[:60],
+            })
+            comments = reddit_svc.collect_comments(thread_id, max_comments=max_comments)
 
         if not comments:
             storage_svc.recalculate_counts(research_id)
@@ -832,6 +1078,7 @@ def run_add_thread_pipeline(
     except Exception as e:
         q.put({"stage": "error", "message": str(e), "progress": 0})
     finally:
+        article_svc.clear_cache()
         q.put(None)
 
 

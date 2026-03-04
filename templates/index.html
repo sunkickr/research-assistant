@@ -8,7 +8,7 @@
     <div id="searchSection" class="search-card">
         <h1 class="search-title">What would you like to research?</h1>
         <p class="search-subtitle">
-            Enter a question or topic and we'll search Reddit for relevant discussions,
+            Enter a question or topic and we'll search Reddit, Hacker News, and the web for relevant discussions,
             score comments for relevancy, and help you find the crowd's wisdom.
         </p>
 
@@ -25,6 +25,14 @@
             <details class="settings-panel">
                 <summary class="settings-toggle">Settings</summary>
                 <div class="settings-content">
+                    <div class="setting-group">
+                        <label>Search sources:</label>
+                        <div class="source-checkboxes">
+                            <label><input type="checkbox" id="sourceReddit" checked> Reddit</label>
+                            <label><input type="checkbox" id="sourceHN" checked> Hacker News</label>
+                            <label><input type="checkbox" id="sourceWeb" checked> Web Articles</label>
+                        </div>
+                    </div>
                     <div class="setting-group">
                         <label for="maxThreads">
                             Max threads to search:
@@ -73,16 +81,16 @@
                 <summary class="settings-toggle">Add specific threads (optional)</summary>
                 <div class="settings-content">
                     <p class="seed-threads-hint">
-                        For niche topics, Reddit's search can miss relevant threads you already know about.
+                        For niche topics, search can miss relevant threads you already know about.
                         Paste URLs below and we'll skip the search and score only those threads.
                     </p>
                     <textarea
                         id="seedThreadUrls"
                         class="seed-threads-input"
-                        placeholder="https://reddit.com/r/subreddit/comments/..."
+                        placeholder="Paste Reddit, Hacker News, or article URLs..."
                         rows="4"
                     ></textarea>
-                    <p class="seed-threads-note">One URL per line. Leave empty to search Reddit automatically.</p>
+                    <p class="seed-threads-note">One URL per line. Leave empty to search automatically.</p>
                 </div>
             </details>
 
@@ -91,7 +99,7 @@
             </button>
 
             <p class="search-limits">
-                Searches up to {{ config.max_threads_limit }} Reddit threads, collects up to
+                Searches up to {{ config.max_threads_limit }} threads across selected sources, collects up to
                 {{ config.max_comments_limit }} comments each, and scores all for relevancy using AI.
             </p>
         </form>

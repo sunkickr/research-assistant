@@ -39,7 +39,7 @@ class ThreadBatchScoreResponse(BaseModel):
     scores: List[ThreadScore]
 
 
-THREAD_SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will receive a research question and a list of Reddit thread titles and descriptions. Score each thread 1-10 based on how likely it is to contain useful comments that answer the question.
+THREAD_SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will receive a research question and a list of discussion threads and articles from various sources (Reddit, Hacker News, web articles). Score each thread 1-10 based on how likely it is to contain useful content that answers the question.
 
 - 1-3: Clearly unrelated topic (different technology, general career advice, off-topic)
 - 4-5: Tangentially related or only mentions the topic in passing
@@ -71,7 +71,7 @@ class BatchScoreResponse(BaseModel):
     scores: List[CommentScore]
 
 
-SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will receive a research question and a batch of Reddit comments. For each comment, assign a relevancy score from 1-10:
+SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will receive a research question and a batch of comments and article excerpts from various sources (Reddit, Hacker News, web articles). For each item, assign a relevancy score from 1-10:
 
 - 1-2: Completely irrelevant (off-topic, jokes, spam, social chit-chat with no substance)
 - 3-4: Tangentially related but does not address the question (e.g. clarifying questions, meta-discussion, acknowledgements)
@@ -175,7 +175,7 @@ class ScoringService:
             return []
 
         threads_text = "\n\n".join(
-            f"[Thread ID: {t.id}]\nTitle: {t.title}\nSubreddit: r/{t.subreddit}"
+            f"[Thread ID: {t.id}]\nSource: {t.source}\nTitle: {t.title}\nCommunity: {t.subreddit}"
             + (f"\nDescription: {t.selftext[:200]}" if t.selftext.strip() else "")
             for t in threads
         )
@@ -262,6 +262,7 @@ class ScoringService:
                     reasoning=score_data.reasoning
                     if score_data
                     else "Not scored — API timeout or error",
+                    source=comment.source,
                 )
             )
         return results

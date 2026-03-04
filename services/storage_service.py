@@ -80,6 +80,8 @@ class StorageService:
                 "ALTER TABLE comments ADD COLUMN user_relevancy_score INTEGER",
                 "ALTER TABLE comments ADD COLUMN starred INTEGER DEFAULT 0",
                 "ALTER TABLE researches ADD COLUMN archived INTEGER DEFAULT 0",
+                "ALTER TABLE threads ADD COLUMN source TEXT DEFAULT 'reddit'",
+                "ALTER TABLE comments ADD COLUMN source TEXT DEFAULT 'reddit'",
             ]:
                 try:
                     conn.execute(stmt)
@@ -103,8 +105,8 @@ class StorageService:
             for t in threads:
                 conn.execute(
                     """INSERT OR REPLACE INTO threads
-                    (id, research_id, title, subreddit, score, num_comments, url, permalink, selftext, created_utc, author)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (id, research_id, title, subreddit, score, num_comments, url, permalink, selftext, created_utc, author, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         t.id,
                         research_id,
@@ -117,6 +119,7 @@ class StorageService:
                         t.selftext,
                         t.created_utc,
                         t.author,
+                        t.source,
                     ),
                 )
 
@@ -127,13 +130,13 @@ class StorageService:
             for c in comments:
                 conn.execute(
                     """INSERT INTO comments
-                    (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id, research_id) DO UPDATE SET
                         thread_id=excluded.thread_id, author=excluded.author, body=excluded.body,
                         score=excluded.score, created_utc=excluded.created_utc, depth=excluded.depth,
                         permalink=excluded.permalink, relevancy_score=excluded.relevancy_score,
-                        reasoning=excluded.reasoning""",
+                        reasoning=excluded.reasoning, source=excluded.source""",
                     (
                         c.id,
                         research_id,
@@ -146,6 +149,7 @@ class StorageService:
                         c.permalink,
                         c.relevancy_score,
                         c.reasoning,
+                        c.source,
                     ),
                 )
 
@@ -374,6 +378,7 @@ class StorageService:
             "depth",
             "created_utc",
             "starred",
+            "source",
         ]
 
         with open(filepath, "w", newline="", encoding="utf-8") as f:
@@ -396,6 +401,7 @@ class StorageService:
             "permalink",
             "author",
             "created_utc",
+            "source",
         ]
         with open(threads_filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=thread_fieldnames)

@@ -1,10 +1,13 @@
 // ===== Table State =====
 let allThreads = [];
 let allComments = [];
+let filteredThreads = [];
 let filteredComments = [];
 let activeThreadFilter = null;
 let showUnscoredOnly = false;
 let showStarredOnly = false;
+let activeThreadSource = 'all';
+let activeCommentSource = 'all';
 
 // Sorting state
 let threadSortCol = 'score';
@@ -26,8 +29,10 @@ async function loadResults(researchId) {
 
         allThreads = data.threads || [];
         allComments = data.comments || [];
+        filteredThreads = [...allThreads];
         filteredComments = [...allComments];
 
+        renderSourceTabs();
         renderThreadsTable();
         renderCommentsTable();
         updateCommentsMeta();
@@ -41,7 +46,7 @@ async function loadResults(researchId) {
 // ===== Threads Table =====
 
 function renderThreadsTable() {
-    const sorted = sortData([...allThreads], threadSortCol, threadSortDir);
+    const sorted = sortData([...filteredThreads], threadSortCol, threadSortDir);
     const container = document.getElementById('threadsTableContainer');
 
     const meta = document.getElementById('threadsMeta');
@@ -81,7 +86,8 @@ function renderThreadsTable() {
         const isActive = activeThreadFilter === thread.id;
         html += `<tr class="thread-row ${isActive ? 'active' : ''}" onclick="filterByThread('${thread.id}', '${escapeHtml(thread.title)}')">`;
         html += `<td>${escapeHtml(thread.title)}</td>`;
-        html += `<td>r/${escapeHtml(thread.subreddit)}</td>`;
+        const subPrefix = (!thread.source || thread.source === 'reddit') ? 'r/' : '';
+        html += `<td>${subPrefix}${escapeHtml(thread.subreddit)}</td>`;
         html += `<td>${formatNumber(thread.score)}</td>`;
         html += `<td>${formatNumber(thread.num_comments)}</td>`;
         html += `<td>${formatDate(thread.created_utc)}</td>`;
@@ -231,9 +237,18 @@ function goToPage(page) {
 // ===== Thread Filtering =====
 
 function applyFilters() {
+    // Filter threads by source
+    filteredThreads = activeThreadSource === 'all'
+        ? [...allThreads]
+        : allThreads.filter(t => (t.source || 'reddit') === activeThreadSource);
+
+    // Filter comments
     let base = activeThreadFilter
         ? allComments.filter(c => c.thread_id === activeThreadFilter)
         : [...allComments];
+    if (activeCommentSource !== 'all') {
+        base = base.filter(c => (c.source || 'reddit') === activeCommentSource);
+    }
     if (showUnscoredOnly) {
         base = base.filter(c => c.relevancy_score === null || c.relevancy_score === undefined);
     }
@@ -300,6 +315,56 @@ function updateCommentsMeta() {
     }
 
     meta.innerHTML = text;
+}
+
+// ===== Source Tabs =====
+
+const SOURCE_LABELS = {
+    'reddit': 'Reddit',
+    'hackernews': 'HN',
+    'web': 'Web',
+};
+
+function renderSourceTabs() {
+    const threadSources = [...new Set(allThreads.map(t => t.source || 'reddit'))];
+    const commentSources = [...new Set(allComments.map(c => c.source || 'reddit'))];
+
+    const threadsTabsEl = document.getElementById('threadsSourceTabs');
+    const commentsTabsEl = document.getElementById('commentsSourceTabs');
+
+    if (threadsTabsEl) {
+        threadsTabsEl.innerHTML = threadSources.length > 1
+            ? buildTabsHtml('threads', threadSources, allThreads, activeThreadSource)
+            : '';
+    }
+    if (commentsTabsEl) {
+        commentsTabsEl.innerHTML = commentSources.length > 1
+            ? buildTabsHtml('comments', commentSources, allComments, activeCommentSource)
+            : '';
+    }
+}
+
+function buildTabsHtml(section, sources, data, activeSource) {
+    const allCount = data.length;
+    let html = '<div class="source-tabs">';
+    html += `<button class="source-tab ${activeSource === 'all' ? 'active' : ''}" onclick="setSourceFilter('${section}', 'all')">All (${allCount})</button>`;
+    for (const src of sources) {
+        const count = data.filter(d => (d.source || 'reddit') === src).length;
+        const label = SOURCE_LABELS[src] || src;
+        html += `<button class="source-tab ${activeSource === src ? 'active' : ''}" onclick="setSourceFilter('${section}', '${src}')">${label} (${count})</button>`;
+    }
+    html += '</div>';
+    return html;
+}
+
+function setSourceFilter(section, source) {
+    if (section === 'threads') {
+        activeThreadSource = source;
+    } else {
+        activeCommentSource = source;
+    }
+    renderSourceTabs();
+    applyFilters();
 }
 
 // ===== Comment Expansion =====
@@ -448,8 +513,7 @@ function insertLiveComments(newComments) {
         added++;
     }
     if (added > 0) {
+        renderSourceTabs();
         applyFilters();
-        renderCommentsTable();
-        updateCommentsMeta();
     }
 }

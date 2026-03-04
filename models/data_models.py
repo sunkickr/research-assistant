@@ -14,6 +14,7 @@ class RedditThread:
     selftext: str
     created_utc: float
     author: str = ""
+    source: str = "reddit"
 
 
 @dataclass
@@ -26,6 +27,7 @@ class RedditComment:
     created_utc: float
     depth: int
     permalink: str
+    source: str = "reddit"
 
 
 @dataclass
@@ -42,6 +44,7 @@ class ScoredComment:
     reasoning: str
     user_relevancy_score: Optional[int] = None
     starred: int = 0
+    source: str = "reddit"
 
 
 @dataclass

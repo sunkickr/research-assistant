@@ -29,3 +29,7 @@ class Config:
     MAX_COMMENTS_PER_THREAD_LIMIT = 200
     TOTAL_COMMENTS_CAP = 750
     LLM_BATCH_SIZE = 20
+
+    # Multi-source settings
+    HN_MAX_STORIES = 10
+    WEB_MAX_ARTICLES = 8

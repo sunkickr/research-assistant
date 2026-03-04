@@ -283,6 +283,21 @@ This document tracks all features and their functionality. Update this file when
   - Empty feedback is rejected client-side (textarea is focused instead of submitting)
   - The normal "Summarize Comments" button continues to work without feedback
 
+### 26. Multi-Source Research (Reddit, Hacker News, Web Articles)
+- **Description**: Expands research beyond Reddit to include Hacker News discussions and quotes extracted from web articles
+- **Location**: `app.py`, `services/hn_service.py`, `services/article_service.py`, `services/web_search_service.py`, `static/js/tables.js`, `static/js/app.js`, `templates/index.html`, `templates/results.html`
+- **Details**:
+  - **Source selection**: Three checkboxes in the search settings panel (Reddit, Hacker News, Web Articles), all checked by default
+  - **Hacker News**: Uses the free HN Algolia API (no auth, 10k req/hr) to search stories and collect comment trees. IDs prefixed `hn_` to avoid PK collisions
+  - **Web articles**: DuckDuckGo search finds non-Reddit/non-HN articles. `trafilatura` extracts article text. LLM extracts 3-8 relevant quotes as synthetic "comments" with `source="web"`. IDs prefixed `web_`
+  - **Source tabs**: Both the threads and comments tables have source tabs (All | Reddit | HN | Web) for filtering. Tabs only appear when multiple sources have data
+  - **Pipeline integration**: All three sources map into existing `RedditThread`/`RedditComment` data models with a `source` field (default `"reddit"` for backward compatibility). Scoring, storage, and summary pipelines work unchanged
+  - **Seed URLs**: Support Reddit, HN (`news.ycombinator.com/item?id=...`), and arbitrary web article URLs
+  - **Add Thread**: URL detection routes to the correct service (Reddit via PRAW, HN via Algolia, web via trafilatura + LLM)
+  - **Find More**: Cycles through Reddit sorts, then HN search, then web article search. Only tries sources that were enabled in the original research
+  - **Existing search queries**: The LLM-generated keyword queries from `suggest_subreddits()` drive all three search sources — no additional discovery LLM call needed
+  - **Backward compatible**: `source` defaults to `"reddit"` everywhere. Existing researches display exactly as before
+
 ### 25. Live Progress Feedback
 - **Description**: Replaces static progress bars with a scrolling activity feed and live preview table during research, showing real-time pipeline progress
 - **Location**: `app.py`, `services/scoring_service.py`, `templates/index.html`, `templates/results.html`, `static/js/app.js`, `static/js/tables.js`

@@ -16,16 +16,16 @@
             {% endif %}
         </p>
         {% set settings = research.settings_json | fromjson if research.settings_json else {} %}
-        {% if settings.subreddits %}
+        {% set research_sources = settings.sources if settings.sources else ['reddit'] %}
         <p class="results-meta">
-            Searched in:
-            {% for sub in settings.subreddits %}
-                <a href="https://reddit.com/r/{{ sub }}" target="_blank" style="color: #ff4500;">r/{{ sub }}</a>{% if not loop.last %}, {% endif %}
-            {% endfor %}
+            Sources: {{ research_sources | join(', ') | replace('hackernews', 'Hacker News') | replace('reddit', 'Reddit') | replace('web', 'Web') }}
+            {% if settings.subreddits %}
+                &middot; Subreddits:
+                {% for sub in settings.subreddits %}
+                    <a href="https://reddit.com/r/{{ sub }}" target="_blank" style="color: #ff4500;">r/{{ sub }}</a>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            {% endif %}
         </p>
-        {% else %}
-        <p class="results-meta">Searched across all of Reddit (r/all)</p>
-        {% endif %}
         <div class="results-actions">
             <div class="btn-group-summarize">
                 <button
@@ -83,7 +83,7 @@
                     type="text"
                     id="addThreadUrl"
                     class="add-thread-input"
-                    placeholder="Paste a Reddit thread URL to add it manually..."
+                    placeholder="Paste a Reddit, Hacker News, or article URL..."
                     onkeydown="if(event.key==='Enter') handleAddThread('{{ research_id }}')"
                 />
                 <button class="btn btn-outline" id="addThreadBtn" onclick="handleAddThread('{{ research_id }}')">
@@ -110,6 +110,7 @@
     <!-- Threads Table -->
     <div class="table-section">
         <h3>Threads</h3>
+        <div id="threadsSourceTabs"></div>
         <p class="table-section-meta" id="threadsMeta">Click a thread to filter comments from that thread</p>
         <div id="threadsTableContainer">
             <p class="summary-loading"><span class="spinner spinner-dark"></span> Loading threads...</p>
@@ -119,6 +120,7 @@
     <!-- Comments Table -->
     <div class="table-section">
         <h3>Comments</h3>
+        <div id="commentsSourceTabs"></div>
         <div id="threadFilterBanner" class="thread-filter-banner">
             <span>Showing comments from: <strong id="filterThreadName"></strong></span>
             <span class="thread-filter-clear" onclick="clearThreadFilter()">Show All</span>

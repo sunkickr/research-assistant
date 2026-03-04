@@ -4,7 +4,7 @@ This document describes the engineering design of the Research Assistant applica
 
 ## System Overview
 
-Research Assistant is a Python Flask web application that searches Reddit for comments relevant to a research question, scores them for relevancy using an LLM, and presents results in an interactive UI.
+Research Assistant is a Python Flask web application that searches Reddit, Hacker News, and the web for comments and article excerpts relevant to a research question, scores them for relevancy using an LLM, and presents results in an interactive UI.
 
 ```
 +------------------+       +------------------+       +------------------+
@@ -14,14 +14,14 @@ Research Assistant is a Python Flask web application that searches Reddit for co
 |                  |       |                  |       |                  |
 +------------------+       +--------+---------+       +------------------+
                                     |
-                    +---------------+---------------+
-                    |               |               |
-            +-------v----+  +------v-------+  +----v--------+
-            |            |  |              |  |             |
-            |  OpenAI    |  |   SQLite     |  | DuckDuckGo  |
-            |  API       |  |   Database   |  | Web Search  |
-            |            |  |              |  |  (ddgs)     |
-            +------------+  +--------------+  +-------------+
+                    +------+--------+--------+------+
+                    |      |        |        |      |
+            +-------v--+ +-v------+ +--v---+ +--v--------+ +--v--------+
+            |          | |        | |      | |           | |           |
+            | OpenAI   | | SQLite | | DDG  | | HN Algolia| |trafilatura|
+            | API      | | DB     | | Web  | | API       | | + LLM    |
+            |          | |        | |Search| |           | | (articles)|
+            +----------+ +-------+ +------+ +-----------+ +-----------+
 ```
 
 ## Tech Stack
@@ -32,8 +32,10 @@ Research Assistant is a Python Flask web application that searches Reddit for co
 | Templates | Jinja2 | Server-side HTML rendering |
 | Frontend | Vanilla JS | Client-side interactivity |
 | Reddit API | PRAW 7.8 | Reddit search and comment collection |
-| Web Search | ddgs | DuckDuckGo search for supplementary thread discovery |
-| LLM | OpenAI SDK (GPT-4o-mini) | Subreddit suggestion, thread filtering, comment scoring, summarization |
+| Web Search | ddgs | DuckDuckGo search for supplementary thread and article discovery |
+| Hacker News | requests + HN Algolia API | Story search and comment collection from Hacker News |
+| Article Extraction | trafilatura | Download and extract article text from web URLs |
+| LLM | OpenAI SDK (GPT-4o-mini) | Subreddit suggestion, thread filtering, comment scoring, article quote extraction, summarization |
 | Database | SQLite3 (stdlib) | Persistent data storage |
 | Config | python-dotenv | Environment variable management |
 | Validation | Pydantic | LLM structured output schemas |
@@ -48,7 +50,9 @@ research-assistant/
 │   └── data_models.py        # Python dataclasses for domain objects
 ├── services/
 │   ├── reddit_service.py     # Reddit API wrapper (search, collect, validate subreddits)
-│   ├── web_search_service.py # DuckDuckGo web search for supplementary thread discovery
+│   ├── hn_service.py         # Hacker News Algolia API wrapper (story search, comment collection)
+│   ├── article_service.py    # Web article extraction (trafilatura) + LLM quote extraction
+│   ├── web_search_service.py # DuckDuckGo web search for thread and article discovery
 │   ├── llm_provider.py       # Abstract LLM interface + OpenAI implementation
 │   ├── scoring_service.py    # Subreddit suggestion, thread scoring, comment scoring
 │   ├── summary_service.py    # Research summarization
@@ -86,34 +90,37 @@ The core data flow when a user submits a research question:
    └─► Background Thread Pipeline:
        │
        ├─► [If seed_urls provided] SEED THREAD PATH:
-       │   └─► Fetch each URL's thread directly via PRAW (skip stages 1–2)
+       │   └─► For each URL: detect source (Reddit, HN, or web article)
+       │   └─► Reddit: fetch via PRAW; HN: fetch via Algolia API; Web: trafilatura extract + LLM quotes
        │   └─► Save threads to SQLite
        │   └─► SSE: "Loaded N thread(s) — collecting comments..."
        │   └─► ─── jump to Stage 3 ───►
        │
        ├─► [Normal path] Stage 1: SUBREDDIT DISCOVERY
        │   └─► LLM: suggest 4-8 relevant subreddits + 2-4 search query variants
-       │   └─► PRAW: validate each subreddit exists
+       │   └─► PRAW: validate each subreddit exists (if Reddit source enabled)
        │   └─► Store validated subreddits in settings_json
        │   └─► SSE: "Searching in r/sub1, r/sub2, ..."
        │
-       ├─► [Normal path] Stage 2: THREAD DISCOVERY (two sources, merged)
-       │   ├─► Source A: PRAW search within validated subreddits (or r/all)
-       │   └─► Source B: DuckDuckGo web search using LLM-generated keyword queries
-       │       └─► Broad site:reddit.com search + per-subreddit searches
-       │       └─► Extract thread IDs from URLs, fetch via PRAW
-       │   └─► Merge and deduplicate by thread ID
-       │   └─► SSE: "Found N threads total (M from web search)"
+       ├─► [Normal path] Stage 2: THREAD DISCOVERY (multi-source, conditional)
+       │   ├─► [if reddit] Source A: PRAW search + DuckDuckGo site:reddit.com search
+       │   ├─► [if hackernews] Source B: HN Algolia story search using keyword queries
+       │   └─► [if web] Source C: DuckDuckGo article search (non-Reddit, non-HN)
+       │       └─► For each URL: trafilatura extract + LLM quote extraction (cached)
+       │   └─► Merge all sources and deduplicate by thread ID
+       │   └─► SSE: "Found N threads total"
        │
        ├─► [Normal path] Stage 2a: THREAD FILTERING
-       │   └─► LLM: score each thread title/description 1-10
+       │   └─► LLM: score each thread title/description 1-10 (source-aware)
        │   └─► Keep only threads scoring >= 6
        │   └─► Save relevant threads to SQLite
        │   └─► SSE: "N of M threads are relevant"
        │
-       ├─► Stage 3: COMMENT COLLECTION
-       │   └─► For each relevant thread: PRAW submission.comments.list()
-       │   └─► Filter deleted/removed; sort all collected comments by Reddit score desc
+       ├─► Stage 3: COMMENT COLLECTION (dispatched by source)
+       │   └─► Reddit threads: PRAW submission.comments.list()
+       │   └─► HN threads: Algolia items API → flatten comment tree
+       │   └─► Web threads: retrieve cached LLM-extracted quotes
+       │   └─► Filter deleted/removed; sort all collected comments by score desc
        │   └─► Apply per-thread cap (default 100), keeping highest-scored comments
        │   └─► Apply total cap (750 across all threads), keeping highest-scored
        │   └─► SSE: "Collecting comments from thread N/M"
@@ -137,17 +144,19 @@ The core data flow when a user submits a research question:
 User clicks "Find More Comments"
    │
    ├─► POST /api/research/{id}/expand
-   │   └─► Picks next unused sort strategy (top → new → controversial → hot)
+   │   └─► Picks next unused sort strategy (top → new → controversial → hot → hn → web)
+   │   └─► Only offers sorts for sources enabled in the original research
    │   └─► Spawns background thread
    │
    ├─► Browser opens SSE: GET /api/research/{id}/expand/stream
    │
-   └─► Expand Pipeline:
-       ├─► Reddit API search with next sort strategy
-       ├─► DuckDuckGo web search with "{question} {sort}"
+   └─► Expand Pipeline (dispatched by sort type):
+       ├─► Reddit sorts (top/new/controversial/hot): Reddit API search + DDG web search
+       ├─► "hn": HN Algolia story search using keyword queries
+       ├─► "web": DDG article search → trafilatura extract → LLM quotes
        ├─► Merge, deduplicate against already-collected thread IDs
        ├─► LLM thread scoring → keep relevant new threads
-       ├─► Collect + score comments from new threads
+       ├─► Collect + score comments from new threads (dispatched by source)
        ├─► Save to SQLite, recalculate counts, export CSV
        └─► SSE: "complete" → browser reloads tables
 ```
@@ -155,20 +164,21 @@ User clicks "Find More Comments"
 ### Add Thread Manually Flow
 
 ```
-User pastes a Reddit URL and clicks "Add Thread"
+User pastes a URL (Reddit, HN, or web article) and clicks "Add Thread"
    │
    ├─► POST /api/research/{id}/add-thread
-   │   └─► Parse thread ID from URL (supports reddit.com and redd.it links)
+   │   └─► Detect source from URL (Reddit, HN, or web article fallback)
    │   └─► Check if thread already exists in this research
    │       └─► If exists: return {already_exists: true, message: "..."}
    │   └─► Spawns background thread
    │
    ├─► Browser opens SSE: GET /api/research/{id}/add-thread/stream
    │
-   └─► Add-Thread Pipeline:
-       ├─► Fetch full thread details via PRAW
+   └─► Add-Thread Pipeline (dispatched by source):
+       ├─► Reddit: fetch via PRAW, collect comments
+       ├─► HN: fetch via Algolia items API, flatten comment tree
+       ├─► Web: trafilatura extract, LLM quote extraction
        ├─► Save thread to SQLite
-       ├─► Collect comments (up to max_comments_per_thread)
        ├─► Score comments via LLM
        ├─► Save to SQLite, recalculate counts, export CSV
        └─► SSE: "complete" → browser reloads tables
@@ -284,34 +294,36 @@ researches
 ├── created_at TEXT
 ├── completed_at TEXT
 └── settings_json TEXT               -- JSON: {max_threads, max_comments, time_filter,
-                                     --        subreddits, sorts_tried}
+                                     --        subreddits, sorts_tried, sources}
 
 threads
-├── id TEXT                          -- Reddit submission ID
+├── id TEXT                          -- Thread ID (Reddit submission ID, hn_{id}, or web_{hash})
 ├── research_id TEXT (FK)
 ├── title TEXT
-├── subreddit TEXT
-├── score INTEGER                    -- Reddit score (net upvotes)
+├── subreddit TEXT                   -- Subreddit name, "Hacker News", or domain name
+├── score INTEGER                    -- Upvotes/points
 ├── num_comments INTEGER
 ├── url TEXT
 ├── permalink TEXT
 ├── selftext TEXT                    -- Post body (truncated to 500 chars)
 ├── created_utc REAL
 ├── author TEXT
+├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web"
 └── PRIMARY KEY (id, research_id)
 
 comments
-├── id TEXT                          -- Reddit comment ID
+├── id TEXT                          -- Comment ID (Reddit ID, hn_{id}, or {thread_id}_q{n})
 ├── research_id TEXT (FK)
 ├── thread_id TEXT (FK)
 ├── author TEXT
 ├── body TEXT
-├── score INTEGER                    -- Reddit score (net upvotes)
+├── score INTEGER                    -- Upvotes/points
 ├── created_utc REAL
 ├── depth INTEGER                    -- Nesting depth in thread
 ├── permalink TEXT
 ├── relevancy_score INTEGER          -- AI score 1-10; NULL if scoring failed (batch timeout/error)
 ├── reasoning TEXT                   -- AI explanation; "Not scored — API timeout or error" if NULL
+├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web"
 └── PRIMARY KEY (id, research_id)
 ```
 
@@ -351,9 +363,14 @@ This is appropriate for a single-user local application. For production multi-us
 - Per research: 1 subreddit suggestion + 1 thread scoring + ~38 comment scoring batches + (optionally) 1 summary
 - Estimated cost: $0.02–0.05 per research query
 
+### Hacker News Algolia API
+- No API key required, 10,000 requests/hour
+- Typical research: 2-4 search queries + up to 10 item fetches for comment trees
+
 ### DuckDuckGo
 - No API key required, no rate limit tier for reasonable use
 - Runs up to `len(queries) × (1 + len(subreddits))` search requests per pipeline execution
+- Also used for web article discovery (non-Reddit, non-HN URLs)
 
 ## Frontend Architecture
 
@@ -367,7 +384,7 @@ base.html (shared layout)
 
 index.html (landing page)
 ├── Search form with settings
-│   ├── Collapsible settings panel (max threads, max comments, time range)
+│   ├── Collapsible settings panel (source checkboxes, max threads, max comments, time range)
 │   └── Collapsible seed threads panel (optional URLs to bypass discovery)
 ├── Progress display (hidden, shown during research)
 └── Error display (hidden, shown on error)
@@ -378,8 +395,8 @@ results.html (results page)
 ├── Expand progress bar (hidden, shown during expansion)
 ├── Add Thread input + progress bar
 ├── Summary section (hidden until generated)
-├── Threads table (with Remove button per row)
-└── Comments table with pagination
+├── Threads table (with source tabs and Remove button per row)
+└── Comments table with source tabs and pagination
 ```
 
 JavaScript is split into two files:

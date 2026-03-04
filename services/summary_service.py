@@ -2,7 +2,7 @@ from typing import List
 from models.data_models import ScoredComment
 from services.llm_provider import LLMProvider
 
-SUMMARY_SYSTEM_PROMPT = """You are a research summarizer. You will receive a research question and a collection of Reddit comments. Each comment has an ID, permalink, relevancy score, and upvote count.
+SUMMARY_SYSTEM_PROMPT = """You are a research summarizer. You will receive a research question and a collection of comments and article excerpts from various sources (Reddit, Hacker News, web articles). Each item has an ID, source, relevancy score, and upvote count.
 
 Structure your response exactly as follows:
 
@@ -90,7 +90,7 @@ class SummaryService:
             return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
 
         comments_text = "\n\n".join(
-            f"[ID: {c.id} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
+            f"[ID: {c.id} | Source: {c.source} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
             for c in top_comments
         )
         user_prompt = (

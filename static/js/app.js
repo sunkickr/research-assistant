@@ -20,6 +20,16 @@ async function handleResearchSubmit(e) {
     const seedRaw = document.getElementById('seedThreadUrls')?.value || '';
     const seedUrls = seedRaw.split('\n').map(u => u.trim()).filter(u => u.length > 0);
 
+    // Collect selected sources
+    const sources = [];
+    if (document.getElementById('sourceReddit')?.checked) sources.push('reddit');
+    if (document.getElementById('sourceHN')?.checked) sources.push('hackernews');
+    if (document.getElementById('sourceWeb')?.checked) sources.push('web');
+    if (sources.length === 0) {
+        alert('Please select at least one search source.');
+        return;
+    }
+
     // Hide search, show progress
     document.getElementById('searchSection').style.display = 'none';
     document.getElementById('progressSection').style.display = 'block';
@@ -34,6 +44,7 @@ async function handleResearchSubmit(e) {
                 max_comments_per_thread: parseInt(maxComments),
                 time_filter: timeFilter,
                 seed_urls: seedUrls,
+                sources: sources,
             }),
         });
 

@@ -4,8 +4,16 @@ from ddgs import DDGS
 from models.data_models import RedditThread
 
 
+EXCLUDED_DOMAINS = {
+    "reddit.com", "www.reddit.com", "old.reddit.com",
+    "news.ycombinator.com",
+    "youtube.com", "www.youtube.com",
+    "twitter.com", "x.com",
+}
+
+
 class WebSearchService:
-    """Discovers Reddit threads via DuckDuckGo web search (site:reddit.com)."""
+    """Discovers Reddit threads via DuckDuckGo web search, and web articles."""
 
     def __init__(self, reddit_instance):
         """Takes a praw.Reddit instance to fetch full thread details."""
@@ -90,3 +98,43 @@ class WebSearchService:
             except Exception:
                 continue
         return threads
+
+    def search_web_articles(
+        self,
+        queries: List[str],
+        max_results: int = 8,
+    ) -> List[str]:
+        """
+        Search DuckDuckGo for web articles (non-Reddit, non-HN).
+        Returns a deduplicated list of URLs for ArticleService to process.
+        """
+        from urllib.parse import urlparse
+
+        ddgs = DDGS(verify=False)
+        seen_urls = set()
+        urls = []
+
+        for query in queries:
+            if len(urls) >= max_results:
+                break
+            try:
+                results = ddgs.text(query, max_results=max_results)
+            except Exception:
+                continue
+
+            for r in results:
+                href = r.get("href", "")
+                if not href:
+                    continue
+                domain = urlparse(href).netloc.lower()
+                # Skip Reddit, HN, and social media — those have their own services
+                if any(excl in domain for excl in EXCLUDED_DOMAINS):
+                    continue
+                if href in seen_urls:
+                    continue
+                seen_urls.add(href)
+                urls.append(href)
+                if len(urls) >= max_results:
+                    break
+
+        return urls

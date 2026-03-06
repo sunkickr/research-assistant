@@ -63,7 +63,7 @@ class SummaryService:
 
     def summarize(
         self, question: str, comments: List[ScoredComment], min_relevancy: int = 4,
-        user_feedback: str = None,
+        user_feedback: str = None, threads: list = None,
     ) -> str:
         """
         Generate a summary of relevant comments.
@@ -71,6 +71,7 @@ class SummaryService:
         sorts by effective relevancy * upvotes to surface the best content.
         User relevancy supersedes AI relevancy when set.
         Optionally incorporates user feedback about what to focus on.
+        Optionally includes thread post bodies as primary source material.
         """
         relevant = [c for c in comments if self._effective_relevancy(c) >= min_relevancy]
 
@@ -93,9 +94,25 @@ class SummaryService:
             f"[ID: {c.id} | Source: {c.source} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
             for c in top_comments
         )
+
+        # Build post bodies preamble from threads with non-empty selftext
+        posts_preamble = ""
+        if threads:
+            posts_with_body = [t for t in threads if (t.get("selftext") or "").strip()]
+            if posts_with_body:
+                posts_lines = "\n\n".join(
+                    f"[Post: {t['title']}] by {t.get('author', '')}\n{t['selftext'][:1500]}"
+                    for t in posts_with_body[:10]
+                )
+                posts_preamble = (
+                    f"Thread Post Bodies (original posts — treat as primary source material):\n\n"
+                    f"{posts_lines}\n\n---\n\n"
+                )
+
         user_prompt = (
             f"Research Question: {question}\n\n"
-            f"Total comments analyzed: {len(comments)}\n"
+            + posts_preamble
+            + f"Total comments analyzed: {len(comments)}\n"
             f"Comments meeting relevancy threshold ({min_relevancy}+): {len(relevant)}\n\n"
             f"Top scored comments:\n{comments_text}"
         )

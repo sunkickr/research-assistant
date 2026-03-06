@@ -270,13 +270,34 @@ function filterByThread(threadId, threadTitle) {
     activeThreadFilter = threadId;
     document.getElementById('filterThreadName').textContent = threadTitle;
     document.getElementById('threadFilterBanner').classList.add('visible');
+    const thread = allThreads.find(t => t.id === threadId);
+    renderPostBodyPanel(thread);
     applyFilters();
 }
 
 function clearThreadFilter() {
     activeThreadFilter = null;
     document.getElementById('threadFilterBanner').classList.remove('visible');
+    document.getElementById('postBodyPanel').style.display = 'none';
     applyFilters();
+}
+
+function renderPostBodyPanel(thread) {
+    const panel = document.getElementById('postBodyPanel');
+    if (!thread || !(thread.selftext || '').trim()) {
+        panel.style.display = 'none';
+        return;
+    }
+    const date = thread.created_utc ? formatDate(thread.created_utc) : '';
+    const authorLabel = thread.source === 'hackernews' ? thread.author : `u/${thread.author}`;
+    panel.innerHTML =
+        `<div class="post-body-header">` +
+            `<span class="post-body-author">${escapeHtml(authorLabel)}</span>` +
+            (date ? `<span class="post-body-date">${date}</span>` : '') +
+            `<a class="post-body-link" href="${escapeHtml(thread.permalink)}" target="_blank" rel="noopener">View post &#8599;</a>` +
+        `</div>` +
+        `<div class="post-body-text">${escapeHtml(thread.selftext)}</div>`;
+    panel.style.display = 'block';
 }
 
 function toggleUnscoredFilter() {

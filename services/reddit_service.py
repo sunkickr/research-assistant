@@ -59,7 +59,7 @@ class RedditService:
                 num_comments=submission.num_comments,
                 url=submission.url,
                 permalink=f"https://reddit.com{submission.permalink}",
-                selftext=(submission.selftext or "")[:500],
+                selftext=(submission.selftext or "")[:2000],
                 created_utc=submission.created_utc,
                 author=str(submission.author) if submission.author else "[deleted]",
             )

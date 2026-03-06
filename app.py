@@ -195,7 +195,7 @@ def run_research_pipeline(
                             num_comments=sub.num_comments,
                             url=sub.url,
                             permalink=f"https://reddit.com{sub.permalink}",
-                            selftext=(sub.selftext or "")[:500],
+                            selftext=(sub.selftext or "")[:2000],
                             created_utc=sub.created_utc,
                             author=str(sub.author) if sub.author else "[deleted]",
                         )
@@ -223,7 +223,7 @@ def run_research_pipeline(
                                 num_comments=len(item.get("children", [])),
                                 url=item.get("url") or f"https://news.ycombinator.com/item?id={numeric_id}",
                                 permalink=f"https://news.ycombinator.com/item?id={numeric_id}",
-                                selftext=(item.get("text") or "")[:500],
+                                selftext=(item.get("text") or "")[:2000],
                                 created_utc=float(item.get("created_at_i") or 0),
                                 author=item.get("author") or "",
                                 source="hackernews",
@@ -544,7 +544,8 @@ def summarize(research_id):
     comments_data = storage_svc.get_comments(research_id)
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
     comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
-    summary = summary_svc.summarize(research["question"], comments, user_feedback=user_feedback)
+    threads_data = storage_svc.get_threads(research_id)
+    summary = summary_svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data)
     storage_svc.save_summary(research_id, summary)
     return jsonify(summary=summary)
 
@@ -980,7 +981,7 @@ def run_add_thread_pipeline(
                 num_comments=len(item.get("children", [])),
                 url=item.get("url") or f"https://news.ycombinator.com/item?id={numeric_id}",
                 permalink=f"https://news.ycombinator.com/item?id={numeric_id}",
-                selftext=(item.get("text") or "")[:500],
+                selftext=(item.get("text") or "")[:2000],
                 created_utc=float(item.get("created_at_i") or 0),
                 author=item.get("author") or "",
                 source="hackernews",
@@ -1023,7 +1024,7 @@ def run_add_thread_pipeline(
                 num_comments=sub.num_comments,
                 url=sub.url,
                 permalink=f"https://reddit.com{sub.permalink}",
-                selftext=(sub.selftext or "")[:500],
+                selftext=(sub.selftext or "")[:2000],
                 created_utc=sub.created_utc,
                 author=str(sub.author) if sub.author else "[deleted]",
             )

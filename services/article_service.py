@@ -141,7 +141,7 @@ class ArticleService:
             num_comments=0,
             url=url,
             permalink=url,
-            selftext=body[:500],
+            selftext=body[:2000],
             created_utc=0,
             author=domain,
             source="web",

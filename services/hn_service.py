@@ -51,7 +51,7 @@ class HNService:
                         num_comments=hit.get("num_comments") or 0,
                         url=hit.get("url") or f"https://news.ycombinator.com/item?id={story_id}",
                         permalink=f"https://news.ycombinator.com/item?id={story_id}",
-                        selftext=(hit.get("story_text") or "")[:500],
+                        selftext=(hit.get("story_text") or "")[:2000],
                         created_utc=0,  # Will be set below if available
                         author=hit.get("author") or "",
                         source="hackernews",

@@ -623,7 +623,7 @@ def get_archived():
 
 @app.route("/api/research/<research_id>/expand", methods=["POST"])
 def expand_research(research_id):
-    """Start a 'Find More Comments' expansion using the next sort order."""
+    """Start a 'Find More Comments & Articles' expansion across selected sources."""
     research = storage_svc.get_research(research_id)
     if not research:
         return jsonify(error="Not found"), 404
@@ -633,116 +633,128 @@ def expand_research(research_id):
     sorts_tried = settings.get("sorts_tried", [])
     time_filter = settings.get("time_filter", "all")
     max_comments = settings.get("max_comments_per_thread", config.DEFAULT_MAX_COMMENTS_PER_THREAD)
-
-    # Pick the next unused sort order, respecting enabled sources
     research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
-    available_sorts = []
-    for s in EXPAND_SORTS:
-        if s == "hn" and "hackernews" not in research_sources:
-            continue
-        if s == "web" and "web" not in research_sources:
-            continue
-        if s not in ("hn", "web") and "reddit" not in research_sources:
-            continue
-        available_sorts.append(s)
-    next_sort = next((s for s in available_sorts if s not in sorts_tried), None)
-    if next_sort is None:
-        return jsonify(error="All search strategies have been tried for this query."), 400
+
+    # Determine which sources the user wants to search this click
+    req_body = request.get_json(silent=True) or {}
+    requested_sources = req_body.get("sources", ["reddit", "hackernews", "web"])
+
+    # Build list of tasks to run for this click (multi-source)
+    tasks = []
+    # Reddit: pick next unused Reddit sort
+    if "reddit" in requested_sources and "reddit" in research_sources:
+        reddit_sorts = [s for s in ["top", "new", "controversial", "hot"] if s not in sorts_tried]
+        if reddit_sorts:
+            tasks.append(reddit_sorts[0])
+    # HN: try once if not already tried
+    if "hackernews" in requested_sources and "hackernews" in research_sources and "hn" not in sorts_tried:
+        tasks.append("hn")
+    # Web: try once if not already tried
+    if "web" in requested_sources and "web" in research_sources and "web" not in sorts_tried:
+        tasks.append("web")
+
+    if not tasks:
+        return jsonify(error="All search strategies have been tried for the selected sources."), 400
 
     q: queue.Queue = queue.Queue()
     expand_queues[research_id] = q
 
     t = threading.Thread(
         target=run_expand_pipeline,
-        args=(research_id, research["question"], subreddits, next_sort, time_filter, max_comments, q),
+        args=(research_id, research["question"], subreddits, tasks, time_filter, max_comments, q),
         daemon=True,
     )
     t.start()
 
-    return jsonify(sort_used=next_sort)
+    return jsonify(sorts_used=tasks)
 
 
 def run_expand_pipeline(
     research_id: str,
     question: str,
     subreddits,
-    sort: str,
+    sorts: list,
     time_filter: str,
     max_comments: int,
     q: queue.Queue,
 ):
-    """Background task that finds more threads and merges results."""
+    """Background task that finds more threads across multiple sources and merges results."""
     try:
         existing_thread_ids = storage_svc.get_existing_thread_ids(research_id)
-        settings = storage_svc.get_settings(research_id)
-        research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
 
         candidates = []
+        seen_candidate_ids = set()
+        discovery_step = max(1, 13 // len(sorts))
 
-        if sort == "hn":
-            # Hacker News expansion
-            q.put({
-                "stage": "searching",
-                "message": "Searching Hacker News for more discussions...",
-                "progress": 5,
-            })
-            _, search_queries = scoring_svc.suggest_subreddits(question)
-            web_queries = search_queries if search_queries else [question]
-            candidates = hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES)
+        for task_idx, sort in enumerate(sorts):
+            base_pct = 5 + task_idx * discovery_step
 
-        elif sort == "web":
-            # Web article expansion
-            q.put({
-                "stage": "searching",
-                "message": "Searching the web for more articles...",
-                "progress": 5,
-            })
-            _, search_queries = scoring_svc.suggest_subreddits(question)
-            web_queries = search_queries if search_queries else [question]
-            article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES)
-            for url in article_urls:
-                result = article_svc.fetch_article(url)
-                if result:
-                    title, body = result
-                    thread = article_svc.make_thread(url, title, body)
-                    article_svc.extract_quotes(thread.id, url, title, body, question)
-                    candidates.append(thread)
+            if sort == "hn":
+                q.put({
+                    "stage": "searching",
+                    "message": "Searching Hacker News for more discussions...",
+                    "progress": base_pct,
+                })
+                _, search_queries = scoring_svc.suggest_subreddits(question)
+                web_queries = search_queries if search_queries else [question]
+                for thd in hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES):
+                    if thd.id not in seen_candidate_ids:
+                        candidates.append(thd)
+                        seen_candidate_ids.add(thd.id)
 
-        else:
-            # Reddit expansion (existing behavior)
-            subreddit_label = (
-                ", ".join(f"r/{s}" for s in subreddits) if subreddits else "all of Reddit"
-            )
-            q.put({
-                "stage": "searching",
-                "message": f"Searching {subreddit_label} sorted by {sort}...",
-                "progress": 5,
-            })
-            candidates = list(
-                reddit_svc.search_threads(
-                    question,
-                    max_threads=config.MAX_THREADS_LIMIT,
-                    time_filter=time_filter,
-                    sort=sort,
-                    subreddits=subreddits,
+            elif sort == "web":
+                q.put({
+                    "stage": "searching",
+                    "message": "Searching the web for more articles...",
+                    "progress": base_pct,
+                })
+                _, search_queries = scoring_svc.suggest_subreddits(question)
+                web_queries = search_queries if search_queries else [question]
+                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES)
+                for url in article_urls:
+                    result = article_svc.fetch_article(url)
+                    if result:
+                        title, article_body = result
+                        thd = article_svc.make_thread(url, title, article_body)
+                        article_svc.extract_quotes(thd.id, url, title, article_body, question)
+                        if thd.id not in seen_candidate_ids:
+                            candidates.append(thd)
+                            seen_candidate_ids.add(thd.id)
+
+            else:
+                # Reddit sort
+                subreddit_label = (
+                    ", ".join(f"r/{s}" for s in subreddits) if subreddits else "all of Reddit"
                 )
-            )
-            q.put({
-                "stage": "searching",
-                "message": f"Searching the web for more Reddit threads...",
-                "progress": 12,
-            })
-            web_threads = web_search_svc.search_reddit_threads(
-                [f"{question} {sort}"], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
-            )
-            seen_ids = {t.id for t in candidates}
-            for wt in web_threads:
-                if wt.id not in seen_ids:
-                    candidates.append(wt)
-                    seen_ids.add(wt.id)
+                q.put({
+                    "stage": "searching",
+                    "message": f"Searching {subreddit_label} sorted by {sort}...",
+                    "progress": base_pct,
+                })
+                reddit_threads = list(
+                    reddit_svc.search_threads(
+                        question,
+                        max_threads=config.MAX_THREADS_LIMIT,
+                        time_filter=time_filter,
+                        sort=sort,
+                        subreddits=subreddits,
+                    )
+                )
+                q.put({
+                    "stage": "searching",
+                    "message": "Searching the web for more Reddit threads...",
+                    "progress": base_pct + max(1, discovery_step // 2),
+                })
+                web_reddit_threads = web_search_svc.search_reddit_threads(
+                    [f"{question} {sort}"], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
+                )
+                for thd in reddit_threads + web_reddit_threads:
+                    if thd.id not in seen_candidate_ids:
+                        candidates.append(thd)
+                        seen_candidate_ids.add(thd.id)
 
         # Remove threads already collected
-        new_threads = [t for t in candidates if t.id not in existing_thread_ids]
+        new_threads = [thd for thd in candidates if thd.id not in existing_thread_ids]
         q.put({
             "stage": "searching",
             "message": f"Found {len(new_threads)} new threads — filtering for relevancy...",
@@ -750,9 +762,8 @@ def run_expand_pipeline(
         })
 
         if not new_threads:
-            storage_svc.update_settings(research_id, {
-                "sorts_tried": storage_svc.get_settings(research_id).get("sorts_tried", []) + [sort]
-            })
+            current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
+            storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
             q.put({"stage": "complete", "message": "No new threads found with this strategy.", "progress": 100})
             return
 
@@ -765,8 +776,6 @@ def run_expand_pipeline(
             "threads_relevant": len(relevant_threads),
             "threads_total": len(new_threads),
         })
-        # Note: threads are saved after scoring completes so they only appear
-        # in the UI once their comments are also ready.
 
         # Collect comments (dispatch by source)
         all_comments = []
@@ -804,9 +813,8 @@ def run_expand_pipeline(
         })
 
         if not all_comments:
-            storage_svc.update_settings(research_id, {
-                "sorts_tried": storage_svc.get_settings(research_id).get("sorts_tried", []) + [sort]
-            })
+            current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
+            storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
             q.put({"stage": "complete", "message": "No new comments found.", "progress": 100})
             return
 
@@ -826,11 +834,10 @@ def run_expand_pipeline(
         storage_svc.save_threads(research_id, relevant_threads)
         storage_svc.save_scored_comments(research_id, scored)
 
-        # Update counts and mark this sort as tried
+        # Update counts and mark all sorts as tried
         storage_svc.recalculate_counts(research_id)
-        settings = storage_svc.get_settings(research_id)
-        sorts_tried = settings.get("sorts_tried", []) + [sort]
-        storage_svc.update_settings(research_id, {"sorts_tried": sorts_tried})
+        current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
+        storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
         storage_svc.export_csv(research_id)
 
         q.put({"stage": "complete", "message": f"Added {len(scored)} new comments!", "progress": 100})
@@ -885,10 +892,15 @@ def expand_status(research_id):
             continue
         available_sorts.append(s)
     remaining = [s for s in available_sorts if s not in sorts_tried]
+    reddit_remaining = [s for s in ["top", "new", "controversial", "hot"] if s in remaining]
     return jsonify(
         can_expand=len(remaining) > 0,
         next_sort=remaining[0] if remaining else None,
         sorts_tried=sorts_tried,
+        research_sources=research_sources,
+        reddit_exhausted=len(reddit_remaining) == 0,
+        hn_exhausted="hn" not in remaining,
+        web_exhausted="web" not in remaining,
     )
 
 

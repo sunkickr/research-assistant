@@ -52,8 +52,8 @@ function renderThreadsTable() {
     const meta = document.getElementById('threadsMeta');
     if (meta) {
         meta.textContent = sorted.length > 0
-            ? `${sorted.length} thread${sorted.length === 1 ? '' : 's'} collected · Click a thread to filter comments`
-            : 'Click a thread to filter comments from that thread';
+            ? `${sorted.length} thread${sorted.length === 1 ? '' : 's'} collected · Click a thread to filter comments and see the full post`
+            : 'Click a thread to filter comments and see the full post';
     }
 
     if (sorted.length === 0) {

@@ -402,7 +402,10 @@ async function handleAddThread(researchId) {
     }
 }
 
-// ===== Find More Comments =====
+// ===== Find More Comments & Articles =====
+
+// Per-source config state for the find-more configure panel
+let expandSourceConfig = { reddit: true, hackernews: true, web: true };
 
 async function checkExpandStatus(researchId) {
     try {
@@ -410,11 +413,47 @@ async function checkExpandStatus(researchId) {
         const data = await resp.json();
         const btn = document.getElementById('findMoreBtn');
         if (!btn) return;
+
+        // Initialize configure checkboxes from status
+        const researchSources = data.research_sources || ['reddit', 'hackernews', 'web'];
+        _initExpandConfig(researchSources, data);
+
         if (!data.can_expand) {
             btn.disabled = true;
             btn.title = 'All search strategies have been tried for this query';
+            const cfgBtn = document.getElementById('findMoreConfigBtn');
+            if (cfgBtn) cfgBtn.disabled = true;
         }
     } catch (_) {}
+}
+
+function _initExpandConfig(researchSources, statusData) {
+    _configureCheckbox('fmReddit', 'fmRedditLabel', 'reddit', researchSources, statusData.reddit_exhausted);
+    _configureCheckbox('fmHN', 'fmHNLabel', 'hackernews', researchSources, statusData.hn_exhausted);
+    _configureCheckbox('fmWeb', 'fmWebLabel', 'web', researchSources, statusData.web_exhausted);
+}
+
+function _configureCheckbox(cbId, labelId, source, researchSources, exhausted) {
+    const cb = document.getElementById(cbId);
+    const label = document.getElementById(labelId);
+    if (!cb || !label) return;
+    const enabled = researchSources.includes(source);
+    const available = enabled && !exhausted;
+    cb.checked = available;
+    cb.disabled = !available;
+    label.style.opacity = available ? '1' : '0.45';
+    expandSourceConfig[source] = available;
+    // Remove old listeners by cloning, then re-add
+    const newCb = cb.cloneNode(true);
+    cb.parentNode.replaceChild(newCb, cb);
+    newCb.addEventListener('change', () => { expandSourceConfig[source] = newCb.checked; });
+}
+
+function toggleFindMoreConfig(event) {
+    event.stopPropagation();
+    const panel = document.getElementById('findMoreConfig');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
 // ===== Archive Research =====
@@ -456,11 +495,17 @@ function hideArchiveConfirm() {
     _pendingArchiveId = null;
 }
 
-// Close popover when clicking elsewhere
+// Close popovers when clicking elsewhere
 document.addEventListener('click', (e) => {
     const popover = document.getElementById('archiveConfirm');
     if (popover && popover.style.display === 'block' && !popover.contains(e.target)) {
         hideArchiveConfirm();
+    }
+    const findMoreConfig = document.getElementById('findMoreConfig');
+    if (findMoreConfig && findMoreConfig.style.display === 'block'
+            && !findMoreConfig.contains(e.target)
+            && e.target.id !== 'findMoreConfigBtn') {
+        findMoreConfig.style.display = 'none';
     }
 });
 
@@ -542,9 +587,11 @@ async function permanentlyDelete(researchId) {
     }
 }
 
-// ===== Find More Comments =====
-
 async function handleFindMore(researchId) {
+    // Close configure panel if open
+    const configPanel = document.getElementById('findMoreConfig');
+    if (configPanel) configPanel.style.display = 'none';
+
     const btn = document.getElementById('findMoreBtn');
     const progressEl = document.getElementById('expandProgress');
     const progressBar = document.getElementById('expandProgressBar');
@@ -554,12 +601,18 @@ async function handleFindMore(researchId) {
     progressEl.style.display = 'block';
     progressBar.style.width = '0%';
 
+    const selectedSources = Object.keys(expandSourceConfig).filter(k => expandSourceConfig[k]);
+
     try {
-        const resp = await fetch(`/api/research/${researchId}/expand`, { method: 'POST' });
+        const resp = await fetch(`/api/research/${researchId}/expand`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sources: selectedSources }),
+        });
         if (!resp.ok) {
             const data = await resp.json();
             progressEl.style.display = 'none';
-            btn.innerHTML = 'Find More Comments';
+            btn.innerHTML = 'Find More Comments &amp; Articles';
             btn.disabled = true;
             btn.title = data.error || 'No more search strategies available';
             return;
@@ -585,7 +638,7 @@ async function handleFindMore(researchId) {
                 es.close();
                 if (feedEl) completeFeed(feedEl);
                 progressEl.style.display = 'none';
-                btn.innerHTML = 'Find More Comments';
+                btn.innerHTML = 'Find More Comments &amp; Articles';
                 // Reload tables with new data
                 loadResults(researchId);
                 // Check if more expansions are still possible
@@ -593,19 +646,19 @@ async function handleFindMore(researchId) {
             } else if (data.stage === 'error') {
                 es.close();
                 progressEl.style.display = 'none';
-                btn.innerHTML = 'Find More Comments';
+                btn.innerHTML = 'Find More Comments &amp; Articles';
                 btn.disabled = false;
             }
         };
         es.onerror = () => {
             es.close();
             progressEl.style.display = 'none';
-            btn.innerHTML = 'Find More Comments';
+            btn.innerHTML = 'Find More Comments &amp; Articles';
             btn.disabled = false;
         };
     } catch (err) {
         progressEl.style.display = 'none';
-        btn.innerHTML = 'Find More Comments';
+        btn.innerHTML = 'Find More Comments &amp; Articles';
         btn.disabled = false;
     }
 }

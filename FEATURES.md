@@ -72,14 +72,17 @@ This document tracks all features and their functionality. Update this file when
 
 ### 7. AI Summary Generation
 - **Description**: Generates a comprehensive summary of research findings
-- **Location**: `services/summary_service.py`
+- **Location**: `services/summary_service.py`, `static/js/app.js` - `renderSummary()`
 - **Details**:
   - Triggered by user clicking "Summarize Comments" button
   - Filters to comments with relevancy score >= 4
   - Weights by `relevancy_score * max(upvotes, 1)` to surface best content
   - Sends top 50 comments to GPT-4o-mini for summarization
-  - Summary includes: common themes, key insights, disagreements, fact vs opinion separation, consensus
-  - Summary is saved and persists across sessions
+  - Summary includes: Key Takeaways, thematic sections directly answering the question, Conclusion
+  - LLM embeds `[#comment_id]` citation markers inline throughout the summary text
+  - **Numbered citations**: `renderSummary()` resolves `[#id]` markers into numbered superscript links `[1]`, `[2]` etc. (in appearance order), each linking to the original source
+  - **Sources section**: A "Sources" panel is appended below the summary listing every cited comment with its number, source badge (Reddit/HN/Web), author, 150-char snippet, and permalink link
+  - Summary is saved and persists across sessions; citations re-resolve from live `allComments` data on every render
   - Can be regenerated with "Regenerate Summary" button
 
 ## Data Features
@@ -138,10 +141,10 @@ This document tracks all features and their functionality. Update this file when
 - **Details**:
   - Columns: Title, Subreddit, Score, Comments, Date, Link, Remove
   - Sortable by clicking column headers (with sort direction indicators)
-  - Live thread count shown above the table ("N threads collected · Click a thread to filter comments")
-  - Clickable rows filter the Comments table to show only that thread's comments
-  - Toggle off filter by clicking the same thread again
-  - External "View" links open the thread on Reddit
+  - Live thread count shown above the table ("N threads collected · Click a thread to filter comments and see the full post")
+  - **Post body panel**: Clicking a thread row expands a panel below the table showing the full post body/selftext, author, and a link to the original — allows reading the original post without leaving the app
+  - Toggle off filter by clicking the same thread again (panel collapses)
+  - External "View" links open the thread on Reddit/HN/web
   - "Remove" button per row to delete the thread and its comments (see Feature 20)
 
 ### 14. Comments Table
@@ -158,17 +161,21 @@ This document tracks all features and their functionality. Update this file when
   - "Not scored" filter: meta row below table header shows count of unscored comments as a clickable link to filter to only those; "Show all" link clears it
   - Thread filter and not-scored filter compose — both can be active simultaneously
 
-### 15. Find More Comments
-- **Description**: Expands an existing research by searching for additional threads not found in the original search
-- **Location**: `app.py` - `run_expand_pipeline()`, `static/js/app.js` - `handleFindMore()`
+### 15. Find More Comments & Articles
+- **Description**: Expands an existing research by searching all three sources simultaneously — new Reddit threads, Hacker News stories, and web articles — in a single click
+- **Location**: `app.py` - `expand_research()`, `run_expand_pipeline()`, `expand_status()`, `static/js/app.js` - `handleFindMore()`, `checkExpandStatus()`, `templates/results.html`, `static/css/style.css`
 - **Details**:
-  - Cycles through four sort strategies: `top`, `new`, `controversial`, `hot`
-  - Also runs DuckDuckGo web search to find threads missed by Reddit API
-  - Deduplicates against already-collected threads by Reddit ID
-  - New threads go through the same AI thread scoring and comment scoring pipeline
-  - Shows inline progress bar with SSE updates
-  - Button is automatically disabled when all strategies have been exhausted
-  - New comments are merged into the existing results tables
+  - **One click = all sources**: Each click searches Reddit (next unused sort), HN, and Web simultaneously — mirrors the main research flow
+  - **Configure button**: Gear ⚙ icon next to the button opens a dropdown to select which sources to include; defaults to all enabled sources
+  - **Source exhaustion**: Reddit has 4 sorts (top → new → controversial → hot); HN and Web each run once. Exhausted sources are automatically unchecked and disabled in the configure panel
+  - **Source awareness**: Sources not enabled in the original research are disabled in the configure panel from the start
+  - **Button disabled**: Only when all sources in the original research are exhausted (or all are unchecked)
+  - Backend `expand_research()` accepts `sources` list in POST body; builds a `tasks` list (Reddit sort + HN + Web) filtered to requested and non-exhausted sources
+  - `run_expand_pipeline()` takes `sorts: list`, runs each task's discovery in sequence, merges all candidates, then runs the unified dedup → score → collect → save pipeline once
+  - `expand_status()` returns `research_sources`, `reddit_exhausted`, `hn_exhausted`, `web_exhausted` for the frontend to configure checkboxes
+  - Deduplicates against all already-collected thread IDs; new threads go through AI thread scoring and comment scoring
+  - Shows inline activity feed with per-source progress messages
+  - New comments are inserted live into the results tables
 
 ### 16. Add Thread Manually
 - **Description**: Allows users to add a specific Reddit thread by URL when they know a thread that wasn't automatically discovered
@@ -283,7 +290,7 @@ This document tracks all features and their functionality. Update this file when
   - Empty feedback is rejected client-side (textarea is focused instead of submitting)
   - The normal "Summarize Comments" button continues to work without feedback
 
-### 26. Multi-Source Research (Reddit, Hacker News, Web Articles)
+### 25. Multi-Source Research (Reddit, Hacker News, Web Articles)
 - **Description**: Expands research beyond Reddit to include Hacker News discussions and quotes extracted from web articles
 - **Location**: `app.py`, `services/hn_service.py`, `services/article_service.py`, `services/web_search_service.py`, `static/js/tables.js`, `static/js/app.js`, `templates/index.html`, `templates/results.html`
 - **Details**:
@@ -294,11 +301,11 @@ This document tracks all features and their functionality. Update this file when
   - **Pipeline integration**: All three sources map into existing `RedditThread`/`RedditComment` data models with a `source` field (default `"reddit"` for backward compatibility). Scoring, storage, and summary pipelines work unchanged
   - **Seed URLs**: Support Reddit, HN (`news.ycombinator.com/item?id=...`), and arbitrary web article URLs
   - **Add Thread**: URL detection routes to the correct service (Reddit via PRAW, HN via Algolia, web via trafilatura + LLM)
-  - **Find More**: Cycles through Reddit sorts, then HN search, then web article search. Only tries sources that were enabled in the original research
+  - **Find More**: Each click searches all selected sources simultaneously (Reddit next sort + HN + Web). Per-source exhaustion tracked independently. See Feature 15
   - **Existing search queries**: The LLM-generated keyword queries from `suggest_subreddits()` drive all three search sources — no additional discovery LLM call needed
   - **Backward compatible**: `source` defaults to `"reddit"` everywhere. Existing researches display exactly as before
 
-### 25. Live Progress Feedback
+### 26. Live Progress Feedback
 - **Description**: Replaces static progress bars with a scrolling activity feed and live preview table during research, showing real-time pipeline progress
 - **Location**: `app.py`, `services/scoring_service.py`, `templates/index.html`, `templates/results.html`, `static/js/app.js`, `static/js/tables.js`
 - **Details**:

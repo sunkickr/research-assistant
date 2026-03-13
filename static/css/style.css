@@ -464,7 +464,7 @@ a {
     line-height: 1.6;
 }
 
-.citation-link {
+.citation-link, .ref-link {
     display: inline-block;
     font-size: 11px;
     color: #ff4500;
@@ -475,7 +475,7 @@ a {
     opacity: 0.8;
 }
 
-.citation-link:hover {
+.citation-link:hover, .ref-link:hover {
     opacity: 1;
     text-decoration: underline;
 }
@@ -864,6 +864,82 @@ tbody tr.starred-row:hover {
     background: #fff5cc !important;
 }
 
+/* ===== Summary Sources Section ===== */
+.summary-sources-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #edeff1;
+}
+
+.summary-sources-heading {
+    font-size: 13px;
+    font-weight: 700;
+    color: #888;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.summary-source-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.summary-source-item {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #444;
+}
+
+.source-num {
+    font-weight: 600;
+    color: #ff4500;
+    margin-right: 6px;
+    font-size: 12px;
+}
+
+.source-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.source-tag-reddit { background: #ffe8e0; color: #cc3400; }
+.source-tag-hackernews { background: #fff0e0; color: #d45d00; }
+.source-tag-web { background: #e5f0ff; color: #1a5cad; }
+
+.source-author {
+    color: #333;
+}
+
+.source-snippet {
+    color: #666;
+    font-style: italic;
+}
+
+.source-ext-link {
+    font-size: 12px;
+    color: #ff4500;
+    text-decoration: none;
+    margin-left: 3px;
+    opacity: 0.8;
+}
+
+.source-ext-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
 /* ===== Activity Feed =====  */
 .activity-feed {
     max-height: 300px;
@@ -905,6 +981,15 @@ tbody tr.starred-row:hover {
 
 .feed-item.completed .feed-icon {
     color: #34d399;
+}
+
+.feed-item.feed-nothing {
+    color: #b45309;
+    font-weight: 500;
+}
+
+.feed-item.feed-nothing .feed-icon {
+    color: #d97706;
 }
 
 .feed-item.active .feed-icon::after {

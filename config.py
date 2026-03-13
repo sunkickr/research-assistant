@@ -33,3 +33,7 @@ class Config:
     # Multi-source settings
     HN_MAX_STORIES = 10
     WEB_MAX_ARTICLES = 8
+
+    # Max pages for HN/Web pagination in "Find More" expand
+    HN_MAX_EXPAND_PAGES = 3
+    WEB_MAX_EXPAND_PAGES = 3

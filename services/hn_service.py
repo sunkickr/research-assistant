@@ -11,11 +11,12 @@ class HNService:
     """Discovers Hacker News stories and collects comments via the Algolia API."""
 
     def search_stories(
-        self, queries: List[str], max_results: int = 10
+        self, queries: List[str], max_results: int = 10, page: int = 0
     ) -> List[RedditThread]:
         """
         Search HN stories via Algolia for each query variant.
         Returns deduplicated RedditThread objects with source='hackernews'.
+        Use page parameter for pagination (0-indexed).
         """
         seen_ids = set()
         threads = []
@@ -28,6 +29,7 @@ class HNService:
                         "query": query,
                         "tags": "story",
                         "hitsPerPage": max_results,
+                        "page": page,
                     },
                     timeout=10,
                 )

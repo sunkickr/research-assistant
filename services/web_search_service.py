@@ -103,26 +103,35 @@ class WebSearchService:
         self,
         queries: List[str],
         max_results: int = 8,
+        page: int = 0,
     ) -> List[str]:
         """
         Search DuckDuckGo for web articles (non-Reddit, non-HN).
         Returns a deduplicated list of URLs for ArticleService to process.
+        Use page parameter for pagination (0-indexed): requests more results
+        from DDG and skips the first page*max_results to surface new URLs.
         """
         from urllib.parse import urlparse
 
         ddgs = DDGS(verify=False)
         seen_urls = set()
         urls = []
+        # Request enough results to cover prior pages plus current page
+        fetch_per_query = max_results * (page + 1)
+        skip = page * max_results
 
         for query in queries:
             if len(urls) >= max_results:
                 break
             try:
-                results = ddgs.text(query, max_results=max_results)
+                results = ddgs.text(query, max_results=fetch_per_query)
             except Exception:
                 continue
 
-            for r in results:
+            # Skip results from earlier pages to surface new URLs
+            results_slice = results[skip:] if len(results) > skip else []
+
+            for r in results_slice:
                 href = r.get("href", "")
                 if not href:
                     continue

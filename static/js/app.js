@@ -260,21 +260,30 @@ async function handleSummarize(researchId, withFeedback = false) {
 function renderSummary(text) {
     const section = document.getElementById('summarySection');
 
-    // Build a map of comment id -> permalink from the globally loaded comments
+    // Build a map of comment id -> comment object from the globally loaded comments
     const commentMap = {};
     if (typeof allComments !== 'undefined') {
         for (const c of allComments) {
-            if (c.id && c.permalink) commentMap[c.id] = c.permalink;
+            if (c.id) commentMap[c.id] = c;
         }
     }
 
-    // Resolve [#id] citation markers into clickable links
-    const resolved = text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
-        const permalink = commentMap[id];
-        if (permalink) {
-            return `<a href="${escapeHtmlAttr(permalink)}" target="_blank" class="citation-link" title="View source comment on Reddit">&#8599;</a>`;
+    // Assign sequential numbers to citations in order of first appearance
+    const citationOrder = []; // ids in appearance order
+    const citationIndex = {}; // id -> 1-based number
+    text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+        if (commentMap[id] && !(id in citationIndex)) {
+            citationIndex[id] = citationOrder.push(id); // push returns new length = number
         }
-        return ''; // Drop unresolvable markers silently
+    });
+
+    // Replace [#id] markers with numbered superscript reference links
+    const resolved = text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+        const num = citationIndex[id];
+        if (!num) return '';
+        const comment = commentMap[id];
+        const href = comment && comment.permalink ? escapeHtmlAttr(comment.permalink) : '#';
+        return `<a href="${href}" target="_blank" class="ref-link" title="View source">[${num}]</a>`;
     });
 
     // Process inline markdown: **bold** → <strong>
@@ -313,6 +322,29 @@ function renderSummary(text) {
         <h3>Summary</h3>
         <div class="summary-content">${lines.join('\n')}</div>
     `;
+
+    // Append numbered sources section for all cited comments
+    if (citationOrder.length > 0) {
+        const itemsHtml = citationOrder.map((id, i) => {
+            const comment = commentMap[id];
+            if (!comment) return '';
+            const num = i + 1;
+            const snippet = comment.body.length > 150 ? comment.body.slice(0, 150).trimEnd() + '\u2026' : comment.body;
+            const sourceLabel = comment.source === 'hackernews' ? 'HN' : comment.source === 'web' ? 'Web' : 'Reddit';
+            const authorLabel = (!comment.source || comment.source === 'reddit') ? `u/${escapeHtmlAttr(comment.author)}` : escapeHtmlAttr(comment.author);
+            const linkHtml = comment.permalink
+                ? ` <a href="${escapeHtmlAttr(comment.permalink)}" target="_blank" class="source-ext-link" title="View original">&#8599;</a>`
+                : '';
+            return `<li class="summary-source-item"><span class="source-num">[${num}]</span><span class="source-tag source-tag-${comment.source || 'reddit'}">${sourceLabel}</span><strong class="source-author">${authorLabel}</strong> &mdash; <span class="source-snippet">&ldquo;${escapeHtmlAttr(snippet)}&rdquo;</span>${linkHtml}</li>`;
+        }).filter(Boolean).join('');
+
+        if (itemsHtml) {
+            const sourcesEl = document.createElement('div');
+            sourcesEl.className = 'summary-sources-section';
+            sourcesEl.innerHTML = `<h2 class="summary-sources-heading">Sources</h2><ol class="summary-source-list">${itemsHtml}</ol>`;
+            section.appendChild(sourcesEl);
+        }
+    }
 }
 
 function escapeHtmlAttr(str) {
@@ -423,6 +455,11 @@ async function checkExpandStatus(researchId) {
             btn.title = 'All search strategies have been tried for this query';
             const cfgBtn = document.getElementById('findMoreConfigBtn');
             if (cfgBtn) cfgBtn.disabled = true;
+        } else {
+            btn.disabled = false;
+            btn.title = '';
+            const cfgBtn = document.getElementById('findMoreConfigBtn');
+            if (cfgBtn) cfgBtn.disabled = false;
         }
     } catch (_) {}
 }
@@ -618,6 +655,10 @@ async function handleFindMore(researchId) {
             return;
         }
 
+        // Track which sorts this click started so we can detect pipeline completion
+        const respData = await resp.json();
+        const sortsStarted = respData.sorts_used || [];
+
         // Listen to SSE stream for progress
         const feedEl = document.getElementById('expandFeed');
         if (feedEl) feedEl.innerHTML = '';
@@ -636,13 +677,24 @@ async function handleFindMore(researchId) {
 
             if (data.stage === 'complete') {
                 es.close();
-                if (feedEl) completeFeed(feedEl);
-                progressEl.style.display = 'none';
                 btn.innerHTML = 'Find More Comments &amp; Articles';
-                // Reload tables with new data
-                loadResults(researchId);
-                // Check if more expansions are still possible
+                btn.disabled = false;
                 checkExpandStatus(researchId);
+                if (data.found_nothing) {
+                    // Show a distinct warning entry and keep the feed visible briefly
+                    if (feedEl) {
+                        const item = document.createElement('div');
+                        item.className = 'feed-item feed-nothing';
+                        item.innerHTML = `<span class="feed-icon">!</span><span class="feed-text">${escapeHtml(data.message)} Try different sources or come back later.</span>`;
+                        feedEl.appendChild(item);
+                        feedEl.scrollTop = feedEl.scrollHeight;
+                    }
+                    setTimeout(() => { progressEl.style.display = 'none'; }, 4000);
+                } else {
+                    if (feedEl) completeFeed(feedEl);
+                    progressEl.style.display = 'none';
+                    loadResults(researchId);
+                }
             } else if (data.stage === 'error') {
                 es.close();
                 progressEl.style.display = 'none';
@@ -655,6 +707,9 @@ async function handleFindMore(researchId) {
             progressEl.style.display = 'none';
             btn.innerHTML = 'Find More Comments &amp; Articles';
             btn.disabled = false;
+            // SSE dropped mid-pipeline — poll until the pipeline finishes saving,
+            // then reload. Don't call loadResults immediately or it wipes live comments.
+            _pollUntilExpandDone(researchId, sortsStarted, 0);
         };
     } catch (err) {
         progressEl.style.display = 'none';
@@ -662,3 +717,25 @@ async function handleFindMore(researchId) {
         btn.disabled = false;
     }
 }
+
+// Poll expand status until sortsStarted all appear in sorts_tried (pipeline done),
+// then reload results. Gives up after ~3 minutes (36 attempts × 5s).
+async function _pollUntilExpandDone(researchId, sortsStarted, attempts) {
+    if (attempts >= 36 || sortsStarted.length === 0) return;
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+        const resp = await fetch(`/api/research/${researchId}/expand/status`);
+        const data = await resp.json();
+        const sortsTried = data.sorts_tried || [];
+        const allDone = sortsStarted.every(s => sortsTried.includes(s));
+        if (allDone) {
+            loadResults(researchId);
+            checkExpandStatus(researchId);
+        } else {
+            _pollUntilExpandDone(researchId, sortsStarted, attempts + 1);
+        }
+    } catch (_) {
+        _pollUntilExpandDone(researchId, sortsStarted, attempts + 1);
+    }
+}
+

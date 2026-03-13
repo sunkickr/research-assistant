@@ -138,27 +138,37 @@ The core data flow when a user submits a research question:
            └─► SSE: "complete" → browser redirects to /results/{id}
 ```
 
-### Find More Comments Flow
+### Find More Comments & Articles Flow
 
 ```
-User clicks "Find More Comments"
+User clicks "Find More Comments & Articles" (optionally configures sources via ⚙ gear dropdown)
    │
-   ├─► POST /api/research/{id}/expand
-   │   └─► Picks next unused sort strategy (top → new → controversial → hot → hn → web)
-   │   └─► Only offers sorts for sources enabled in the original research
+   ├─► POST /api/research/{id}/expand  { sources: ["reddit", "hackernews", "web"] }
+   │   └─► Builds task list for this click:
+   │       ├─► reddit: next unused sort (top → new → controversial → hot), if not exhausted
+   │       ├─► hackernews: added if "hn" not in sorts_tried
+   │       └─► web: added if "web" not in sorts_tried
+   │   └─► Filters tasks to sources in research_sources AND in requested sources
+   │   └─► Returns 400 if task list is empty (all selected sources exhausted)
    │   └─► Spawns background thread
    │
    ├─► Browser opens SSE: GET /api/research/{id}/expand/stream
    │
-   └─► Expand Pipeline (dispatched by sort type):
-       ├─► Reddit sorts (top/new/controversial/hot): Reddit API search + DDG web search
-       ├─► "hn": HN Algolia story search using keyword queries
-       ├─► "web": DDG article search → trafilatura extract → LLM quotes
-       ├─► Merge, deduplicate against already-collected thread IDs
+   └─► Expand Pipeline (runs ALL tasks in one pipeline execution):
+       ├─► For each task in sorts list:
+       │   ├─► Reddit (top/new/controversial/hot): PRAW search + DDG site:reddit.com search
+       │   ├─► "hn": HN Algolia story search using keyword queries
+       │   └─► "web": DDG article search → trafilatura extract → LLM quotes
+       ├─► Merge candidates from all tasks; deduplicate against existing thread IDs
        ├─► LLM thread scoring → keep relevant new threads
        ├─► Collect + score comments from new threads (dispatched by source)
        ├─► Save to SQLite, recalculate counts, export CSV
+       ├─► Append all tasks to sorts_tried in settings_json
        └─► SSE: "complete" → browser reloads tables
+
+GET /api/research/{id}/expand/status returns:
+   can_expand, next_sort, sorts_tried,
+   research_sources, reddit_exhausted, hn_exhausted, web_exhausted
 ```
 
 ### Add Thread Manually Flow
@@ -229,10 +239,16 @@ User clicks "Summarize Comments"
 | GET | `/api/history` | List past researches |
 | POST | `/api/research/<id>/expand` | Start "Find More Comments" expansion |
 | GET | `/api/research/<id>/expand/stream` | SSE: expand progress |
-| GET | `/api/research/<id>/expand/status` | Check if expansion is still possible |
+| GET | `/api/research/<id>/expand/status` | Check expansion status + per-source exhaustion |
 | POST | `/api/research/<id>/add-thread` | Add a specific thread by URL |
 | GET | `/api/research/<id>/add-thread/stream` | SSE: add-thread progress |
 | DELETE | `/api/research/<id>/threads/<thread_id>` | Remove a thread and its comments |
+| POST | `/api/research/<id>/comments/<comment_id>/star` | Toggle starred status |
+| POST | `/api/research/<id>/comments/<comment_id>/relevancy` | Set user relevancy score |
+| DELETE | `/api/research/<id>/comments/<comment_id>/relevancy` | Clear user relevancy score |
+| POST | `/api/research/<id>/archive` | Archive research |
+| POST | `/api/research/<id>/unarchive` | Restore archived research |
+| DELETE | `/api/research/<id>` | Permanently delete research |
 
 ## Service Layer Design
 
@@ -391,12 +407,14 @@ index.html (landing page)
 
 results.html (results page)
 ├── Question header + metadata
-├── Action buttons (Summarize, Find More Comments, Export CSV)
-├── Expand progress bar (hidden, shown during expansion)
-├── Add Thread input + progress bar
+├── Action buttons (Summarize | with feedback, Find More Comments & Articles + ⚙ configure, Export CSV)
+├── Expand progress feed (hidden, shown during expansion)
+├── Add Thread input + progress feed
 ├── Summary section (hidden until generated)
-├── Threads table (with source tabs and Remove button per row)
-└── Comments table with source tabs and pagination
+│   ├── Numbered citations [1][2]... inline linking to source comments
+│   └── Sources panel listing cited comments with author, snippet, permalink
+├── Threads table (with source tabs, post body panel on click, Remove button per row)
+└── Comments table with source tabs, star column, user score column, and pagination
 ```
 
 JavaScript is split into two files:

@@ -80,11 +80,11 @@ SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will recei
 - 9: Directly addresses the question with specific, substantive information or clear personal experience relevant to the question
 - 10: ONLY for comments that directly and completely answer the research question with concrete, actionable advice, detailed technical specifics, or highly valuable first-hand experience that someone could act on immediately
 
-CRITICAL RULE — Named subjects (products, companies, tools, people):
-If the research question asks about a specific named entity (a product, company, software tool, service, or person), apply these minimum floors:
-- Any comment that explicitly names and discusses that subject: score at least 5
-- First-hand user experience with the named subject ("we use it", "I tried it", "our company uses"): score at least 7, even if the details are brief
-Reason: for niche or obscure topics with limited Reddit coverage, even a short first-hand account is extremely valuable to a researcher. Do not penalize brevity when the named entity is directly mentioned.
+MANDATORY PRE-CHECK — Named subjects (products, companies, tools, people):
+Before applying the 1–10 scale, check whether the research question names a specific entity (product, company, tool, service, or person). If it does, apply these hard floors FIRST — they override all other scoring judgments:
+- The comment explicitly names AND says something about that subject → score at minimum 5. This applies even if the content is a feature description, marketing copy, or a general characterization. The comment is still about the subject.
+- The comment includes first-hand use ("we use it", "I tried it", "switched to X") → score at minimum 7, even if brief.
+These are hard minimums. You may NOT score below the floor because the comment lacks specifics, reads like marketing copy, or doesn't directly answer the question. A researcher investigating a niche product needs every mention of it.
 
 Reserve 10 for comments that a researcher would call out as "this is exactly what I was looking for." A comment that is merely topically related, expresses an opinion, asks a question, or discusses adjacent issues should never score above 8 even if well-written.
 
@@ -110,6 +110,17 @@ Score: 10 — directly answers the question with a concrete, actionable step and
 
 Comment: "Move to serverless where possible, make aggressive use of job clusters instead of all-purpose compute, look at serving data out of SQL Endpoints rather than keeping clusters alive, and audit your photon usage — it adds cost but isn't always faster for your workload."
 Score: 10 — comprehensive, actionable, directly answers the question with multiple specific techniques
+
+--- EXAMPLES (question: "What do users think about Polsia AI?") ---
+
+Comment: "AI video tools are getting really competitive this year."
+Score: 3 — generic industry observation, does not mention Polsia at all
+
+Comment: "Polsia offers a comprehensive suite of AI-powered video creation features designed to streamline your content production workflow."
+Score: 5 — explicitly names and describes Polsia; even though it reads like marketing copy and does not include a user opinion, the mandatory named-entity floor applies: it names and says something about the subject, so minimum 5
+
+Comment: "I've been using Polsia for about a month. The AI editing is decent but exports are slow."
+Score: 8 — first-hand experience with specific observations (AI editing quality, export speed), directly relevant to what users think
 
 --- EXAMPLES (question: "Is Keebo AI a good product?") ---
 
@@ -192,11 +203,9 @@ class ScoringService:
             )
             score_map = {s.thread_id: s.relevancy_score for s in response.scores}
         except Exception:
-            # If scoring fails, return all threads rather than block the pipeline
-            return threads
+            return []
 
-        relevant = [t for t in threads if score_map.get(t.id, 0) >= min_score]
-        return relevant if relevant else threads  # fallback: keep all if none pass
+        return [t for t in threads if score_map.get(t.id, 0) >= min_score]
 
     def score_comments(
         self,

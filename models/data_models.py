@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import ClassVar, Optional
 
 
 @dataclass
@@ -15,6 +15,11 @@ class RedditThread:
     created_utc: float
     author: str = ""
     source: str = "reddit"
+
+    CSV_FIELDS: ClassVar[list[str]] = [
+        "id", "title", "subreddit", "score", "num_comments",
+        "url", "permalink", "author", "created_utc", "source",
+    ]
 
 
 @dataclass
@@ -45,6 +50,12 @@ class ScoredComment:
     user_relevancy_score: Optional[int] = None
     starred: int = 0
     source: str = "reddit"
+
+    CSV_FIELDS: ClassVar[list[str]] = [
+        "id", "thread_id", "author", "body", "score", "relevancy_score",
+        "user_relevancy_score", "reasoning", "permalink", "depth", "created_utc",
+        "starred", "source",
+    ]
 
 
 @dataclass

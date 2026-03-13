@@ -55,8 +55,8 @@ expand_queues: dict[str, queue.Queue] = {}
 # Active add-thread streams: research_id -> queue.Queue
 add_thread_queues: dict[str, queue.Queue] = {}
 
-# Sort order cycle for successive "Find More" expansions
-EXPAND_SORTS = ["top", "new", "controversial", "hot", "hn", "web"]
+# Reddit sort order cycle for successive "Find More" expansions
+REDDIT_EXPAND_SORTS = ["top", "new", "controversial", "hot"]
 
 
 # ----- Page Routes -----
@@ -154,6 +154,29 @@ def _comments_for_sse(scored_comments):
         }
         for c in scored_comments
     ]
+
+
+def _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc):
+    """Dispatch comment collection based on thread source."""
+    if thread.source == "hackernews":
+        return hn_svc.collect_comments(thread.id, max_comments=max_comments)
+    elif thread.source == "web":
+        return article_svc.get_cached_quotes(thread.id)
+    else:
+        return reddit_svc.collect_comments(thread.id, max_comments=max_comments)
+
+
+def _make_scoring_progress_callback(q, base_pct, range_pct):
+    """Return a scoring progress callback that emits SSE events into q."""
+    def on_batch(batch_num, total_batches, batch_results):
+        pct = base_pct + int(range_pct * (batch_num / total_batches))
+        q.put({
+            "stage": "scoring",
+            "message": f"Scoring batch {batch_num}/{total_batches}...",
+            "progress": pct,
+            "comments": _comments_for_sse(batch_results),
+        })
+    return on_batch
 
 
 def run_research_pipeline(
@@ -415,14 +438,7 @@ def run_research_pipeline(
                 "progress": 20 + int(40 * (i / len(relevant_threads))),
                 "thread_title": thread.title[:60],
             })
-            if thread.source == "hackernews":
-                comments = hn_svc.collect_comments(thread.id, max_comments=max_comments)
-            elif thread.source == "web":
-                comments = article_svc.get_cached_quotes(thread.id)
-            else:
-                comments = reddit_svc.collect_comments(
-                    thread.id, max_comments=max_comments
-                )
+            comments = _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc)
             all_comments.extend(comments)
             q.put({
                 "stage": "collecting",
@@ -461,17 +477,8 @@ def run_research_pipeline(
             "progress": 62,
         })
 
-        def on_batch_progress(batch_num, total_batches, batch_results):
-            pct = 62 + int(33 * (batch_num / total_batches))
-            q.put({
-                "stage": "scoring",
-                "message": f"Scoring batch {batch_num}/{total_batches}...",
-                "progress": pct,
-                "comments": _comments_for_sse(batch_results),
-            })
-
         scored_comments = scoring_svc.score_comments(
-            question, all_comments, progress_callback=on_batch_progress
+            question, all_comments, progress_callback=_make_scoring_progress_callback(q, 62, 33)
         )
         storage_svc.save_scored_comments(research_id, scored_comments)
         q.put({"stage": "scoring", "message": "Scoring complete", "progress": 95})
@@ -646,12 +653,16 @@ def expand_research(research_id):
         reddit_sorts = [s for s in ["top", "new", "controversial", "hot"] if s not in sorts_tried]
         if reddit_sorts:
             tasks.append(reddit_sorts[0])
-    # HN: try once if not already tried
-    if "hackernews" in requested_sources and "hackernews" in research_sources and "hn" not in sorts_tried:
-        tasks.append("hn")
-    # Web: try once if not already tried
-    if "web" in requested_sources and "web" in research_sources and "web" not in sorts_tried:
-        tasks.append("web")
+    # HN: use next page (supports up to HN_MAX_EXPAND_PAGES pages)
+    if "hackernews" in requested_sources and "hackernews" in research_sources:
+        hn_tried_count = len([s for s in sorts_tried if s.startswith("hn_") or s == "hn"])
+        if hn_tried_count < config.HN_MAX_EXPAND_PAGES:
+            tasks.append(f"hn_{hn_tried_count}")
+    # Web: use next page (supports up to WEB_MAX_EXPAND_PAGES pages)
+    if "web" in requested_sources and "web" in research_sources:
+        web_tried_count = len([s for s in sorts_tried if s.startswith("web_") or s == "web"])
+        if web_tried_count < config.WEB_MAX_EXPAND_PAGES:
+            tasks.append(f"web_{web_tried_count}")
 
     if not tasks:
         return jsonify(error="All search strategies have been tried for the selected sources."), 400
@@ -689,28 +700,32 @@ def run_expand_pipeline(
         for task_idx, sort in enumerate(sorts):
             base_pct = 5 + task_idx * discovery_step
 
-            if sort == "hn":
+            if sort.startswith("hn_"):
+                hn_page = int(sort.split("_")[1])
+                page_label = f" (page {hn_page + 1})" if hn_page > 0 else ""
                 q.put({
                     "stage": "searching",
-                    "message": "Searching Hacker News for more discussions...",
+                    "message": f"Searching Hacker News for more discussions{page_label}...",
                     "progress": base_pct,
                 })
                 _, search_queries = scoring_svc.suggest_subreddits(question)
                 web_queries = search_queries if search_queries else [question]
-                for thd in hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES):
+                for thd in hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES, page=hn_page):
                     if thd.id not in seen_candidate_ids:
                         candidates.append(thd)
                         seen_candidate_ids.add(thd.id)
 
-            elif sort == "web":
+            elif sort.startswith("web_"):
+                web_page = int(sort.split("_")[1])
+                page_label = f" (page {web_page + 1})" if web_page > 0 else ""
                 q.put({
                     "stage": "searching",
-                    "message": "Searching the web for more articles...",
+                    "message": f"Searching the web for more articles{page_label}...",
                     "progress": base_pct,
                 })
                 _, search_queries = scoring_svc.suggest_subreddits(question)
                 web_queries = search_queries if search_queries else [question]
-                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES)
+                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES, page=web_page)
                 for url in article_urls:
                     result = article_svc.fetch_article(url)
                     if result:
@@ -746,7 +761,7 @@ def run_expand_pipeline(
                     "progress": base_pct + max(1, discovery_step // 2),
                 })
                 web_reddit_threads = web_search_svc.search_reddit_threads(
-                    [f"{question} {sort}"], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
+                    [question], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
                 )
                 for thd in reddit_threads + web_reddit_threads:
                     if thd.id not in seen_candidate_ids:
@@ -764,7 +779,7 @@ def run_expand_pipeline(
         if not new_threads:
             current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
             storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
-            q.put({"stage": "complete", "message": "No new threads found with this strategy.", "progress": 100})
+            q.put({"stage": "complete", "message": "No new threads found.", "progress": 100, "found_nothing": True})
             return
 
         # Score threads for relevancy
@@ -786,12 +801,7 @@ def run_expand_pipeline(
                 "progress": 30 + int(35 * (i / len(relevant_threads))),
                 "thread_title": thread.title[:60],
             })
-            if thread.source == "hackernews":
-                comments = hn_svc.collect_comments(thread.id, max_comments=max_comments)
-            elif thread.source == "web":
-                comments = article_svc.get_cached_quotes(thread.id)
-            else:
-                comments = reddit_svc.collect_comments(thread.id, max_comments=max_comments)
+            comments = _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc)
             all_comments.extend(comments)
             q.put({
                 "stage": "collecting",
@@ -815,20 +825,11 @@ def run_expand_pipeline(
         if not all_comments:
             current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
             storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
-            q.put({"stage": "complete", "message": "No new comments found.", "progress": 100})
+            q.put({"stage": "complete", "message": "No relevant threads or articles found.", "progress": 100, "found_nothing": True})
             return
 
         # Score comments
-        def on_batch(batch_num, total_batches, batch_results):
-            pct = 65 + int(30 * (batch_num / total_batches))
-            q.put({
-                "stage": "scoring",
-                "message": f"Scoring batch {batch_num}/{total_batches}...",
-                "progress": pct,
-                "comments": _comments_for_sse(batch_results),
-            })
-
-        scored = scoring_svc.score_comments(question, all_comments, progress_callback=on_batch)
+        scored = scoring_svc.score_comments(question, all_comments, progress_callback=_make_scoring_progress_callback(q, 65, 30))
 
         # Save threads and comments together so they always appear as a pair
         storage_svc.save_threads(research_id, relevant_threads)
@@ -857,15 +858,22 @@ def expand_stream(research_id):
         if not q:
             yield f"data: {json.dumps({'stage': 'error', 'message': 'Expand task not found'})}\n\n"
             return
-        while True:
+        deadline = 300  # total seconds before hard timeout
+        elapsed = 0
+        while elapsed < deadline:
             try:
-                msg = q.get(timeout=300)
+                msg = q.get(timeout=15)
             except queue.Empty:
-                yield f"data: {json.dumps({'stage': 'error', 'message': 'Expand timed out'})}\n\n"
-                break
+                elapsed += 15
+                # Send a keepalive comment to prevent proxy/browser from dropping the connection
+                yield ": keepalive\n\n"
+                continue
             if msg is None:
                 break
             yield f"data: {json.dumps(msg)}\n\n"
+            elapsed = 0  # reset idle timer on activity
+        else:
+            yield f"data: {json.dumps({'stage': 'error', 'message': 'Expand timed out'})}\n\n"
         expand_queues.pop(research_id, None)
 
     return Response(
@@ -881,26 +889,28 @@ def expand_status(research_id):
     settings = storage_svc.get_settings(research_id)
     sorts_tried = settings.get("sorts_tried", [])
     research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
-    # Only offer sorts relevant to enabled sources
-    available_sorts = []
-    for s in EXPAND_SORTS:
-        if s == "hn" and "hackernews" not in research_sources:
-            continue
-        if s == "web" and "web" not in research_sources:
-            continue
-        if s not in ("hn", "web") and "reddit" not in research_sources:
-            continue
-        available_sorts.append(s)
-    remaining = [s for s in available_sorts if s not in sorts_tried]
-    reddit_remaining = [s for s in ["top", "new", "controversial", "hot"] if s in remaining]
+
+    # Reddit: up to 4 sorts (top/new/controversial/hot)
+    reddit_remaining = [s for s in REDDIT_EXPAND_SORTS if s not in sorts_tried and "reddit" in research_sources]
+    reddit_exhausted = len(reddit_remaining) == 0
+
+    # HN: up to HN_MAX_EXPAND_PAGES pages — backward compat: "hn" counts as page 0
+    hn_tried_count = len([s for s in sorts_tried if s.startswith("hn_") or s == "hn"])
+    hn_exhausted = hn_tried_count >= config.HN_MAX_EXPAND_PAGES or "hackernews" not in research_sources
+
+    # Web: up to WEB_MAX_EXPAND_PAGES pages — backward compat: "web" counts as page 0
+    web_tried_count = len([s for s in sorts_tried if s.startswith("web_") or s == "web"])
+    web_exhausted = web_tried_count >= config.WEB_MAX_EXPAND_PAGES or "web" not in research_sources
+
+    can_expand = not (reddit_exhausted and hn_exhausted and web_exhausted)
     return jsonify(
-        can_expand=len(remaining) > 0,
-        next_sort=remaining[0] if remaining else None,
+        can_expand=can_expand,
+        next_sort=reddit_remaining[0] if reddit_remaining else None,
         sorts_tried=sorts_tried,
         research_sources=research_sources,
-        reddit_exhausted=len(reddit_remaining) == 0,
-        hn_exhausted="hn" not in remaining,
-        web_exhausted="web" not in remaining,
+        reddit_exhausted=reddit_exhausted,
+        hn_exhausted=hn_exhausted,
+        web_exhausted=web_exhausted,
     )
 
 

@@ -365,48 +365,20 @@ class StorageService:
         filename = f"research_{research_id}_{safe_question}.csv"
         filepath = os.path.join(self.export_dir, filename)
 
-        fieldnames = [
-            "id",
-            "thread_id",
-            "author",
-            "body",
-            "score",
-            "relevancy_score",
-            "user_relevancy_score",
-            "reasoning",
-            "permalink",
-            "depth",
-            "created_utc",
-            "starred",
-            "source",
-        ]
-
         with open(filepath, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer = csv.DictWriter(f, fieldnames=ScoredComment.CSV_FIELDS)
             writer.writeheader()
             for c in comments:
-                writer.writerow({k: c.get(k, "") for k in fieldnames})
+                writer.writerow({k: c.get(k, "") for k in ScoredComment.CSV_FIELDS})
 
         # Also export threads CSV
         threads = self.get_threads(research_id)
         threads_filename = f"threads_{research_id}_{safe_question}.csv"
         threads_filepath = os.path.join(self.export_dir, threads_filename)
-        thread_fieldnames = [
-            "id",
-            "title",
-            "subreddit",
-            "score",
-            "num_comments",
-            "url",
-            "permalink",
-            "author",
-            "created_utc",
-            "source",
-        ]
         with open(threads_filepath, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=thread_fieldnames)
+            writer = csv.DictWriter(f, fieldnames=RedditThread.CSV_FIELDS)
             writer.writeheader()
             for t in threads:
-                writer.writerow({k: t.get(k, "") for k in thread_fieldnames})
+                writer.writerow({k: t.get(k, "") for k in RedditThread.CSV_FIELDS})
 
         return filepath

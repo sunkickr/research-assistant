@@ -222,8 +222,8 @@ def test_scoring_prompt_has_score_10_calibration():
 
 
 def test_scoring_prompt_has_examples_for_niche_products():
-    """Prompt should include Polsia or Keebo examples to calibrate niche scoring."""
-    assert "Polsia" in SCORING_SYSTEM_PROMPT or "Keebo" in SCORING_SYSTEM_PROMPT
+    """Prompt should include Claude or Keebo examples to calibrate niche scoring."""
+    assert "Claude" in SCORING_SYSTEM_PROMPT or "Keebo" in SCORING_SYSTEM_PROMPT
 
 
 def test_thread_scoring_prompt_requires_score_per_thread():

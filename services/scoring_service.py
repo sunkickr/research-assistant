@@ -111,16 +111,16 @@ Score: 10 — directly answers the question with a concrete, actionable step and
 Comment: "Move to serverless where possible, make aggressive use of job clusters instead of all-purpose compute, look at serving data out of SQL Endpoints rather than keeping clusters alive, and audit your photon usage — it adds cost but isn't always faster for your workload."
 Score: 10 — comprehensive, actionable, directly answers the question with multiple specific techniques
 
---- EXAMPLES (question: "What do users think about Polsia AI?") ---
+--- EXAMPLES (question: "What do users think about Claude AI?") ---
 
-Comment: "AI video tools are getting really competitive this year."
-Score: 3 — generic industry observation, does not mention Polsia at all
+Comment: "AI assistant tools are getting really competitive this year."
+Score: 3 — generic industry observation, does not mention Claude at all
 
-Comment: "Polsia offers a comprehensive suite of AI-powered video creation features designed to streamline your content production workflow."
-Score: 5 — explicitly names and describes Polsia; even though it reads like marketing copy and does not include a user opinion, the mandatory named-entity floor applies: it names and says something about the subject, so minimum 5
+Comment: "Claude offers a comprehensive suite of AI-powered features designed to streamline your content production workflow."
+Score: 5 — explicitly names and describes Claude; even though it reads like marketing copy and does not include a user opinion, the mandatory named-entity floor applies: it names and says something about the subject, so minimum 5
 
-Comment: "I've been using Polsia for about a month. The AI editing is decent but exports are slow."
-Score: 8 — first-hand experience with specific observations (AI editing quality, export speed), directly relevant to what users think
+Comment: "I've been using Claude for about a month. The reasoning is excellent but context windows can feel limiting for large projects."
+Score: 8 — first-hand experience with specific observations (reasoning quality, context window), directly relevant to what users think
 
 --- EXAMPLES (question: "Is Keebo AI a good product?") ---
 

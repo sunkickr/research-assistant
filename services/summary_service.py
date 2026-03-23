@@ -63,7 +63,7 @@ class SummaryService:
 
     def summarize(
         self, question: str, comments: List[ScoredComment], min_relevancy: int = 4,
-        user_feedback: str = None, threads: list = None,
+        user_feedback: str = None, threads: list = None, max_comments: int = 50,
     ) -> str:
         """
         Generate a summary of relevant comments.
@@ -82,8 +82,8 @@ class SummaryService:
             key=lambda c: self._effective_relevancy(c) * max(c.score, 1), reverse=True
         )
 
-        # Take top 50 most relevant for the summary prompt
-        top_comments = relevant[:50]
+        # Take top N most relevant for the summary prompt
+        top_comments = relevant[:max_comments]
 
         def _format_relevancy(c: ScoredComment) -> str:
             if c.user_relevancy_score is not None:

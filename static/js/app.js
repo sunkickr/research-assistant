@@ -218,12 +218,12 @@ async function handleSummarize(researchId, withFeedback = false) {
 
     let feedback = null;
     if (withFeedback) {
-        feedback = document.getElementById('feedbackInput').value.trim();
-        if (!feedback) {
-            document.getElementById('feedbackInput').focus();
-            return;
-        }
+        feedback = document.getElementById('feedbackInput').value.trim() || null;
     }
+
+    const maxComments = withFeedback
+        ? parseInt(document.getElementById('commentCountInput')?.value || '50', 10)
+        : 50;
 
     feedbackPanel.classList.remove('visible');
     btn.disabled = true;
@@ -237,7 +237,10 @@ async function handleSummarize(researchId, withFeedback = false) {
         const response = await fetch(`/api/research/${researchId}/summarize`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(feedback ? { feedback } : {}),
+            body: JSON.stringify({
+                ...(feedback ? { feedback } : {}),
+                max_comments: maxComments,
+            }),
         });
 
         if (!response.ok) {

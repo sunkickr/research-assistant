@@ -548,11 +548,14 @@ def summarize(research_id):
     if user_feedback and len(user_feedback) > 500:
         user_feedback = user_feedback[:500]
 
+    max_comments = int(data.get("max_comments", 50))
+    max_comments = max(25, min(max_comments, 200))
+
     comments_data = storage_svc.get_comments(research_id)
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
     comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
     threads_data = storage_svc.get_threads(research_id)
-    summary = summary_svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data)
+    summary = summary_svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data, max_comments=max_comments)
     storage_svc.save_summary(research_id, summary)
     return jsonify(summary=summary)
 

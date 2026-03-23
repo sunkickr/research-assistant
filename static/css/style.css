@@ -1211,6 +1211,34 @@ tbody tr.starred-row:hover {
     gap: 8px;
 }
 
+/* ===== Customize Summary Panel ===== */
+.customize-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.customize-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.customize-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: #999;
+}
+.customize-number {
+    width: 90px;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
 /* ===== Archive Sidebar ===== */
 .btn-archive-sidebar {
     position: absolute;

@@ -213,14 +213,24 @@ User clicks "Remove" on a thread row
 ### Summarization Flow
 
 ```
-User clicks "Summarize Comments"
+User clicks "Summarize Comments" (optionally via Customize panel)
    │
    └─► POST /api/research/{id}/summarize
-       ├─► Load scored comments from SQLite
-       ├─► Filter: relevancy_score >= 4
-       ├─► Sort: relevancy_score * max(upvotes, 1) descending
-       ├─► Take top 50 comments
-       ├─► Send to OpenAI for summarization
+       ├─► Load ALL comments from SQLite
+       │     (Reddit comments + HN comments + web article quotes,
+       │      all stored uniformly with a source field)
+       ├─► Filter: effective_relevancy >= 4
+       │     (user_relevancy_score + 0.5 boost if set, else AI relevancy_score)
+       ├─► Sort: effective_relevancy * max(upvotes, 1) descending
+       ├─► Take top N comments (default 50, configurable 25–200)
+       ├─► Load ALL threads from SQLite
+       ├─► Build post-body preamble: threads with non-empty selftext (up to 10)
+       │     (Reddit self-posts, HN Ask HN posts, web article bodies up to 1500 chars)
+       │     → prepended to prompt as "primary source material"
+       │     Note: web articles appear here AND as extracted quote comments above —
+       │     the article body goes to preamble; LLM-extracted quotes go to the
+       │     scored comment pool (score=0, ranked purely by relevancy)
+       ├─► Send to OpenAI: [post-body preamble + top-N comments]
        ├─► Save summary to SQLite
        └─► Return summary text to browser
 ```

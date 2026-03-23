@@ -41,9 +41,9 @@
                     id="feedbackToggleBtn"
                     onclick="toggleFeedbackPanel()"
                     {% if research.num_comments == 0 %}disabled{% endif %}
-                    title="Add instructions for the summary"
+                    title="Customize the summary"
                 >
-                    with feedback
+                    customize
                 </button>
             </div>
             <div class="find-more-group" style="position:relative">
@@ -64,16 +64,37 @@
             </a>
         </div>
 
-        <!-- Summary feedback panel -->
+        <!-- Customize summary panel -->
         <div id="feedbackPanel" class="feedback-panel">
-            <textarea
-                id="feedbackInput"
-                placeholder="e.g. Focus on the most controversial opinions, or Only summarize comments about pricing..."
-                rows="3"
-            ></textarea>
-            <p class="feedback-hint">Tell the AI what to focus on or emphasize in the summary. Must relate to summarizing the comments.</p>
+            <div class="customize-setting">
+                <label for="commentCountInput" class="customize-label">
+                    Comments to review
+                    <span class="customize-hint">Default 50 · Max 200</span>
+                </label>
+                <input
+                    type="number"
+                    id="commentCountInput"
+                    class="customize-number"
+                    value="50"
+                    min="25"
+                    max="200"
+                    step="25"
+                >
+            </div>
+            <div class="customize-setting">
+                <label for="feedbackInput" class="customize-label">
+                    Focus instructions
+                    <span class="customize-hint">Optional</span>
+                </label>
+                <textarea
+                    id="feedbackInput"
+                    placeholder="e.g. Focus on the most controversial opinions, or Only summarize comments about pricing..."
+                    rows="3"
+                ></textarea>
+            </div>
+            <p class="feedback-hint">Tell the AI what to focus on or emphasize. Must relate to summarizing the comments.</p>
             <div class="feedback-actions">
-                <button class="btn btn-primary" onclick="handleSummarize('{{ research_id }}', true)">Generate with Feedback</button>
+                <button class="btn btn-primary" onclick="handleSummarize('{{ research_id }}', true)">Generate Custom Summary</button>
                 <button class="btn btn-outline" onclick="toggleFeedbackPanel()">Cancel</button>
             </div>
         </div>

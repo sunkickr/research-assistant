@@ -113,6 +113,15 @@ def test_top_50_cap(svc, mock_llm):
     assert count == 50
 
 
+def test_custom_comment_count_respected(svc, mock_llm):
+    """max_comments=10 with 20 relevant comments should send only 10 to LLM."""
+    comments = [make_comment(f"c{i:04d}", relevancy=7, score=i) for i in range(20)]
+    svc.summarize("test question", comments, max_comments=10)
+    user_prompt = mock_llm.complete_text.call_args[1]["user_prompt"]
+    count = sum(1 for i in range(20) if f"c{i:04d}" in user_prompt)
+    assert count == 10
+
+
 # ── Feedback ──────────────────────────────────────────────────────────────────
 
 def test_feedback_appended_to_prompt(svc, mock_llm):

@@ -159,6 +159,46 @@ class TestSummarize:
         call_kwargs = mock_summary_svc.summarize.call_args[1]
         assert call_kwargs["user_feedback"] is None
 
+    def test_max_comments_passed_to_service(self, client, monkeypatch):
+        import app as app_module
+        mock_summary_svc = MagicMock()
+        mock_summary_svc.summarize.return_value = "summary"
+        monkeypatch.setattr(app_module, "summary_svc", mock_summary_svc)
+
+        client.post("/api/research/res123/summarize", json={"max_comments": 100})
+        call_kwargs = mock_summary_svc.summarize.call_args[1]
+        assert call_kwargs["max_comments"] == 100
+
+    def test_max_comments_clamped_below_min(self, client, monkeypatch):
+        import app as app_module
+        mock_summary_svc = MagicMock()
+        mock_summary_svc.summarize.return_value = "summary"
+        monkeypatch.setattr(app_module, "summary_svc", mock_summary_svc)
+
+        client.post("/api/research/res123/summarize", json={"max_comments": 5})
+        call_kwargs = mock_summary_svc.summarize.call_args[1]
+        assert call_kwargs["max_comments"] == 25
+
+    def test_max_comments_clamped_above_max(self, client, monkeypatch):
+        import app as app_module
+        mock_summary_svc = MagicMock()
+        mock_summary_svc.summarize.return_value = "summary"
+        monkeypatch.setattr(app_module, "summary_svc", mock_summary_svc)
+
+        client.post("/api/research/res123/summarize", json={"max_comments": 999})
+        call_kwargs = mock_summary_svc.summarize.call_args[1]
+        assert call_kwargs["max_comments"] == 200
+
+    def test_max_comments_defaults_to_50(self, client, monkeypatch):
+        import app as app_module
+        mock_summary_svc = MagicMock()
+        mock_summary_svc.summarize.return_value = "summary"
+        monkeypatch.setattr(app_module, "summary_svc", mock_summary_svc)
+
+        client.post("/api/research/res123/summarize", json={})
+        call_kwargs = mock_summary_svc.summarize.call_args[1]
+        assert call_kwargs["max_comments"] == 50
+
 
 # ── POST /api/research/<id>/expand ────────────────────────────────────────────
 

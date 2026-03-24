@@ -19,6 +19,9 @@ let commentSortDir = 'desc';
 const PAGE_SIZE = 50;
 let currentPage = 1;
 
+// Debounce timer for live SSE renders
+let liveRenderTimer = null;
+
 // ===== Load Results from API =====
 
 async function loadResults(researchId) {
@@ -542,7 +545,12 @@ function insertLiveComments(newComments) {
         changed++;
     }
     if (changed > 0) {
-        renderSourceTabs();
-        applyFilters();
+        // Debounce renders during rapid SSE updates to avoid destroying
+        // DOM elements mid-click (breaks sort header clicks)
+        clearTimeout(liveRenderTimer);
+        liveRenderTimer = setTimeout(() => {
+            renderSourceTabs();
+            applyFilters();
+        }, 500);
     }
 }

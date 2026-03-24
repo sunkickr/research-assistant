@@ -76,8 +76,9 @@ This document tracks all features and their functionality. Update this file when
 - **Details**:
   - Triggered by user clicking "Summarize Comments" button
   - Filters to comments with relevancy score >= 4
-  - Weights by `relevancy_score * max(upvotes, 1)` to surface best content
-  - Sends top 50 comments to GPT-4o-mini for summarization
+  - Splits comments into community (Reddit + HN) and web pools; reserves 20% of slots for web quotes to prevent upvote-weighted sorting from excluding them
+  - Community pool weighted by `relevancy_score * max(upvotes, 1)`; web pool by relevancy only
+  - Sends top N comments (default 50, configurable 25–200 via Customize panel) to GPT-4o-mini for summarization
   - Summary includes: Key Takeaways, thematic sections directly answering the question, Conclusion
   - LLM embeds `[#comment_id]` citation markers inline throughout the summary text
   - **Numbered citations**: `renderSummary()` resolves `[#id]` markers into numbered superscript links `[1]`, `[2]` etc. (in appearance order), each linking to the original source
@@ -140,7 +141,7 @@ This document tracks all features and their functionality. Update this file when
 - **Location**: `templates/results.html`, `static/js/tables.js`
 - **Details**:
   - Columns: Title, Subreddit, Score, Comments, Date, Link, Remove
-  - Sortable by clicking column headers (with sort direction indicators)
+  - Sortable by clicking column headers; active sort column highlighted with blue background, accent border, and directional arrow (▲/▼)
   - Live thread count shown above the table ("N threads collected · Click a thread to filter comments and see the full post")
   - **Post body panel**: Clicking a thread row expands a panel below the table showing the full post body/selftext, author, and a link to the original — allows reading the original post without leaving the app
   - Toggle off filter by clicking the same thread again (panel collapses)
@@ -153,7 +154,7 @@ This document tracks all features and their functionality. Update this file when
 - **Details**:
   - Columns: Relevancy Score (color-coded badge), Comment (expandable), Author, Score, Thread, Date, Link
   - Color coding: green (8–10), yellow (5–7), red (1–4), gray dash "—" for unscored (null)
-  - Default sort: relevancy score descending
+  - Default sort: relevancy score descending; active sort column highlighted with blue background and directional arrow
   - Sortable columns: relevancy, author, score, date
   - Expandable rows: click to show full comment text and AI scoring reasoning
   - Pagination: 50 comments per page with Previous/Next controls
@@ -277,18 +278,18 @@ This document tracks all features and their functionality. Update this file when
   - Sidebar refreshes dynamically after archive/restore operations without a full page reload
   - If the user archives the research they are currently viewing, they are redirected to the home page
 
-### 24. Summary Feedback
-- **Description**: Allows users to provide optional feedback/instructions when generating or regenerating a summary, guiding what the AI focuses on
+### 24. Summary Customize Panel
+- **Description**: Allows users to customize summary generation with optional feedback/instructions and configurable comment count
 - **Location**: `templates/results.html`, `static/js/app.js`, `app.py`, `services/summary_service.py`
 - **Details**:
-  - Split button UI: "Summarize Comments | with feedback" appears as a unified button with two distinct halves
-  - Clicking "with feedback" toggles a feedback panel with a textarea, submit button, and cancel button
-  - Feedback is sent as JSON in the POST body to `/api/research/{id}/summarize`
+  - Split button UI: "Summarize Comments | Customize" appears as a unified button with two distinct halves
+  - Clicking "Customize" toggles a panel with a feedback textarea, comment count input, submit button, and cancel button
+  - **Comment count setting**: Number input to control how many top comments are included in the summary (25–200, default 50)
+  - **Feedback textarea**: Optional instructions guiding what the AI focuses on (capped at 500 chars server-side)
+  - Both settings are sent as JSON in the POST body to `/api/research/{id}/summarize`
   - The summary service appends user feedback to the LLM prompt, clearly labeled
   - Prompt injection guard: system prompt instructs the LLM to ignore feedback that asks for content unrelated to summarizing comments
-  - Feedback is capped at 500 characters server-side
-  - Empty feedback is rejected client-side (textarea is focused instead of submitting)
-  - The normal "Summarize Comments" button continues to work without feedback
+  - The normal "Summarize Comments" button continues to work with defaults (no feedback, 50 comments)
 
 ### 25. Multi-Source Research (Reddit, Hacker News, Web Articles)
 - **Description**: Expands research beyond Reddit to include Hacker News discussions and quotes extracted from web articles
@@ -318,3 +319,27 @@ This document tracks all features and their functionality. Update this file when
   - Feed items show spinner animation for active items, green checkmark for completed
   - No additional API calls — all data was already flowing through the pipeline
   - Negligible performance impact (microseconds of queue overhead between existing API calls)
+
+### 27. Save Before Score & Rescore
+- **Description**: Comments are saved to the database before scoring begins, ensuring no data is lost if scoring is interrupted. Unscored comments can be rescored later.
+- **Location**: `services/storage_service.py` - `save_raw_comments()`, `get_unscored_count()`, `get_unscored_comments()`, `app.py` - rescore endpoints, `static/js/app.js` - `checkUnscoredComments()`, `handleRescore()`
+- **Details**:
+  - All collected comments are saved with `relevancy_score = NULL` immediately after collection, before scoring begins
+  - Uses the existing upsert mechanism — preserves `user_relevancy_score` and `starred` fields
+  - Each scored batch is saved to SQLite immediately (not buffered until the end of scoring)
+  - If scoring is interrupted (timeout, error, user closes browser), comments are preserved with null scores
+  - "Rescore" button appears on the results page when unscored comments are detected
+  - Rescore uses a dedicated SSE stream (`/api/research/<id>/rescore/stream`) to avoid conflicts with other operations
+  - Applies to all three pipelines: research, expand, and add-thread
+
+### 28. Early Redirect to Results
+- **Description**: Users are redirected to the results page as soon as comment collection finishes, allowing them to browse results while scoring continues in the background
+- **Location**: `app.py`, `static/js/app.js` - `listenToProgress()`, `listenToScoringProgress()`, `static/js/tables.js` - `insertLiveComments()`
+- **Details**:
+  - Browser redirects on the first `scoring` SSE event instead of waiting for `complete`
+  - Results page reconnects to the SSE stream via `listenToScoringProgress()` and shows a scoring progress indicator
+  - Scored comments are inserted live into the results table as each batch completes via `insertLiveComments()`
+  - Existing raw comments (null scores) are updated in-place when scored versions arrive
+  - Live renders are debounced (500ms) to prevent rapid DOM replacement from breaking sort header clicks
+  - SSE generator catches `GeneratorExit` on client disconnect and keeps the queue alive for reconnection
+  - On scoring completion: summary button is enabled, sidebar counts refresh, header metadata updates

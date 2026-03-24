@@ -125,17 +125,24 @@ The core data flow when a user submits a research question:
        │   └─► Apply total cap (750 across all threads), keeping highest-scored
        │   └─► SSE: "Collecting comments from thread N/M"
        │
+       ├─► Stage 3a: SAVE RAW COMMENTS
+       │   └─► All collected comments saved to SQLite with relevancy_score = NULL
+       │   └─► Uses upsert — safe to re-save; preserves user_relevancy_score and starred
+       │   └─► Ensures comments survive even if scoring is interrupted
+       │
        ├─► Stage 4: COMMENT SCORING
        │   └─► Batch comments (20/batch)
        │   └─► For each batch: OpenAI structured output → relevancy scores 1-10
-       │   └─► Failed batches (timeout/error): comments saved with relevancy_score = null
-       │   └─► Save scored comments to SQLite
-       │   └─► SSE: "Scoring batch N/M"
+       │   └─► Each scored batch saved to SQLite immediately (not buffered until end)
+       │   └─► Failed batches (timeout/error): comments retain relevancy_score = null
+       │   └─► SSE: "Scoring batch N/M" (includes scored comments for live table updates)
        │
        └─► Stage 5: FINALIZE
            └─► Update research status to "complete"
            └─► Export CSV file
-           └─► SSE: "complete" → browser redirects to /results/{id}
+           └─► SSE: "complete"
+           Note: browser redirects to /results/{id} at first "scoring" event
+           (early redirect — user sees results while scoring continues in background)
 ```
 
 ### Find More Comments & Articles Flow
@@ -221,8 +228,12 @@ User clicks "Summarize Comments" (optionally via Customize panel)
        │      all stored uniformly with a source field)
        ├─► Filter: effective_relevancy >= 4
        │     (user_relevancy_score + 0.5 boost if set, else AI relevancy_score)
-       ├─► Sort: effective_relevancy * max(upvotes, 1) descending
-       ├─► Take top N comments (default 50, configurable 25–200)
+       ├─► Split into community (Reddit + HN) and web pools
+       ├─► Community: sort by effective_relevancy * max(upvotes, 1) descending
+       ├─► Web: sort by effective_relevancy descending (no upvotes to weight)
+       ├─► Reserve 20% of slots for web quotes (at least 1); fill rest with community
+       │     (unused web slots go to community comments)
+       ├─► Take top N comments total (default 50, configurable 25–200)
        ├─► Load ALL threads from SQLite
        ├─► Build post-body preamble: threads with non-empty selftext (up to 10)
        │     (Reddit self-posts, HN Ask HN posts, web article bodies up to 1500 chars)
@@ -258,6 +269,9 @@ User clicks "Summarize Comments" (optionally via Customize panel)
 | DELETE | `/api/research/<id>/comments/<comment_id>/relevancy` | Clear user relevancy score |
 | POST | `/api/research/<id>/archive` | Archive research |
 | POST | `/api/research/<id>/unarchive` | Restore archived research |
+| POST | `/api/research/<id>/rescore` | Rescore comments with null relevancy scores |
+| GET | `/api/research/<id>/rescore/stream` | SSE: rescore progress |
+| GET | `/api/research/<id>/unscored-count` | Count of comments with null relevancy scores |
 | DELETE | `/api/research/<id>` | Permanently delete research |
 
 ## Service Layer Design
@@ -372,6 +386,7 @@ Queue dicts keyed by `research_id`:
 - `progress_queues` — main research pipeline (SSE timeout: 120s)
 - `expand_queues` — Find More Comments (SSE timeout: 300s — processes more threads)
 - `add_thread_queues` — Add Thread manually (SSE timeout: 120s)
+- `rescore_queues` — Rescore unscored comments (SSE timeout: 120s)
 
 The OpenAI client is initialized with `timeout=60.0` so any single LLM call fails after 60 seconds rather than hanging. Failed scoring batches fall back to `null` relevancy scores rather than blocking the pipeline.
 
@@ -417,7 +432,7 @@ index.html (landing page)
 
 results.html (results page)
 ├── Question header + metadata
-├── Action buttons (Summarize | with feedback, Find More Comments & Articles + ⚙ configure, Export CSV)
+├── Action buttons (Summarize | Customize, Find More Comments & Articles + ⚙ configure, Export CSV)
 ├── Expand progress feed (hidden, shown during expansion)
 ├── Add Thread input + progress feed
 ├── Summary section (hidden until generated)

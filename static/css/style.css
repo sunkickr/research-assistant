@@ -535,12 +535,23 @@ thead th:hover {
     background: #f0f0f0;
 }
 
+thead th.sorted-asc,
+thead th.sorted-desc {
+    color: #1a1a1b;
+    background: #e8f0fe;
+    border-bottom: 2px solid #4a90d9;
+}
+
 thead th.sorted-asc::after {
     content: ' \u25B2';
+    font-size: 0.7em;
+    color: #4a90d9;
 }
 
 thead th.sorted-desc::after {
     content: ' \u25BC';
+    font-size: 0.7em;
+    color: #4a90d9;
 }
 
 tbody tr {

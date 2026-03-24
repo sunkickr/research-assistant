@@ -786,6 +786,8 @@ function listenToScoringProgress(researchId) {
             loadResults(researchId);
             refreshResultsMeta(researchId);
             checkUnscoredComments(researchId);
+            document.getElementById('summarizeBtn')?.removeAttribute('disabled');
+            refreshSidebar();
         } else if (data.stage === 'error') {
             es.close();
             if (progressEl) progressEl.style.display = 'none';

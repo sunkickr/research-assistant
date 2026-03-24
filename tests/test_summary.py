@@ -11,7 +11,7 @@ from services.summary_service import SummaryService, SUMMARY_SYSTEM_PROMPT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def make_comment(cid, relevancy=7, user_relevancy=None, score=10, body="comment body", starred=0):
+def make_comment(cid, relevancy=7, user_relevancy=None, score=10, body="comment body", starred=0, source="reddit"):
     return ScoredComment(
         id=cid,
         thread_id="t1",
@@ -25,6 +25,7 @@ def make_comment(cid, relevancy=7, user_relevancy=None, score=10, body="comment 
         reasoning="reason",
         user_relevancy_score=user_relevancy,
         starred=starred,
+        source=source,
     )
 
 
@@ -120,6 +121,38 @@ def test_custom_comment_count_respected(svc, mock_llm):
     user_prompt = mock_llm.complete_text.call_args[1]["user_prompt"]
     count = sum(1 for i in range(20) if f"c{i:04d}" in user_prompt)
     assert count == 10
+
+
+# ── Web quote reserved slots ─────────────────────────────────────────────────
+
+def test_web_quotes_get_reserved_slots(svc, mock_llm):
+    """Web quotes should get reserved slots even when community comments have higher sort keys."""
+    community = [make_comment(f"r{i:04d}", relevancy=7, score=50) for i in range(40)]
+    web = [make_comment(f"w{i:04d}", relevancy=7, score=0, source="web") for i in range(10)]
+    svc.summarize("test question", community + web, max_comments=50)
+    user_prompt = mock_llm.complete_text.call_args[1]["user_prompt"]
+    web_count = sum(1 for i in range(10) if f"w{i:04d}" in user_prompt)
+    assert web_count >= 1, "At least some web quotes should appear in the summary"
+
+
+def test_web_slots_fill_with_community_when_few_web(svc, mock_llm):
+    """If fewer web quotes than reserved slots, unused slots go to community."""
+    community = [make_comment(f"r{i:04d}", relevancy=7, score=50) for i in range(40)]
+    web = [make_comment(f"w{i:04d}", relevancy=7, score=0, source="web") for i in range(2)]
+    svc.summarize("test question", community + web, max_comments=50)
+    user_prompt = mock_llm.complete_text.call_args[1]["user_prompt"]
+    total = sum(1 for i in range(40) if f"r{i:04d}" in user_prompt)
+    total += sum(1 for i in range(2) if f"w{i:04d}" in user_prompt)
+    assert total == 42  # all 40 community + 2 web
+
+
+def test_no_web_comments_uses_all_community(svc, mock_llm):
+    """With zero web quotes, all slots go to community comments."""
+    community = [make_comment(f"r{i:04d}", relevancy=7, score=50) for i in range(60)]
+    svc.summarize("test question", community, max_comments=50)
+    user_prompt = mock_llm.complete_text.call_args[1]["user_prompt"]
+    count = sum(1 for i in range(60) if f"r{i:04d}" in user_prompt)
+    assert count == 50
 
 
 # ── Feedback ──────────────────────────────────────────────────────────────────

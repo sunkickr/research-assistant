@@ -4,7 +4,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from typing import List, Optional
-from models.data_models import RedditThread, ScoredComment
+from models.data_models import RedditComment, RedditThread, ScoredComment
 
 
 class StorageService:
@@ -152,6 +152,44 @@ class StorageService:
                         c.source,
                     ),
                 )
+
+    def save_raw_comments(self, research_id: str, comments: list):
+        """Save comments before scoring (relevancy_score=NULL). Upsert-safe."""
+        raw = [
+            ScoredComment(
+                id=c.id, thread_id=c.thread_id, author=c.author, body=c.body,
+                score=c.score, created_utc=c.created_utc, depth=c.depth,
+                permalink=c.permalink, relevancy_score=None, reasoning=None,
+                source=c.source,
+            )
+            for c in comments
+        ]
+        self.save_scored_comments(research_id, raw)
+
+    def get_unscored_count(self, research_id: str) -> int:
+        """Count comments with relevancy_score IS NULL."""
+        with self._get_conn() as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM comments WHERE research_id=? AND relevancy_score IS NULL",
+                (research_id,),
+            ).fetchone()[0]
+
+    def get_unscored_comments(self, research_id: str) -> list:
+        """Return unscored comments as RedditComment objects for re-scoring."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT id, thread_id, author, body, score, created_utc, depth, permalink, source "
+                "FROM comments WHERE research_id=? AND relevancy_score IS NULL",
+                (research_id,),
+            ).fetchall()
+            return [
+                RedditComment(
+                    id=r["id"], thread_id=r["thread_id"], author=r["author"],
+                    body=r["body"], score=r["score"], created_utc=r["created_utc"],
+                    depth=r["depth"], permalink=r["permalink"], source=r["source"] or "reddit",
+                )
+                for r in rows
+            ]
 
     def get_existing_thread_ids(self, research_id: str) -> set:
         """Return the set of thread IDs already collected for this research."""

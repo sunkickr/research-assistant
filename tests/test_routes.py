@@ -558,3 +558,39 @@ class TestArchive:
         data = resp.get_json()
         assert "archived" in data
         assert len(data["archived"]) == 1
+
+
+# ── Rescore endpoints ────────────────────────────────────────────────────────
+
+class TestRescore:
+
+    def test_rescore_not_found_returns_404(self, client, mock_storage):
+        mock_storage.get_research.return_value = None
+        resp = client.post("/api/research/missing/rescore")
+        assert resp.status_code == 404
+
+    def test_rescore_no_unscored_returns_400(self, client, mock_storage, monkeypatch):
+        import app as app_module
+        mock_storage.get_unscored_comments.return_value = []
+        resp = client.post("/api/research/res123/rescore")
+        assert resp.status_code == 400
+
+    def test_rescore_returns_count(self, client, mock_storage, monkeypatch):
+        import app as app_module
+        from models.data_models import RedditComment
+        unscored = [
+            RedditComment(id="c1", thread_id="t1", author="a", body="b",
+                          score=1, created_utc=0, depth=0, permalink="p"),
+            RedditComment(id="c2", thread_id="t1", author="a", body="b",
+                          score=1, created_utc=0, depth=0, permalink="p"),
+        ]
+        mock_storage.get_unscored_comments.return_value = unscored
+        resp = client.post("/api/research/res123/rescore")
+        assert resp.status_code == 200
+        assert resp.get_json()["count"] == 2
+
+    def test_unscored_count_endpoint(self, client, mock_storage):
+        mock_storage.get_unscored_count.return_value = 5
+        resp = client.get("/api/research/res123/unscored-count")
+        assert resp.status_code == 200
+        assert resp.get_json()["unscored_count"] == 5

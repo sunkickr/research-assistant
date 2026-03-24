@@ -149,6 +149,7 @@ function listenToProgress(researchId) {
     const feedEl = document.getElementById('activityFeed');
     const progressBar = document.getElementById('progressBar');
     let lastStage = '';
+    let redirectedForScoring = false;
 
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -164,6 +165,14 @@ function listenToProgress(researchId) {
         if (data.stage === 'error') {
             eventSource.close();
             showError(data.message);
+            return;
+        }
+
+        // Redirect to results page when scoring starts (comments already saved raw)
+        if (data.stage === 'scoring' && !redirectedForScoring) {
+            redirectedForScoring = true;
+            eventSource.close();
+            window.location.href = `/results/${researchId}`;
             return;
         }
 
@@ -739,6 +748,129 @@ async function _pollUntilExpandDone(researchId, sortsStarted, attempts) {
         }
     } catch (_) {
         _pollUntilExpandDone(researchId, sortsStarted, attempts + 1);
+    }
+}
+
+// ===== Initial Scoring Progress (results page, arrived mid-scoring) =====
+
+function listenToScoringProgress(researchId) {
+    const progressEl = document.getElementById('initialScoringProgress');
+    const barEl = document.getElementById('initialScoringBar');
+    const feedEl = document.getElementById('initialScoringFeed');
+
+    const es = new EventSource(`/api/research/${researchId}/stream`);
+    if (progressEl) progressEl.style.display = 'block';
+
+    es.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (barEl && data.progress != null) {
+            // Remap: pipeline scoring goes 62→95, normalize to 0→100
+            const scoringPct = Math.min(100, Math.max(0,
+                Math.round(((data.progress - 62) / 33) * 100)
+            ));
+            barEl.style.width = scoringPct + '%';
+        }
+
+        if (feedEl) {
+            feedEl.innerHTML = `<div>${escapeHtml(data.message || '')}</div>`;
+        }
+
+        if (data.comments && data.comments.length > 0 && typeof insertLiveComments === 'function') {
+            insertLiveComments(data.comments);
+        }
+
+        if (data.stage === 'complete') {
+            es.close();
+            if (progressEl) progressEl.style.display = 'none';
+            loadResults(researchId);
+            refreshResultsMeta(researchId);
+            checkUnscoredComments(researchId);
+        } else if (data.stage === 'error') {
+            es.close();
+            if (progressEl) progressEl.style.display = 'none';
+            checkUnscoredComments(researchId);
+        }
+    };
+
+    es.onerror = () => {
+        es.close();
+        if (progressEl) progressEl.style.display = 'none';
+        // Pipeline may have finished while connecting — fall back to checking unscored
+        checkUnscoredComments(researchId);
+    };
+}
+
+async function refreshResultsMeta(researchId) {
+    try {
+        const resp = await fetch(`/api/research/${researchId}`);
+        const data = await resp.json();
+        const metaEls = document.querySelectorAll('.results-meta');
+        if (metaEls.length > 0 && data.research) {
+            const r = data.research;
+            metaEls[0].innerHTML =
+                `${r.num_threads || 0} threads &middot; ` +
+                `${r.num_comments || 0} comments scored &middot; ` +
+                `${(r.created_at || '').slice(0, 10)}`;
+        }
+    } catch (_) {}
+}
+
+// ===== Rescore Unscored Comments =====
+
+async function checkUnscoredComments(researchId) {
+    try {
+        const resp = await fetch(`/api/research/${researchId}/unscored-count`);
+        const data = await resp.json();
+        const btn = document.getElementById('rescoreBtn');
+        if (data.unscored_count > 0 && btn) {
+            document.getElementById('unscoredCount').textContent = data.unscored_count;
+            btn.style.display = '';
+        }
+    } catch (e) { /* ignore */ }
+}
+
+async function handleRescore(researchId) {
+    const btn = document.getElementById('rescoreBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Scoring...';
+
+    const progressEl = document.getElementById('addThreadProgress');
+    const barEl = document.getElementById('addThreadProgressBar');
+    const feedEl = document.getElementById('addThreadFeed');
+    progressEl.style.display = 'block';
+
+    try {
+        const resp = await fetch(`/api/research/${researchId}/rescore`, { method: 'POST' });
+        if (!resp.ok) {
+            const err = await resp.json();
+            alert(err.error || 'Failed to start rescore');
+            btn.disabled = false;
+            btn.innerHTML = `Score Unscored Comments (<span id="unscoredCount">${document.getElementById('unscoredCount')?.textContent || 0}</span>)`;
+            progressEl.style.display = 'none';
+            return;
+        }
+
+        const evtSource = new EventSource(`/api/research/${researchId}/rescore/stream`);
+        evtSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (barEl) barEl.style.width = (data.progress || 0) + '%';
+            if (feedEl) feedEl.innerHTML = `<div>${data.message || ''}</div>`;
+
+            if (data.comments) insertLiveComments(data.comments);
+
+            if (data.stage === 'complete' || data.stage === 'error') {
+                evtSource.close();
+                progressEl.style.display = 'none';
+                btn.style.display = 'none';
+                loadResults(researchId);
+            }
+        };
+    } catch (e) {
+        alert('Failed to rescore: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = 'Score Unscored Comments';
+        progressEl.style.display = 'none';
     }
 }
 

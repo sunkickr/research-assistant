@@ -78,12 +78,22 @@ class SummaryService:
         if not relevant:
             return "No sufficiently relevant comments were found to summarize. Try broadening your search query."
 
-        relevant.sort(
-            key=lambda c: self._effective_relevancy(c) * max(c.score, 1), reverse=True
-        )
+        # Split by source type to reserve slots for web quotes
+        community = [c for c in relevant if c.source != "web"]
+        web = [c for c in relevant if c.source == "web"]
 
-        # Take top N most relevant for the summary prompt
-        top_comments = relevant[:max_comments]
+        sort_key = lambda c: self._effective_relevancy(c) * max(c.score, 1)
+        community.sort(key=sort_key, reverse=True)
+        web.sort(key=lambda c: self._effective_relevancy(c), reverse=True)
+
+        # Reserve 20% of slots for web, fill remainder with community
+        web_slots = max(1, max_comments // 5)
+        top_web = web[:web_slots]
+        community_slots = max_comments - len(top_web)
+        top_community = community[:community_slots]
+
+        top_comments = top_community + top_web
+        top_comments.sort(key=sort_key, reverse=True)
 
         def _format_relevancy(c: ScoredComment) -> str:
             if c.user_relevancy_score is not None:

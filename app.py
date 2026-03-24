@@ -54,6 +54,8 @@ progress_queues: dict[str, queue.Queue] = {}
 expand_queues: dict[str, queue.Queue] = {}
 # Active add-thread streams: research_id -> queue.Queue
 add_thread_queues: dict[str, queue.Queue] = {}
+# Active rescore streams: research_id -> queue.Queue
+rescore_queues: dict[str, queue.Queue] = {}
 
 # Reddit sort order cycle for successive "Find More" expansions
 REDDIT_EXPAND_SORTS = ["top", "new", "controversial", "hot"]
@@ -166,8 +168,8 @@ def _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, artic
         return reddit_svc.collect_comments(thread.id, max_comments=max_comments)
 
 
-def _make_scoring_progress_callback(q, base_pct, range_pct):
-    """Return a scoring progress callback that emits SSE events into q."""
+def _make_scoring_progress_callback(q, base_pct, range_pct, research_id=None):
+    """Return a scoring progress callback that emits SSE events and saves each batch."""
     def on_batch(batch_num, total_batches, batch_results):
         pct = base_pct + int(range_pct * (batch_num / total_batches))
         q.put({
@@ -176,6 +178,8 @@ def _make_scoring_progress_callback(q, base_pct, range_pct):
             "progress": pct,
             "comments": _comments_for_sse(batch_results),
         })
+        if research_id:
+            storage_svc.save_scored_comments(research_id, batch_results)
     return on_batch
 
 
@@ -440,6 +444,8 @@ def run_research_pipeline(
             })
             comments = _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc)
             all_comments.extend(comments)
+            if comments:
+                storage_svc.save_raw_comments(research_id, comments)
             q.put({
                 "stage": "collecting",
                 "message": f"Collected {len(comments)} comments from \"{thread.title[:40]}\"",
@@ -478,7 +484,7 @@ def run_research_pipeline(
         })
 
         scored_comments = scoring_svc.score_comments(
-            question, all_comments, progress_callback=_make_scoring_progress_callback(q, 62, 33)
+            question, all_comments, progress_callback=_make_scoring_progress_callback(q, 62, 33, research_id=research_id)
         )
         storage_svc.save_scored_comments(research_id, scored_comments)
         q.put({"stage": "scoring", "message": "Scoring complete", "progress": 95})
@@ -510,16 +516,24 @@ def research_stream(research_id):
         if not q:
             yield f"data: {json.dumps({'stage': 'error', 'message': 'Research not found'})}\n\n"
             return
-        while True:
-            try:
-                msg = q.get(timeout=120)
-            except queue.Empty:
-                yield f"data: {json.dumps({'stage': 'error', 'message': 'Research timed out'})}\n\n"
-                break
-            if msg is None:
-                break
-            yield f"data: {json.dumps(msg)}\n\n"
-        progress_queues.pop(research_id, None)
+        pipeline_done = False
+        try:
+            while True:
+                try:
+                    msg = q.get(timeout=120)
+                except queue.Empty:
+                    yield f"data: {json.dumps({'stage': 'error', 'message': 'Research timed out'})}\n\n"
+                    pipeline_done = True
+                    break
+                if msg is None:
+                    pipeline_done = True
+                    break
+                yield f"data: {json.dumps(msg)}\n\n"
+        except GeneratorExit:
+            pass  # Client disconnected; keep queue alive for reconnect
+        finally:
+            if pipeline_done:
+                progress_queues.pop(research_id, None)
 
     return Response(
         generate(),
@@ -806,6 +820,8 @@ def run_expand_pipeline(
             })
             comments = _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc)
             all_comments.extend(comments)
+            if comments:
+                storage_svc.save_raw_comments(research_id, comments)
             q.put({
                 "stage": "collecting",
                 "message": f"Collected {len(comments)} comments from \"{thread.title[:40]}\"",
@@ -832,7 +848,7 @@ def run_expand_pipeline(
             return
 
         # Score comments
-        scored = scoring_svc.score_comments(question, all_comments, progress_callback=_make_scoring_progress_callback(q, 65, 30))
+        scored = scoring_svc.score_comments(question, all_comments, progress_callback=_make_scoring_progress_callback(q, 65, 30, research_id=research_id))
 
         # Save threads and comments together so they always appear as a pair
         storage_svc.save_threads(research_id, relevant_threads)
@@ -1067,6 +1083,8 @@ def run_add_thread_pipeline(
             q.put({"stage": "complete", "message": "Thread added (no comments found).", "progress": 100})
             return
 
+        storage_svc.save_raw_comments(research_id, comments)
+
         q.put({
             "stage": "collecting",
             "message": f"Collected {len(comments)} comments",
@@ -1081,16 +1099,10 @@ def run_add_thread_pipeline(
             "progress": 55,
         })
 
-        def on_batch(batch_num, total_batches, batch_results):
-            pct = 55 + int(40 * (batch_num / total_batches))
-            q.put({
-                "stage": "scoring",
-                "message": f"Scoring batch {batch_num}/{total_batches}...",
-                "progress": pct,
-                "comments": _comments_for_sse(batch_results),
-            })
-
-        scored = scoring_svc.score_comments(question, comments, progress_callback=on_batch)
+        scored = scoring_svc.score_comments(
+            question, comments,
+            progress_callback=_make_scoring_progress_callback(q, 55, 40, research_id=research_id),
+        )
         storage_svc.save_scored_comments(research_id, scored)
         storage_svc.recalculate_counts(research_id)
         storage_svc.export_csv(research_id)
@@ -1126,6 +1138,87 @@ def add_thread_stream(research_id):
                 break
             yield f"data: {json.dumps(msg)}\n\n"
         add_thread_queues.pop(research_id, None)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── Rescore unscored comments ─────────────────────────────────────────────────
+
+@app.route("/api/research/<research_id>/unscored-count")
+def unscored_count(research_id):
+    count = storage_svc.get_unscored_count(research_id)
+    return jsonify(unscored_count=count)
+
+
+@app.route("/api/research/<research_id>/rescore", methods=["POST"])
+def rescore_comments(research_id):
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+
+    unscored = storage_svc.get_unscored_comments(research_id)
+    if not unscored:
+        return jsonify(error="No unscored comments found"), 400
+
+    q: queue.Queue = queue.Queue()
+    rescore_queues[research_id] = q
+    t = threading.Thread(
+        target=run_rescore_pipeline,
+        args=(research_id, research["question"], unscored, q),
+        daemon=True,
+    )
+    t.start()
+    return jsonify(count=len(unscored))
+
+
+def run_rescore_pipeline(research_id, question, unscored_comments, q):
+    """Background task to score previously unscored comments."""
+    try:
+        q.put({
+            "stage": "scoring",
+            "message": f"Scoring {len(unscored_comments)} unscored comments...",
+            "progress": 10,
+        })
+        scored = scoring_svc.score_comments(
+            question, unscored_comments,
+            progress_callback=_make_scoring_progress_callback(q, 10, 85, research_id=research_id),
+        )
+        storage_svc.save_scored_comments(research_id, scored)
+        storage_svc.recalculate_counts(research_id)
+        storage_svc.export_csv(research_id)
+        q.put({
+            "stage": "complete",
+            "message": f"Scored {len(scored)} comments!",
+            "progress": 100,
+        })
+    except Exception as e:
+        q.put({"stage": "error", "message": str(e), "progress": 0})
+    finally:
+        q.put(None)
+
+
+@app.route("/api/research/<research_id>/rescore/stream")
+def rescore_stream(research_id):
+    """SSE endpoint for rescore progress updates."""
+    def generate():
+        q = rescore_queues.get(research_id)
+        if not q:
+            yield f"data: {json.dumps({'stage': 'error', 'message': 'Task not found'})}\n\n"
+            return
+        while True:
+            try:
+                msg = q.get(timeout=120)
+            except queue.Empty:
+                yield f"data: {json.dumps({'stage': 'error', 'message': 'Timed out'})}\n\n"
+                break
+            if msg is None:
+                break
+            yield f"data: {json.dumps(msg)}\n\n"
+        rescore_queues.pop(research_id, None)
 
     return Response(
         generate(),

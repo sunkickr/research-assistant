@@ -5,7 +5,7 @@ Uses a real StorageService backed by a tmp_path SQLite DB (no mocks).
 
 import os
 import pytest
-from models.data_models import RedditThread, ScoredComment
+from models.data_models import RedditComment, RedditThread, ScoredComment
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -330,3 +330,61 @@ def test_export_csv_contains_correct_headers(real_storage):
         header = f.readline()
     for col in ["id", "body", "relevancy_score", "source", "starred"]:
         assert col in header
+
+
+# ── Raw comments & unscored ──────────────────────────────────────────────────
+
+def _make_raw_comment(cid="c1", tid="t1"):
+    return RedditComment(
+        id=cid, thread_id=tid, author="author", body="body text",
+        score=10, created_utc=1700000000.0, depth=0, permalink="http://example.com",
+        source="reddit",
+    )
+
+
+def test_save_raw_comments(real_storage):
+    """Raw comments should be stored with relevancy_score=NULL."""
+    real_storage.create_research("r1", "test", {})
+    real_storage.save_threads("r1", [make_thread()])
+    real_storage.save_raw_comments("r1", [_make_raw_comment("c1"), _make_raw_comment("c2")])
+    comments = real_storage.get_comments("r1")
+    assert len(comments) == 2
+    assert all(c["relevancy_score"] is None for c in comments)
+
+
+def test_save_raw_then_scored_preserves_user_fields(real_storage):
+    """Saving raw, setting user_relevancy, then re-saving scored should keep user_relevancy."""
+    real_storage.create_research("r1", "test", {})
+    real_storage.save_threads("r1", [make_thread()])
+    real_storage.save_raw_comments("r1", [_make_raw_comment("c1")])
+
+    # User sets relevancy
+    real_storage.set_user_relevancy("r1", "c1", 8)
+
+    # Now score arrives (upsert)
+    real_storage.save_scored_comments("r1", [make_comment("c1", relevancy=6)])
+
+    comments = real_storage.get_comments("r1")
+    c = comments[0]
+    assert c["relevancy_score"] == 6
+    assert c["user_relevancy_score"] == 8  # preserved
+
+
+def test_get_unscored_count(real_storage):
+    """Should count only comments with relevancy_score IS NULL."""
+    real_storage.create_research("r1", "test", {})
+    real_storage.save_threads("r1", [make_thread()])
+    real_storage.save_raw_comments("r1", [_make_raw_comment("c1"), _make_raw_comment("c2")])
+    real_storage.save_scored_comments("r1", [make_comment("c1", relevancy=7)])
+    assert real_storage.get_unscored_count("r1") == 1
+
+
+def test_get_unscored_comments_returns_reddit_comment_objects(real_storage):
+    """Should return RedditComment objects for re-scoring."""
+    real_storage.create_research("r1", "test", {})
+    real_storage.save_threads("r1", [make_thread()])
+    real_storage.save_raw_comments("r1", [_make_raw_comment("c1")])
+    unscored = real_storage.get_unscored_comments("r1")
+    assert len(unscored) == 1
+    assert isinstance(unscored[0], RedditComment)
+    assert unscored[0].id == "c1"

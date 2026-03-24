@@ -525,15 +525,23 @@ function formatDate(utc) {
 // ===== Live Comment Insertion (for expand/add-thread SSE) =====
 
 function insertLiveComments(newComments) {
-    const existingIds = new Set(allComments.map(c => c.id));
-    let added = 0;
+    const existingMap = new Map(allComments.map((c, i) => [c.id, i]));
+    let changed = 0;
     for (const c of newComments) {
-        if (existingIds.has(c.id)) continue;
+        const idx = existingMap.get(c.id);
+        if (idx !== undefined) {
+            // Update existing comment if it gained a score (raw → scored)
+            if (c.relevancy_score != null && allComments[idx].relevancy_score == null) {
+                Object.assign(allComments[idx], c);
+                changed++;
+            }
+            continue;
+        }
         allComments.push(c);
-        existingIds.add(c.id);
-        added++;
+        existingMap.set(c.id, allComments.length - 1);
+        changed++;
     }
-    if (added > 0) {
+    if (changed > 0) {
         renderSourceTabs();
         applyFilters();
     }

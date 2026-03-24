@@ -1239,6 +1239,26 @@ tbody tr.starred-row:hover {
     font-size: 14px;
 }
 
+/* ===== Rescore Button ===== */
+#rescoreBtn {
+    border-color: #e67e22;
+    color: #e67e22;
+}
+#rescoreBtn:hover {
+    background: #e67e22;
+    color: #fff;
+}
+
+/* ===== Initial Scoring Progress ===== */
+.initial-scoring-progress {
+    margin-top: 12px;
+}
+.scoring-progress-label {
+    font-size: 0.9rem;
+    color: #aaa;
+    margin-bottom: 4px;
+}
+
 /* ===== Archive Sidebar ===== */
 .btn-archive-sidebar {
     position: absolute;

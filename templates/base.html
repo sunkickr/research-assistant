@@ -20,7 +20,10 @@
         </main>
 
         <aside class="sidebar">
-            <a href="/" class="sidebar-new-btn">+ New Research</a>
+            <div class="sidebar-top-row">
+                <a href="/" class="sidebar-new-btn">+ New Research</a>
+                <button class="btn-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">&#9776;</button>
+            </div>
             <h3 class="sidebar-heading">History</h3>
             <ul class="history-list" id="historyList">
                 {% for item in history %}

@@ -1,3 +1,21 @@
+// ===== Sidebar Toggle =====
+
+function toggleSidebar() {
+    const layout = document.querySelector('.layout');
+    if (!layout) return;
+    layout.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sidebarCollapsed', layout.classList.contains('sidebar-collapsed'));
+}
+
+// Restore sidebar state on page load
+(function() {
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelector('.layout')?.classList.add('sidebar-collapsed');
+        });
+    }
+})();
+
 // ===== Research Mode Toggle =====
 
 function setResearchMode(mode) {
@@ -1012,14 +1030,40 @@ async function handleGenerateProductSummaries(researchId, withCustom = false) {
     }
 }
 
+const SECTION_LABELS = {
+    general: 'General Information', issues: 'Top Issues',
+    feature_requests: 'Feature Requests', benefits: 'Benefits & Strengths',
+    competitors: 'Competitors', alternatives: 'Churn & Alternatives',
+};
+
+function openSectionFeedback(researchId, category) {
+    const modal = document.getElementById('sectionFeedbackModal');
+    const title = document.getElementById('sectionFeedbackTitle');
+    const input = document.getElementById('sectionFeedbackInput');
+    const submitBtn = document.getElementById('sectionFeedbackSubmit');
+    if (!modal) return;
+
+    title.textContent = `Regenerate: ${SECTION_LABELS[category] || category}`;
+    input.value = '';
+    modal.classList.add('visible');
+    input.focus();
+
+    submitBtn.onclick = () => handleRegenerateSection(researchId, category);
+}
+
+function closeSectionFeedback() {
+    const modal = document.getElementById('sectionFeedbackModal');
+    if (modal) modal.classList.remove('visible');
+}
+
 async function handleRegenerateSection(researchId, category) {
     const card = document.querySelector(`.summary-card[data-category="${category}"]`);
     const body = document.getElementById(`summary-${category}`);
     const btn = card?.querySelector('.btn-card-regenerate');
-    const feedbackInput = document.getElementById(`feedback-${category}`);
     if (!body || !btn) return;
 
-    const feedback = feedbackInput?.value.trim() || null;
+    const feedback = document.getElementById('sectionFeedbackInput')?.value.trim() || null;
+    closeSectionFeedback();
 
     btn.disabled = true;
     const previousHtml = body.innerHTML;

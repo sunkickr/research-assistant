@@ -44,6 +44,35 @@ a {
     flex-shrink: 0;
 }
 
+.sidebar-top-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    align-items: stretch;
+}
+
+.sidebar-top-row .sidebar-new-btn {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.btn-sidebar-toggle {
+    background: none;
+    border: 1px solid #edeff1;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #878a8c;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.btn-sidebar-toggle:hover {
+    color: #ff4500;
+    border-color: #ff4500;
+}
+
 /* ===== Layout ===== */
 .layout {
     display: flex;
@@ -54,6 +83,7 @@ a {
     flex: 1;
     padding: 24px 32px;
     max-width: calc(100% - 280px);
+    transition: max-width 0.2s ease;
 }
 
 .sidebar {
@@ -66,6 +96,28 @@ a {
     height: calc(100vh - 48px);
     overflow-y: auto;
     flex-shrink: 0;
+    transition: width 0.2s ease, padding 0.2s ease, border 0.2s ease;
+}
+
+.layout.sidebar-collapsed .sidebar {
+    width: 52px;
+    padding: 16px 8px;
+    overflow: hidden;
+}
+
+.layout.sidebar-collapsed .sidebar-top-row {
+    margin-bottom: 0;
+}
+
+.layout.sidebar-collapsed .sidebar-top-row .sidebar-new-btn,
+.layout.sidebar-collapsed .sidebar-heading,
+.layout.sidebar-collapsed .history-list,
+.layout.sidebar-collapsed .sidebar-archived-btn {
+    display: none;
+}
+
+.layout.sidebar-collapsed .main-content {
+    max-width: calc(100% - 52px);
 }
 
 /* ===== Sidebar ===== */
@@ -1748,30 +1800,59 @@ tbody tr.starred-row:hover {
     cursor: not-allowed;
 }
 
-.summary-card-feedback {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid #edeff1;
+/* ===== Section Feedback Modal ===== */
+.section-feedback-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
 }
 
-.card-feedback-input {
+.section-feedback-modal.visible {
+    display: flex;
+}
+
+.section-feedback-content {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.section-feedback-content h4 {
+    margin: 0 0 14px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.section-feedback-content textarea {
     width: 100%;
-    padding: 6px 10px;
+    padding: 10px;
     border: 1px solid #edeff1;
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 14px;
     font-family: inherit;
     box-sizing: border-box;
+    resize: vertical;
+    min-height: 60px;
     color: #1a1a1b;
 }
 
-.card-feedback-input:focus {
+.section-feedback-content textarea:focus {
     outline: none;
     border-color: #ff4500;
 }
 
-.card-feedback-input::placeholder {
-    color: #aaa;
+.section-feedback-content .feedback-actions {
+    margin-top: 14px;
 }
 
 /* ===== Category Filter Tabs ===== */

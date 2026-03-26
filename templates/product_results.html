@@ -124,61 +124,55 @@
         <div class="summary-card" data-category="general">
             <div class="summary-card-header">
                 <h3>General Information</h3>
-                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'general')" title="Regenerate this section">&#x21bb;</button>
+                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'general')" title="Regenerate this section">&#x21bb;</button>
             </div>
             <div class="summary-card-body" id="summary-general"></div>
-            <div class="summary-card-feedback">
-                <input type="text" class="card-feedback-input" id="feedback-general" placeholder="Feedback for this section..." maxlength="500">
-            </div>
         </div>
         <div class="summary-card" data-category="issues">
             <div class="summary-card-header">
                 <h3>Top Issues</h3>
-                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'issues')" title="Regenerate this section">&#x21bb;</button>
+                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'issues')" title="Regenerate this section">&#x21bb;</button>
             </div>
             <div class="summary-card-body" id="summary-issues"></div>
-            <div class="summary-card-feedback">
-                <input type="text" class="card-feedback-input" id="feedback-issues" placeholder="Feedback for this section..." maxlength="500">
-            </div>
         </div>
         <div class="summary-card" data-category="feature_requests">
             <div class="summary-card-header">
                 <h3>Feature Requests</h3>
-                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'feature_requests')" title="Regenerate this section">&#x21bb;</button>
+                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'feature_requests')" title="Regenerate this section">&#x21bb;</button>
             </div>
             <div class="summary-card-body" id="summary-feature_requests"></div>
-            <div class="summary-card-feedback">
-                <input type="text" class="card-feedback-input" id="feedback-feature_requests" placeholder="Feedback for this section..." maxlength="500">
-            </div>
         </div>
         <div class="summary-card" data-category="benefits">
             <div class="summary-card-header">
                 <h3>Benefits & Strengths</h3>
-                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'benefits')" title="Regenerate this section">&#x21bb;</button>
+                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'benefits')" title="Regenerate this section">&#x21bb;</button>
             </div>
             <div class="summary-card-body" id="summary-benefits"></div>
-            <div class="summary-card-feedback">
-                <input type="text" class="card-feedback-input" id="feedback-benefits" placeholder="Feedback for this section..." maxlength="500">
-            </div>
         </div>
         <div class="summary-card" data-category="competitors">
             <div class="summary-card-header">
                 <h3>Competitors</h3>
-                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'competitors')" title="Regenerate this section">&#x21bb;</button>
+                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'competitors')" title="Regenerate this section">&#x21bb;</button>
             </div>
             <div class="summary-card-body" id="summary-competitors"></div>
-            <div class="summary-card-feedback">
-                <input type="text" class="card-feedback-input" id="feedback-competitors" placeholder="Feedback for this section..." maxlength="500">
-            </div>
         </div>
         <div class="summary-card" data-category="alternatives">
             <div class="summary-card-header">
                 <h3>Churn & Alternatives</h3>
-                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'alternatives')" title="Regenerate this section">&#x21bb;</button>
+                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'alternatives')" title="Regenerate this section">&#x21bb;</button>
             </div>
             <div class="summary-card-body" id="summary-alternatives"></div>
-            <div class="summary-card-feedback">
-                <input type="text" class="card-feedback-input" id="feedback-alternatives" placeholder="Feedback for this section..." maxlength="500">
+        </div>
+    </div>
+
+    <!-- Section Regenerate Modal -->
+    <div id="sectionFeedbackModal" class="section-feedback-modal">
+        <div class="section-feedback-content">
+            <h4 id="sectionFeedbackTitle">Regenerate Section</h4>
+            <textarea id="sectionFeedbackInput" placeholder="Optional: guide what this section focuses on..." rows="3" maxlength="500"></textarea>
+            <div class="feedback-actions">
+                <button class="btn btn-primary" id="sectionFeedbackSubmit">Regenerate</button>
+                <button class="btn btn-outline" onclick="closeSectionFeedback()">Cancel</button>
             </div>
         </div>
     </div>

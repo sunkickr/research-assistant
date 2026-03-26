@@ -147,3 +147,37 @@ class WebSearchService:
                     break
 
         return urls
+
+    def search_review_sites(
+        self,
+        product_name: str,
+        sites: List[str] = None,
+        max_per_site: int = 3,
+    ) -> List[str]:
+        """
+        Search DuckDuckGo for product reviews on specific sites.
+        Returns URLs for ArticleService to process.
+        """
+        if sites is None:
+            sites = ["g2.com", "capterra.com", "trustpilot.com", "quora.com"]
+
+        ddgs = DDGS(verify=False)
+        seen_urls: set = set()
+        urls: list = []
+
+        for site in sites:
+            try:
+                results = ddgs.text(
+                    f"{product_name} site:{site}",
+                    max_results=max_per_site,
+                )
+            except Exception:
+                continue
+
+            for r in results:
+                href = r.get("href", "")
+                if href and href not in seen_urls:
+                    seen_urls.add(href)
+                    urls.append(href)
+
+        return urls

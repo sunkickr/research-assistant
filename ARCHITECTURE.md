@@ -4,7 +4,7 @@ This document describes the engineering design of the Research Assistant applica
 
 ## System Overview
 
-Research Assistant is a Python Flask web application that searches Reddit, Hacker News, and the web for comments and article excerpts relevant to a research question, scores them for relevancy using an LLM, and presents results in an interactive UI.
+Research Assistant is a Python Flask web application that searches Reddit, Hacker News, Product Hunt, review sites, and the web for comments and article excerpts relevant to a research question, scores them for relevancy using an LLM, and presents results in an interactive UI. Supports two modes: General Research (open-ended questions) and Product Research (targeted product analysis across 6 categories with structured summaries).
 
 ```
 +------------------+       +------------------+       +------------------+
@@ -14,14 +14,14 @@ Research Assistant is a Python Flask web application that searches Reddit, Hacke
 |                  |       |                  |       |                  |
 +------------------+       +--------+---------+       +------------------+
                                     |
-                    +------+--------+--------+------+
-                    |      |        |        |      |
-            +-------v--+ +-v------+ +--v---+ +--v--------+ +--v--------+
-            |          | |        | |      | |           | |           |
-            | OpenAI   | | SQLite | | DDG  | | HN Algolia| |trafilatura|
-            | API      | | DB     | | Web  | | API       | | + LLM    |
-            |          | |        | |Search| |           | | (articles)|
-            +----------+ +-------+ +------+ +-----------+ +-----------+
+                    +------+--------+--------+------+------+
+                    |      |        |        |      |      |
+            +-------v--+ +-v------+ +--v---+ +--v--------+ +--v--------+ +--v----------+
+            |          | |        | |      | |           | |           | |             |
+            | OpenAI   | | SQLite | | DDG  | | HN Algolia| |trafilatura| |Product Hunt |
+            | API      | | DB     | | Web  | | API       | | + LLM    | | GraphQL API |
+            |          | |        | |Search| |           | | (articles)| |             |
+            +----------+ +-------+ +------+ +-----------+ +-----------+ +-------------+
 ```
 
 ## Tech Stack
@@ -32,10 +32,11 @@ Research Assistant is a Python Flask web application that searches Reddit, Hacke
 | Templates | Jinja2 | Server-side HTML rendering |
 | Frontend | Vanilla JS | Client-side interactivity |
 | Reddit API | PRAW 7.8 | Reddit search and comment collection |
-| Web Search | ddgs | DuckDuckGo search for supplementary thread and article discovery |
+| Web Search | ddgs | DuckDuckGo search for supplementary thread, article, and review site discovery |
 | Hacker News | requests + HN Algolia API | Story search and comment collection from Hacker News |
 | Article Extraction | trafilatura | Download and extract article text from web URLs |
-| LLM | OpenAI SDK (GPT-4o-mini) | Subreddit suggestion, thread filtering, comment scoring, article quote extraction, summarization |
+| Product Hunt | requests + GraphQL v2 API | Product post search and comment collection |
+| LLM | OpenAI SDK (GPT-4o-mini) | Subreddit suggestion, thread filtering, comment scoring, category classification, article quote extraction, summarization |
 | Database | SQLite3 (stdlib) | Persistent data storage |
 | Config | python-dotenv | Environment variable management |
 | Validation | Pydantic | LLM structured output schemas |
@@ -52,15 +53,17 @@ research-assistant/
 │   ├── reddit_service.py     # Reddit API wrapper (search, collect, validate subreddits)
 │   ├── hn_service.py         # Hacker News Algolia API wrapper (story search, comment collection)
 │   ├── article_service.py    # Web article extraction (trafilatura) + LLM quote extraction
-│   ├── web_search_service.py # DuckDuckGo web search for thread and article discovery
+│   ├── web_search_service.py # DuckDuckGo web search for thread, article, and review site discovery
+│   ├── producthunt_service.py # Product Hunt GraphQL v2 API (post search, comment collection)
 │   ├── llm_provider.py       # Abstract LLM interface + OpenAI implementation
-│   ├── scoring_service.py    # Subreddit suggestion, thread scoring, comment scoring
-│   ├── summary_service.py    # Research summarization
+│   ├── scoring_service.py    # Subreddit suggestion, thread scoring, comment scoring, category classification
+│   ├── summary_service.py    # Research summarization + per-category product summaries
 │   └── storage_service.py    # SQLite + CSV persistence
 ├── templates/
 │   ├── base.html             # Shared layout (nav, sidebar)
-│   ├── index.html            # Landing page
-│   └── results.html          # Results page
+│   ├── index.html            # Landing page (general + product research modes)
+│   ├── results.html          # General research results page
+│   └── product_results.html  # Product research results page
 ├── static/
 │   ├── css/style.css         # All styles
 │   └── js/
@@ -143,6 +146,71 @@ The core data flow when a user submits a research question:
            └─► SSE: "complete"
            Note: browser redirects to /results/{id} at first "scoring" event
            (early redirect — user sees results while scoring continues in background)
+```
+
+### Product Research Pipeline
+
+The data flow when a user submits a product research query:
+
+```
+1. User submits product name (+ source selections)
+   │
+   ├─► POST /api/product-research
+   │   └─► Creates research record (research_type: "product", status: pending)
+   │   └─► Stores product_name and sources in settings_json
+   │   └─► Spawns background thread
+   │   └─► Returns research_id to browser
+   │
+   ├─► Browser opens SSE: GET /api/research/{id}/stream
+   │
+   └─► Background Thread Pipeline:
+       │
+       ├─► Stage 1 (0-40%): MULTI-CATEGORY SEARCH
+       │   For each of 6 categories (issues, feature_requests, general,
+       │   competitors, benefits, alternatives):
+       │     └─► 2 query templates per category (e.g. "{product} issues", "{product} problems")
+       │     └─► For each enabled source:
+       │         ├─► Reddit: PRAW search + DDG site:reddit.com
+       │         ├─► HN: Algolia story search
+       │         ├─► Web: DDG article search → trafilatura + LLM quotes
+       │         ├─► Reviews: DDG site:g2.com, site:capterra.com, etc. → article pipeline
+       │         └─► Product Hunt: GraphQL search (once, first iteration only — name-based)
+       │     └─► Tag threads with category, deduplicate (first category wins)
+       │   └─► Score thread relevancy via LLM, keep threads scoring >= 6
+       │   └─► Save threads to SQLite
+       │
+       ├─► Stage 2 (40-60%): COMMENT COLLECTION
+       │   └─► Dispatched by source (Reddit/HN/web/reviews/Product Hunt)
+       │   └─► Same caps and filtering as general research
+       │   └─► Save raw comments to SQLite (relevancy_score = NULL)
+       │
+       ├─► Stage 3 (60-95%): SCORE WITH CATEGORY ASSIGNMENT
+       │   └─► Uses ProductCommentScore model with category field
+       │   └─► LLM assigns 1-10 relevancy AND classifies into one of 6 categories
+       │   └─► Categories based on content, not search query (handles cross-category content)
+       │   └─► Each scored batch saved incrementally
+       │   └─► SSE: scoring progress with batch results for live updates
+       │
+       └─► Stage 4 (95-100%): FINALIZE
+           └─► Update status to "complete", export CSV
+           └─► SSE: "complete"
+```
+
+### Product Summary Flow
+
+```
+User clicks "Generate Summaries" on product results page
+   │
+   └─► POST /api/research/{id}/summarize-product
+       ├─► Load all scored comments + threads from SQLite
+       ├─► For each of 6 categories:
+       │   ├─► Select ~30 same-category comments (boosted) + ~20 cross-category
+       │   ├─► LLM call with category-specific prompt
+       │   │   (e.g. "Top 5 issues users have with this product")
+       │   └─► Returns summary text with [#comment_id] citations
+       ├─► Save all 6 summaries as JSON in product_summaries_json
+       └─► Return {category: summary_text} to browser
+           └─► Rendered in 2-column grid of scrollable summary cards
 ```
 
 ### Find More Comments & Articles Flow
@@ -252,10 +320,12 @@ User clicks "Summarize Comments" (optionally via Customize panel)
 |--------|------|---------|
 | GET | `/` | Landing page |
 | GET | `/results/<id>` | Results page |
-| POST | `/api/research` | Start a new research pipeline |
+| POST | `/api/research` | Start a new general research pipeline |
+| POST | `/api/product-research` | Start a new product research pipeline |
 | GET | `/api/research/<id>/stream` | SSE: research progress |
 | GET | `/api/research/<id>` | Get threads + comments JSON |
-| POST | `/api/research/<id>/summarize` | Generate AI summary |
+| POST | `/api/research/<id>/summarize` | Generate AI summary (general research) |
+| POST | `/api/research/<id>/summarize-product` | Generate per-category product summaries |
 | GET | `/api/research/<id>/export` | Download CSV |
 | GET | `/api/history` | List past researches |
 | POST | `/api/research/<id>/expand` | Start "Find More Comments" expansion |
@@ -308,6 +378,7 @@ To add a new LLM provider:
 | `suggest_subreddits()` | question | subreddit names + search query variants | 1 |
 | `score_threads()` | question + thread list | filtered thread list (score ≥ 6) | 1 |
 | `score_comments()` | question + comment list | scored comment list | N/20 batches |
+| `score_comments_with_category()` | product name + comment list | scored + categorized comment list | N/20 batches |
 
 ### Web Search Strategy
 
@@ -333,14 +404,17 @@ researches
 ├── num_comments INTEGER
 ├── created_at TEXT
 ├── completed_at TEXT
+├── research_type TEXT DEFAULT 'general'  -- "general" | "product"
+├── product_summaries_json TEXT      -- JSON: {category: summary_text} (product research only)
 └── settings_json TEXT               -- JSON: {max_threads, max_comments, time_filter,
-                                     --        subreddits, sorts_tried, sources}
+                                     --        subreddits, sorts_tried, sources,
+                                     --        product_name (product research)}
 
 threads
-├── id TEXT                          -- Thread ID (Reddit submission ID, hn_{id}, or web_{hash})
+├── id TEXT                          -- Thread ID (Reddit submission ID, hn_{id}, web_{hash}, or ph_{slug})
 ├── research_id TEXT (FK)
 ├── title TEXT
-├── subreddit TEXT                   -- Subreddit name, "Hacker News", or domain name
+├── subreddit TEXT                   -- Subreddit name, "Hacker News", domain name, or "Product Hunt"
 ├── score INTEGER                    -- Upvotes/points
 ├── num_comments INTEGER
 ├── url TEXT
@@ -348,11 +422,12 @@ threads
 ├── selftext TEXT                    -- Post body (truncated to 500 chars)
 ├── created_utc REAL
 ├── author TEXT
-├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web"
+├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web" | "reviews" | "producthunt"
+├── category TEXT                    -- Product research category (issues, feature_requests, etc.)
 └── PRIMARY KEY (id, research_id)
 
 comments
-├── id TEXT                          -- Comment ID (Reddit ID, hn_{id}, or {thread_id}_q{n})
+├── id TEXT                          -- Comment ID (Reddit ID, hn_{id}, {thread_id}_q{n}, or ph_c{id})
 ├── research_id TEXT (FK)
 ├── thread_id TEXT (FK)
 ├── author TEXT
@@ -363,7 +438,8 @@ comments
 ├── permalink TEXT
 ├── relevancy_score INTEGER          -- AI score 1-10; NULL if scoring failed (batch timeout/error)
 ├── reasoning TEXT                   -- AI explanation; "Not scored — API timeout or error" if NULL
-├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web"
+├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web" | "reviews" | "producthunt"
+├── category TEXT                    -- LLM-assigned category (issues, feature_requests, general, etc.)
 └── PRIMARY KEY (id, research_id)
 ```
 
@@ -383,7 +459,7 @@ Background Thread                    SSE Endpoint
 ```
 
 Queue dicts keyed by `research_id`:
-- `progress_queues` — main research pipeline (SSE timeout: 120s)
+- `progress_queues` — main research pipeline and product research pipeline (SSE timeout: 120s)
 - `expand_queues` — Find More Comments (SSE timeout: 300s — processes more threads)
 - `add_thread_queues` — Add Thread manually (SSE timeout: 120s)
 - `rescore_queues` — Rescore unscored comments (SSE timeout: 120s)
@@ -408,10 +484,16 @@ This is appropriate for a single-user local application. For production multi-us
 - No API key required, 10,000 requests/hour
 - Typical research: 2-4 search queries + up to 10 item fetches for comment trees
 
+### Product Hunt GraphQL API
+- Requires API token (optional — product research works without it)
+- Uses v2 GraphQL endpoint (`https://api.producthunt.com/v2/api/graphql`)
+- Typical product research: 1 post search + 1-5 comment fetches
+
 ### DuckDuckGo
 - No API key required, no rate limit tier for reasonable use
 - Runs up to `len(queries) × (1 + len(subreddits))` search requests per pipeline execution
 - Also used for web article discovery (non-Reddit, non-HN URLs)
+- Product research: additional `site:` searches for G2, Capterra, Trustpilot, Quora
 
 ## Frontend Architecture
 
@@ -424,13 +506,18 @@ base.html (shared layout)
 └── History sidebar
 
 index.html (landing page)
-├── Search form with settings
-│   ├── Collapsible settings panel (source checkboxes, max threads, max comments, time range)
-│   └── Collapsible seed threads panel (optional URLs to bypass discovery)
+├── Research mode toggle (General Research | Product Research)
+├── General Research panel
+│   ├── Search form with settings
+│   │   ├── Collapsible settings panel (source checkboxes, max threads, max comments, time range)
+│   │   └── Collapsible seed threads panel (optional URLs to bypass discovery)
+├── Product Research panel (hidden by default)
+│   ├── Product name input
+│   ├── Collapsible settings (source checkboxes incl. Reviews + Product Hunt, max threads, max comments, time range)
 ├── Progress display (hidden, shown during research)
 └── Error display (hidden, shown on error)
 
-results.html (results page)
+results.html (general research results page)
 ├── Question header + metadata
 ├── Action buttons (Summarize | Customize, Find More Comments & Articles + ⚙ configure, Export CSV)
 ├── Expand progress feed (hidden, shown during expansion)
@@ -440,6 +527,18 @@ results.html (results page)
 │   └── Sources panel listing cited comments with author, snippet, permalink
 ├── Threads table (with source tabs, post body panel on click, Remove button per row)
 └── Comments table with source tabs, star column, user score column, and pagination
+
+product_results.html (product research results page)
+├── Product research badge + product name header
+├── Action buttons (Generate Summaries, Export CSV, Rescore)
+├── Add Thread input + progress feed
+├── Product summary cards (2-column grid, 6 cards)
+│   ├── General Info, Issues, Feature Requests
+│   ├── Benefits, Competitors, Alternatives
+│   └── Each card: scrollable content with [1][2] citation links
+├── Category filter tabs (All | Issues | Feature Requests | General | Competitors | Benefits | Alternatives)
+├── Threads table (with source tabs including Reviews + Product Hunt)
+└── Comments table with source tabs, category column, star, user score, and pagination
 ```
 
 JavaScript is split into two files:

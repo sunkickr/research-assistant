@@ -15,10 +15,11 @@ class RedditThread:
     created_utc: float
     author: str = ""
     source: str = "reddit"
+    category: Optional[str] = None
 
     CSV_FIELDS: ClassVar[list[str]] = [
         "id", "title", "subreddit", "score", "num_comments",
-        "url", "permalink", "author", "created_utc", "source",
+        "url", "permalink", "author", "created_utc", "source", "category",
     ]
 
 
@@ -50,11 +51,12 @@ class ScoredComment:
     user_relevancy_score: Optional[int] = None
     starred: int = 0
     source: str = "reddit"
+    category: Optional[str] = None
 
     CSV_FIELDS: ClassVar[list[str]] = [
         "id", "thread_id", "author", "body", "score", "relevancy_score",
         "user_relevancy_score", "reasoning", "permalink", "depth", "created_utc",
-        "starred", "source",
+        "starred", "source", "category",
     ]
 
 
@@ -69,3 +71,4 @@ class Research:
     created_at: str
     completed_at: Optional[str]
     settings_json: Optional[str] = None
+    research_type: str = "general"

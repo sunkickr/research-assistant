@@ -8,6 +8,7 @@ let showUnscoredOnly = false;
 let showStarredOnly = false;
 let activeThreadSource = 'all';
 let activeCommentSource = 'all';
+let activeCategoryFilter = 'all';
 
 // Sorting state
 let threadSortCol = 'score';
@@ -245,12 +246,20 @@ function applyFilters() {
         ? [...allThreads]
         : allThreads.filter(t => (t.source || 'reddit') === activeThreadSource);
 
+    // Filter threads by category
+    if (activeCategoryFilter !== 'all') {
+        filteredThreads = filteredThreads.filter(t => (t.category || 'general') === activeCategoryFilter);
+    }
+
     // Filter comments
     let base = activeThreadFilter
         ? allComments.filter(c => c.thread_id === activeThreadFilter)
         : [...allComments];
     if (activeCommentSource !== 'all') {
         base = base.filter(c => (c.source || 'reddit') === activeCommentSource);
+    }
+    if (activeCategoryFilter !== 'all') {
+        base = base.filter(c => (c.category || 'general') === activeCategoryFilter);
     }
     if (showUnscoredOnly) {
         base = base.filter(c => c.relevancy_score === null || c.relevancy_score === undefined);
@@ -263,6 +272,12 @@ function applyFilters() {
     renderThreadsTable();
     renderCommentsTable();
     updateCommentsMeta();
+}
+
+function setCategoryFilter(category) {
+    activeCategoryFilter = category;
+    if (typeof renderCategoryTabs === 'function') renderCategoryTabs();
+    applyFilters();
 }
 
 function filterByThread(threadId, threadTitle) {
@@ -347,6 +362,8 @@ const SOURCE_LABELS = {
     'reddit': 'Reddit',
     'hackernews': 'HN',
     'web': 'Web',
+    'reviews': 'Reviews',
+    'producthunt': 'Product Hunt',
 };
 
 function renderSourceTabs() {

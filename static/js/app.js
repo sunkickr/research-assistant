@@ -1,9 +1,35 @@
+// ===== Research Mode Toggle =====
+
+function setResearchMode(mode) {
+    const generalPanel = document.getElementById('generalPanel');
+    const productPanel = document.getElementById('productPanel');
+    const modeGeneral = document.getElementById('modeGeneral');
+    const modeProduct = document.getElementById('modeProduct');
+    if (!generalPanel || !productPanel) return;
+
+    if (mode === 'product') {
+        generalPanel.style.display = 'none';
+        productPanel.style.display = 'block';
+        modeGeneral?.classList.remove('active');
+        modeProduct?.classList.add('active');
+    } else {
+        generalPanel.style.display = 'block';
+        productPanel.style.display = 'none';
+        modeGeneral?.classList.add('active');
+        modeProduct?.classList.remove('active');
+    }
+}
+
 // ===== Research Form Submission & SSE Progress =====
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('researchForm');
     if (form) {
         form.addEventListener('submit', handleResearchSubmit);
+    }
+    const productForm = document.getElementById('productResearchForm');
+    if (productForm) {
+        productForm.addEventListener('submit', handleProductResearchSubmit);
     }
 });
 
@@ -31,7 +57,10 @@ async function handleResearchSubmit(e) {
     }
 
     // Hide search, show progress
-    document.getElementById('searchSection').style.display = 'none';
+    document.getElementById('generalPanel').style.display = 'none';
+    document.getElementById('productPanel').style.display = 'none';
+    const modeToggleEl = document.querySelector('.research-mode-toggle');
+    if (modeToggleEl) modeToggleEl.style.display = 'none';
     document.getElementById('progressSection').style.display = 'block';
 
     try {
@@ -51,6 +80,60 @@ async function handleResearchSubmit(e) {
         if (!response.ok) {
             const data = await response.json();
             showError(data.error || 'Failed to start research');
+            return;
+        }
+
+        const { research_id } = await response.json();
+        listenToProgress(research_id);
+    } catch (err) {
+        showError('Network error: ' + err.message);
+    }
+}
+
+async function handleProductResearchSubmit(e) {
+    e.preventDefault();
+
+    const productName = document.getElementById('productNameInput').value.trim();
+    if (!productName) return;
+
+    const maxThreads = document.getElementById('productMaxThreads')?.value || '15';
+    const maxComments = document.getElementById('productMaxComments')?.value || '100';
+    const timeFilter = document.getElementById('productTimeFilter')?.value || 'all';
+
+    const sources = [];
+    if (document.getElementById('productSourceReddit')?.checked) sources.push('reddit');
+    if (document.getElementById('productSourceHN')?.checked) sources.push('hackernews');
+    if (document.getElementById('productSourceWeb')?.checked) sources.push('web');
+    if (document.getElementById('productSourceReviews')?.checked) sources.push('reviews');
+    if (document.getElementById('productSourcePH')?.checked) sources.push('producthunt');
+    if (sources.length === 0) {
+        alert('Please select at least one search source.');
+        return;
+    }
+
+    // Hide form panels, show progress
+    document.getElementById('generalPanel').style.display = 'none';
+    document.getElementById('productPanel').style.display = 'none';
+    const modeToggle = document.querySelector('.research-mode-toggle');
+    if (modeToggle) modeToggle.style.display = 'none';
+    document.getElementById('progressSection').style.display = 'block';
+
+    try {
+        const response = await fetch('/api/product-research', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                product_name: productName,
+                max_threads: parseInt(maxThreads),
+                max_comments_per_thread: parseInt(maxComments),
+                time_filter: timeFilter,
+                sources: sources,
+            }),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            showError(data.error || 'Failed to start product research');
             return;
         }
 
@@ -874,5 +957,259 @@ async function handleRescore(researchId) {
         btn.innerHTML = 'Score Unscored Comments';
         progressEl.style.display = 'none';
     }
+}
+
+
+// ===== Product Research Summaries =====
+
+function toggleProductFeedbackPanel() {
+    const panel = document.getElementById('productFeedbackPanel');
+    if (panel) panel.classList.toggle('visible');
+}
+
+async function handleGenerateProductSummaries(researchId, withCustom = false) {
+    const btn = document.getElementById('generateSummariesBtn');
+    const feedbackToggle = document.getElementById('productFeedbackToggleBtn');
+    const feedbackPanel = document.getElementById('productFeedbackPanel');
+    if (!btn) return;
+
+    const maxComments = withCustom
+        ? parseInt(document.getElementById('productCommentCountInput')?.value || '50', 10)
+        : 50;
+
+    let feedback = null;
+    if (withCustom) {
+        feedback = document.getElementById('productFeedbackInput')?.value.trim() || null;
+    }
+
+    if (feedbackPanel) feedbackPanel.classList.remove('visible');
+    btn.disabled = true;
+    if (feedbackToggle) feedbackToggle.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating summaries...';
+
+    try {
+        const resp = await fetch(`/api/research/${researchId}/summarize-product`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                max_comments: maxComments,
+                ...(feedback ? { feedback } : {}),
+            }),
+        });
+        if (!resp.ok) {
+            const err = await resp.json();
+            alert(err.error || 'Failed to generate summaries');
+            return;
+        }
+        const data = await resp.json();
+        renderProductSummaries(data.summaries);
+        btn.textContent = 'Regenerate Summaries';
+    } catch (e) {
+        alert('Failed to generate summaries: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        if (feedbackToggle) feedbackToggle.disabled = false;
+    }
+}
+
+async function handleRegenerateSection(researchId, category) {
+    const card = document.querySelector(`.summary-card[data-category="${category}"]`);
+    const body = document.getElementById(`summary-${category}`);
+    const btn = card?.querySelector('.btn-card-regenerate');
+    const feedbackInput = document.getElementById(`feedback-${category}`);
+    if (!body || !btn) return;
+
+    const feedback = feedbackInput?.value.trim() || null;
+
+    btn.disabled = true;
+    const previousHtml = body.innerHTML;
+    body.innerHTML = '<div class="summary-loading"><span class="spinner spinner-dark"></span> Regenerating...</div>';
+
+    try {
+        const resp = await fetch(`/api/research/${researchId}/summarize-product-section`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category,
+                ...(feedback ? { feedback } : {}),
+            }),
+        });
+        if (!resp.ok) {
+            const err = await resp.json();
+            alert(err.error || 'Failed to regenerate section');
+            body.innerHTML = previousHtml;
+            return;
+        }
+        const data = await resp.json();
+        const { html, citationOrder } = renderProductSectionHtml(data.summary);
+        body.innerHTML = html + buildProductSourcesHtml(citationOrder);
+    } catch (e) {
+        alert('Failed to regenerate section: ' + e.message);
+        body.innerHTML = previousHtml;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function renderProductSummaries(summaries) {
+    const grid = document.getElementById('productSummaries');
+    if (!grid) return;
+    grid.style.display = 'grid';
+
+    for (const [category, text] of Object.entries(summaries)) {
+        const el = document.getElementById(`summary-${category}`);
+        if (el) {
+            const { html, citationOrder } = renderProductSectionHtml(text);
+            el.innerHTML = html + buildProductSourcesHtml(citationOrder);
+        }
+    }
+}
+
+function buildProductSourcesHtml(citationOrder) {
+    if (!citationOrder || citationOrder.length === 0) return '';
+    const commentMap = {};
+    if (typeof allComments !== 'undefined' && allComments) {
+        allComments.forEach(c => { commentMap[c.id] = c; });
+    }
+    const SOURCE_LABELS = { hackernews: 'HN', web: 'Web', reviews: 'Reviews', producthunt: 'PH' };
+    const items = citationOrder.map((id, i) => {
+        const c = commentMap[id];
+        if (!c) return '';
+        const num = i + 1;
+        const snippet = c.body.length > 120 ? c.body.slice(0, 120).trimEnd() + '\u2026' : c.body;
+        const srcLabel = SOURCE_LABELS[c.source] || 'Reddit';
+        const author = (!c.source || c.source === 'reddit') ? `u/${escapeHtmlAttr(c.author)}` : escapeHtmlAttr(c.author);
+        const link = c.permalink ? ` <a href="${escapeHtmlAttr(c.permalink)}" target="_blank" class="source-ext-link">&#8599;</a>` : '';
+        return `<li class="summary-source-item"><span class="source-num">[${num}]</span><span class="source-tag source-tag-${c.source || 'reddit'}">${srcLabel}</span><strong class="source-author">${author}</strong> &mdash; <span class="source-snippet">&ldquo;${escapeHtmlAttr(snippet)}&rdquo;</span>${link}</li>`;
+    }).filter(Boolean).join('');
+    if (!items) return '';
+    return `<div class="summary-sources-section product-card-sources"><h4 class="summary-sources-heading">Sources</h4><ol class="summary-source-list">${items}</ol></div>`;
+}
+
+function renderProductSectionHtml(text) {
+    if (!text) return { html: '<p class="summary-empty">No data available.</p>', citationOrder: [] };
+
+    // Build citation map
+    const commentMap = {};
+    if (typeof allComments !== 'undefined' && allComments) {
+        allComments.forEach(c => { commentMap[c.id] = c; });
+    }
+    const citationOrder = [];
+    const citationIndex = {};
+
+    // Pre-scan to assign citation numbers in appearance order
+    text.replace(/\[#([^\]]+)\]/g, (match, id) => {
+        if (commentMap[id] && !(id in citationIndex)) {
+            citationIndex[id] = citationOrder.push(id);
+        }
+    });
+
+    function inlineMd(line) {
+        // Bold
+        line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Resolve citation markers [#id] to numbered links
+        line = line.replace(/\[#([^\]]+)\]/g, (match, id) => {
+            const num = citationIndex[id];
+            if (!num) return '';
+            const c = commentMap[id];
+            const link = c && c.permalink ? c.permalink : '#';
+            return `<a href="${link}" target="_blank" class="citation-link" title="${escapeHtml(c.body?.substring(0, 100) || '')}">[${num}]</a>`;
+        });
+        return line;
+    }
+
+    // Line-by-line processing with list state tracking
+    // Blank lines do NOT close lists — only non-list content does.
+    let inOl = false;
+    let inUl = false;
+
+    function closeList() {
+        let close = '';
+        if (inOl) { inOl = false; close += '</ol>'; }
+        if (inUl) { inUl = false; close += '</ul>'; }
+        return close;
+    }
+
+    const lines = text.split('\n').map(line => {
+        const trimmed = line.trim();
+        // Blank lines: skip without closing lists (LLM puts blanks between numbered items)
+        if (!trimmed) return '';
+        // Headers
+        if (trimmed.startsWith('### ')) {
+            return closeList() + `<h5>${inlineMd(trimmed.slice(4))}</h5>`;
+        }
+        if (trimmed.startsWith('## ')) {
+            return closeList() + `<h4>${inlineMd(trimmed.slice(3))}</h4>`;
+        }
+        // Blockquotes
+        if (trimmed.startsWith('> ')) {
+            return closeList() + `<blockquote>${inlineMd(trimmed.slice(2))}</blockquote>`;
+        }
+        // Numbered list items
+        const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+        if (olMatch) {
+            // Close any open <ul> first (switching list type)
+            let close = '';
+            if (inUl) { inUl = false; close += '</ul>'; }
+            const item = `<li>${inlineMd(olMatch[1])}</li>`;
+            if (!inOl) { inOl = true; return close + `<ol>${item}`; }
+            return close + item;
+        }
+        // Bullet list items
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            // Close any open <ol> first
+            let close = '';
+            if (inOl) { inOl = false; close += '</ol>'; }
+            const item = `<li>${inlineMd(trimmed.slice(2))}</li>`;
+            if (!inUl) { inUl = true; return close + `<ul>${item}`; }
+            return close + item;
+        }
+        // Regular paragraph — close any open list
+        let close = '';
+        return closeList() + `<p>${inlineMd(trimmed)}</p>`;
+    });
+    // Close any list still open at the end
+    const trailing = closeList();
+    if (trailing) lines.push(trailing);
+
+    return { html: lines.join('\n'), citationOrder };
+}
+
+// ===== Category Filter Tabs =====
+
+const CATEGORY_LABELS = {
+    'issues': 'Issues',
+    'feature_requests': 'Feature Requests',
+    'general': 'General',
+    'competitors': 'Competitors',
+    'benefits': 'Benefits',
+    'alternatives': 'Alternatives',
+};
+
+function renderCategoryTabs() {
+    const container = document.getElementById('categoryTabs');
+    if (!container) return;
+
+    // Only show tabs if we have category data
+    const categories = [...new Set(
+        (typeof allComments !== 'undefined' ? allComments : [])
+            .map(c => c.category)
+            .filter(Boolean)
+    )];
+
+    if (categories.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = `<button class="cat-tab ${typeof activeCategoryFilter === 'undefined' || activeCategoryFilter === 'all' ? 'active' : ''}" onclick="setCategoryFilter('all')">All</button>`;
+    for (const cat of ['general', 'issues', 'feature_requests', 'benefits', 'competitors', 'alternatives']) {
+        if (!categories.includes(cat)) continue;
+        const count = allComments.filter(c => c.category === cat).length;
+        const label = CATEGORY_LABELS[cat] || cat;
+        const active = (typeof activeCategoryFilter !== 'undefined' && activeCategoryFilter === cat) ? 'active' : '';
+        html += `<button class="cat-tab ${active}" onclick="setCategoryFilter('${cat}')">${label} (${count})</button>`;
+    }
+    container.innerHTML = html;
 }
 

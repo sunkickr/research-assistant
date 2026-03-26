@@ -82,6 +82,10 @@ class StorageService:
                 "ALTER TABLE researches ADD COLUMN archived INTEGER DEFAULT 0",
                 "ALTER TABLE threads ADD COLUMN source TEXT DEFAULT 'reddit'",
                 "ALTER TABLE comments ADD COLUMN source TEXT DEFAULT 'reddit'",
+                "ALTER TABLE threads ADD COLUMN category TEXT",
+                "ALTER TABLE comments ADD COLUMN category TEXT",
+                "ALTER TABLE researches ADD COLUMN research_type TEXT DEFAULT 'general'",
+                "ALTER TABLE researches ADD COLUMN product_summaries_json TEXT",
             ]:
                 try:
                     conn.execute(stmt)
@@ -105,8 +109,8 @@ class StorageService:
             for t in threads:
                 conn.execute(
                     """INSERT OR REPLACE INTO threads
-                    (id, research_id, title, subreddit, score, num_comments, url, permalink, selftext, created_utc, author, source)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (id, research_id, title, subreddit, score, num_comments, url, permalink, selftext, created_utc, author, source, category)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         t.id,
                         research_id,
@@ -120,6 +124,7 @@ class StorageService:
                         t.created_utc,
                         t.author,
                         t.source,
+                        t.category,
                     ),
                 )
 
@@ -130,13 +135,14 @@ class StorageService:
             for c in comments:
                 conn.execute(
                     """INSERT INTO comments
-                    (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning, source)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning, source, category)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id, research_id) DO UPDATE SET
                         thread_id=excluded.thread_id, author=excluded.author, body=excluded.body,
                         score=excluded.score, created_utc=excluded.created_utc, depth=excluded.depth,
                         permalink=excluded.permalink, relevancy_score=excluded.relevancy_score,
-                        reasoning=excluded.reasoning, source=excluded.source""",
+                        reasoning=excluded.reasoning, source=excluded.source,
+                        category=excluded.category""",
                     (
                         c.id,
                         research_id,
@@ -150,6 +156,7 @@ class StorageService:
                         c.relevancy_score,
                         c.reasoning,
                         c.source,
+                        c.category,
                     ),
                 )
 
@@ -420,3 +427,22 @@ class StorageService:
                 writer.writerow({k: t.get(k, "") for k in RedditThread.CSV_FIELDS})
 
         return filepath
+
+    def save_product_summaries(self, research_id: str, summaries: dict):
+        """Store per-category product summaries as JSON."""
+        with self._get_conn() as conn:
+            conn.execute(
+                "UPDATE researches SET product_summaries_json=? WHERE id=?",
+                (json.dumps(summaries), research_id),
+            )
+
+    def get_product_summaries(self, research_id: str) -> dict:
+        """Return {category: summary_text} for a product research."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT product_summaries_json FROM researches WHERE id=?",
+                (research_id,),
+            ).fetchone()
+            if row and row["product_summaries_json"]:
+                return json.loads(row["product_summaries_json"])
+            return {}

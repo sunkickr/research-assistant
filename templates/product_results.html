@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}{{ (research.settings_json | fromjson).product_name or research.question[:50] }} - Product Research{% endblock %}
+
+{% block content %}
+{% set settings = research.settings_json | fromjson if research.settings_json else {} %}
+{% set product_name = settings.product_name or research.question %}
+<div class="results-container">
+    <!-- Header -->
+    <div class="results-header">
+        <div class="product-research-badge">Product Research</div>
+        <h1 class="results-question">{{ product_name }}</h1>
+        <p class="results-meta">
+            {{ research.num_threads or 0 }} threads &middot;
+            {{ research.num_comments or 0 }} comments scored &middot;
+            {{ research.created_at[:10] }}
+            {% if research.status == 'error' %}
+                &middot; <span style="color: #d93025;">Error during processing</span>
+            {% endif %}
+        </p>
+        {% set research_sources = settings.sources if settings.sources else ['reddit'] %}
+        <p class="results-meta">
+            Sources: {{ research_sources | join(', ') | replace('hackernews', 'Hacker News') | replace('reddit', 'Reddit') | replace('web', 'Web') | replace('reviews', 'Review Sites') | replace('producthunt', 'Product Hunt') }}
+        </p>
+        <div class="results-actions">
+            <div class="btn-group-summarize">
+                <button
+                    class="btn btn-primary"
+                    id="generateSummariesBtn"
+                    onclick="handleGenerateProductSummaries('{{ research_id }}')"
+                    {% if research.num_comments == 0 %}disabled{% endif %}
+                >
+                    {% if research.product_summaries_json %}Regenerate Summaries{% else %}Generate Summaries{% endif %}
+                </button>
+                <button
+                    class="btn-feedback"
+                    id="productFeedbackToggleBtn"
+                    onclick="toggleProductFeedbackPanel()"
+                    {% if research.num_comments == 0 %}disabled{% endif %}
+                    title="Customize summaries"
+                >
+                    customize
+                </button>
+            </div>
+            <a href="/api/research/{{ research_id }}/export" class="btn btn-outline">
+                Export CSV
+            </a>
+            <button class="btn btn-outline" id="rescoreBtn" style="display:none"
+                    onclick="handleRescore('{{ research_id }}')">
+                Score Unscored Comments (<span id="unscoredCount">0</span>)
+            </button>
+        </div>
+
+        <!-- Add Thread -->
+        <div class="add-thread-section">
+            <div class="add-thread-form">
+                <input
+                    type="text"
+                    id="addThreadUrl"
+                    class="add-thread-input"
+                    placeholder="Paste a Reddit, Hacker News, or article URL..."
+                    onkeydown="if(event.key==='Enter') handleAddThread('{{ research_id }}')"
+                />
+                <button class="btn btn-outline" id="addThreadBtn" onclick="handleAddThread('{{ research_id }}')">
+                    Add Thread
+                </button>
+            </div>
+            <div id="addThreadProgress" class="add-thread-progress" style="display: none;">
+                <div class="progress-bar-container" style="margin: 8px 0 4px;">
+                    <div class="progress-bar" id="addThreadProgressBar" style="width: 0%"></div>
+                </div>
+                <div class="activity-feed mini" id="addThreadFeed"></div>
+            </div>
+        </div>
+
+        <!-- Initial scoring progress (shown when arriving mid-scoring) -->
+        <div id="initialScoringProgress" class="initial-scoring-progress" style="display: none;">
+            <div class="scoring-progress-label">Scoring comments for relevancy...</div>
+            <div class="progress-bar-container" style="margin: 8px 0 4px;">
+                <div class="progress-bar" id="initialScoringBar" style="width: 0%"></div>
+            </div>
+            <div class="activity-feed mini" id="initialScoringFeed"></div>
+        </div>
+    </div>
+
+    <!-- Customize product summaries panel -->
+    <div id="productFeedbackPanel" class="feedback-panel">
+        <div class="customize-setting">
+            <label for="productCommentCountInput" class="customize-label">
+                Comments per section
+                <span class="customize-hint">Default 50 · Max 200</span>
+            </label>
+            <input
+                type="number"
+                id="productCommentCountInput"
+                class="customize-number"
+                value="50"
+                min="25"
+                max="200"
+                step="25"
+            >
+        </div>
+        <div class="customize-setting">
+            <label for="productFeedbackInput" class="customize-label">
+                Focus instructions
+                <span class="customize-hint">Optional · Applies to all 6 sections</span>
+            </label>
+            <textarea
+                id="productFeedbackInput"
+                placeholder="e.g. Focus on enterprise use cases, ignore pricing discussion..."
+                rows="3"
+                maxlength="500"
+            ></textarea>
+        </div>
+        <p class="feedback-hint">Tell the AI what to focus on or emphasize across all summary sections.</p>
+        <div class="feedback-actions">
+            <button class="btn btn-primary" onclick="handleGenerateProductSummaries('{{ research_id }}', true)">Generate Custom Summaries</button>
+            <button class="btn btn-outline" onclick="toggleProductFeedbackPanel()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Product Summary Cards -->
+    <div id="productSummaries" class="product-summaries-grid" style="display: none;">
+        <div class="summary-card" data-category="general">
+            <div class="summary-card-header">
+                <h3>General Information</h3>
+                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'general')" title="Regenerate this section">&#x21bb;</button>
+            </div>
+            <div class="summary-card-body" id="summary-general"></div>
+            <div class="summary-card-feedback">
+                <input type="text" class="card-feedback-input" id="feedback-general" placeholder="Feedback for this section..." maxlength="500">
+            </div>
+        </div>
+        <div class="summary-card" data-category="issues">
+            <div class="summary-card-header">
+                <h3>Top Issues</h3>
+                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'issues')" title="Regenerate this section">&#x21bb;</button>
+            </div>
+            <div class="summary-card-body" id="summary-issues"></div>
+            <div class="summary-card-feedback">
+                <input type="text" class="card-feedback-input" id="feedback-issues" placeholder="Feedback for this section..." maxlength="500">
+            </div>
+        </div>
+        <div class="summary-card" data-category="feature_requests">
+            <div class="summary-card-header">
+                <h3>Feature Requests</h3>
+                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'feature_requests')" title="Regenerate this section">&#x21bb;</button>
+            </div>
+            <div class="summary-card-body" id="summary-feature_requests"></div>
+            <div class="summary-card-feedback">
+                <input type="text" class="card-feedback-input" id="feedback-feature_requests" placeholder="Feedback for this section..." maxlength="500">
+            </div>
+        </div>
+        <div class="summary-card" data-category="benefits">
+            <div class="summary-card-header">
+                <h3>Benefits & Strengths</h3>
+                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'benefits')" title="Regenerate this section">&#x21bb;</button>
+            </div>
+            <div class="summary-card-body" id="summary-benefits"></div>
+            <div class="summary-card-feedback">
+                <input type="text" class="card-feedback-input" id="feedback-benefits" placeholder="Feedback for this section..." maxlength="500">
+            </div>
+        </div>
+        <div class="summary-card" data-category="competitors">
+            <div class="summary-card-header">
+                <h3>Competitors</h3>
+                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'competitors')" title="Regenerate this section">&#x21bb;</button>
+            </div>
+            <div class="summary-card-body" id="summary-competitors"></div>
+            <div class="summary-card-feedback">
+                <input type="text" class="card-feedback-input" id="feedback-competitors" placeholder="Feedback for this section..." maxlength="500">
+            </div>
+        </div>
+        <div class="summary-card" data-category="alternatives">
+            <div class="summary-card-header">
+                <h3>Churn & Alternatives</h3>
+                <button class="btn-card-regenerate" onclick="handleRegenerateSection('{{ research_id }}', 'alternatives')" title="Regenerate this section">&#x21bb;</button>
+            </div>
+            <div class="summary-card-body" id="summary-alternatives"></div>
+            <div class="summary-card-feedback">
+                <input type="text" class="card-feedback-input" id="feedback-alternatives" placeholder="Feedback for this section..." maxlength="500">
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Filter Tabs -->
+    <div id="categoryTabs" class="category-tabs"></div>
+
+    <!-- Threads Table -->
+    <div class="table-section">
+        <h3>Threads</h3>
+        <div id="threadsSourceTabs"></div>
+        <p class="table-section-meta" id="threadsMeta">Click a thread to filter comments and see the full post</p>
+        <div id="threadsTableContainer">
+            <p class="summary-loading"><span class="spinner spinner-dark"></span> Loading threads...</p>
+        </div>
+    </div>
+
+    <!-- Comments Table -->
+    <div class="table-section">
+        <h3>Comments</h3>
+        <div id="commentsSourceTabs"></div>
+        <div id="postBodyPanel" class="post-body-panel" style="display:none"></div>
+        <div id="threadFilterBanner" class="thread-filter-banner">
+            <span>Showing comments from: <strong id="filterThreadName"></strong></span>
+            <span class="thread-filter-clear" onclick="clearThreadFilter()">Show All</span>
+        </div>
+        <p class="table-section-meta" id="commentsMeta"></p>
+        <div id="commentsTableContainer">
+            <p class="summary-loading"><span class="spinner spinner-dark"></span> Loading comments...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tables.js') }}"></script>
+<script>
+    const RESEARCH_ID = '{{ research_id }}';
+    const RESEARCH_STATUS = '{{ research.status }}';
+    const EXISTING_SUMMARY = null;  // Product research uses per-category summaries
+    const EXISTING_PRODUCT_SUMMARIES = {{ research.product_summaries_json | tojson if research.product_summaries_json else 'null' }};
+    const IS_PRODUCT_RESEARCH = true;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadResults(RESEARCH_ID);
+        renderCategoryTabs();
+        if (EXISTING_PRODUCT_SUMMARIES) {
+            renderProductSummaries(JSON.parse(EXISTING_PRODUCT_SUMMARIES));
+        }
+
+        if (RESEARCH_STATUS !== 'complete' && RESEARCH_STATUS !== 'error') {
+            listenToScoringProgress(RESEARCH_ID);
+        } else {
+            checkUnscoredComments(RESEARCH_ID);
+        }
+    });
+</script>
+{% endblock %}

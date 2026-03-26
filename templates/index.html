@@ -4,8 +4,18 @@
 
 {% block content %}
 <div class="landing-container">
-    <!-- Search Form -->
-    <div id="searchSection" class="search-card">
+    <!-- Research Mode Toggle -->
+    <div class="research-mode-toggle">
+        <button class="mode-btn active" id="modeGeneral" onclick="setResearchMode('general')">
+            General Research
+        </button>
+        <button class="mode-btn" id="modeProduct" onclick="setResearchMode('product')">
+            Product Research
+        </button>
+    </div>
+
+    <!-- General Research Form -->
+    <div id="generalPanel" class="search-card">
         <h1 class="search-title">What would you like to research?</h1>
         <p class="search-subtitle">
             Enter a question or topic and we'll search Reddit, Hacker News, and the web for relevant discussions,
@@ -101,6 +111,89 @@
             <p class="search-limits">
                 Searches up to {{ config.max_threads_limit }} threads across selected sources, collects up to
                 {{ config.max_comments_limit }} comments each, and scores all for relevancy using AI.
+            </p>
+        </form>
+    </div>
+
+    <!-- Product Research Form -->
+    <div id="productPanel" class="search-card" style="display: none;">
+        <h1 class="search-title">What product would you like to research?</h1>
+        <p class="search-subtitle">
+            Enter a product name and we'll search Reddit, Hacker News, review sites, Product Hunt, and the web
+            to find user issues, feature requests, benefits, competitors, and more.
+        </p>
+
+        <form id="productResearchForm" class="search-form">
+            <input
+                type="text"
+                id="productNameInput"
+                class="search-input product-name-input"
+                placeholder="e.g., Notion, Linear, Figma, Datadog..."
+                required
+            >
+
+            <details class="settings-panel">
+                <summary class="settings-toggle">Settings</summary>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label>Search sources:</label>
+                        <div class="source-checkboxes">
+                            <label><input type="checkbox" id="productSourceReddit" checked> Reddit</label>
+                            <label><input type="checkbox" id="productSourceHN" checked> Hacker News</label>
+                            <label><input type="checkbox" id="productSourceWeb" checked> Web Articles</label>
+                            <label><input type="checkbox" id="productSourceReviews" checked> Review Sites</label>
+                            <label><input type="checkbox" id="productSourcePH" checked> Product Hunt</label>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <label for="productMaxThreads">
+                            Max threads to search:
+                            <span id="productMaxThreadsValue">{{ config.default_max_threads }}</span>
+                        </label>
+                        <input
+                            type="range"
+                            id="productMaxThreads"
+                            min="5"
+                            max="{{ config.max_threads_limit }}"
+                            value="{{ config.default_max_threads }}"
+                            oninput="document.getElementById('productMaxThreadsValue').textContent = this.value"
+                        >
+                    </div>
+                    <div class="setting-group">
+                        <label for="productMaxComments">
+                            Max comments per thread:
+                            <span id="productMaxCommentsValue">{{ config.default_max_comments }}</span>
+                        </label>
+                        <input
+                            type="range"
+                            id="productMaxComments"
+                            min="25"
+                            max="{{ config.max_comments_limit }}"
+                            value="{{ config.default_max_comments }}"
+                            step="25"
+                            oninput="document.getElementById('productMaxCommentsValue').textContent = this.value"
+                        >
+                    </div>
+                    <div class="setting-group">
+                        <label for="productTimeFilter">Time range:</label>
+                        <select id="productTimeFilter">
+                            <option value="all" selected>All time</option>
+                            <option value="year">Past year</option>
+                            <option value="month">Past month</option>
+                            <option value="week">Past week</option>
+                            <option value="day">Past day</option>
+                        </select>
+                    </div>
+                </div>
+            </details>
+
+            <button type="submit" class="btn btn-primary btn-lg" id="submitProductBtn">
+                Research Product
+            </button>
+
+            <p class="search-limits">
+                Searches across multiple categories (issues, features, competitors, etc.) on Reddit, Hacker News,
+                G2, Capterra, Trustpilot, Product Hunt, and the web.
             </p>
         </form>
     </div>

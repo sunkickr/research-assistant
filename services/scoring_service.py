@@ -71,6 +71,36 @@ class BatchScoreResponse(BaseModel):
     scores: List[CommentScore]
 
 
+# ===== Product Research Comment Scoring =====
+
+class ProductCommentScore(BaseModel):
+    """Structured LLM output for one comment's relevancy score with category."""
+
+    comment_id: str = Field(description="The comment ID")
+    relevancy_score: int = Field(
+        description="Relevancy score from 1-10, where 10 is highly relevant",
+        ge=1,
+        le=10,
+    )
+    reasoning: str = Field(
+        description="Brief explanation of why this score was assigned",
+    )
+    category: str = Field(
+        description="Most relevant product research category: issues, feature_requests, general, competitors, benefits, or alternatives",
+    )
+
+
+class ProductBatchScoreResponse(BaseModel):
+    """Structured LLM output for a batch of product comment scores."""
+
+    scores: List[ProductCommentScore]
+
+
+PRODUCT_CATEGORIES = [
+    "issues", "feature_requests", "general",
+    "competitors", "benefits", "alternatives",
+]
+
 SCORING_SYSTEM_PROMPT = """You are a relevancy scoring assistant. You will receive a research question and a batch of comments and article excerpts from various sources (Reddit, Hacker News, web articles). For each item, assign a relevancy score from 1-10:
 
 - 1-2: Completely irrelevant (off-topic, jokes, spam, social chit-chat with no substance)
@@ -139,6 +169,24 @@ Score: 9 — specific first-hand experience with a concrete metric, directly and
 --- END EXAMPLES ---
 
 You MUST return a score for every comment in the batch. Use the exact comment IDs provided."""
+
+
+PRODUCT_SCORING_SYSTEM_PROMPT = SCORING_SYSTEM_PROMPT + """
+
+IMPORTANT — Source-aware scoring:
+Comments come from multiple sources (reddit, hackernews, web, reviews, producthunt). Web articles, review site excerpts, and Product Hunt posts do not have upvote scores — judge them purely on content quality and relevance. These sources often contain detailed product information, expert analysis, or structured reviews that are highly valuable. Do NOT penalize them for lacking a community score.
+
+PRODUCT RESEARCH CATEGORY ASSIGNMENT:
+In addition to the relevancy score, assign each comment to the single most relevant product research category based on its content:
+
+- issues: bugs, problems, complaints, frustrations, things that don't work well
+- feature_requests: missing features, things users wish the product could do, wishlists
+- general: general descriptions, reviews, use cases, who uses it, pricing, overviews
+- competitors: mentions of competing products, comparisons, "X vs Y"
+- benefits: positive experiences, things users love, reasons to recommend
+- alternatives: users switching away, cancellations, reasons for churning, replacement products
+
+Base the category on the actual comment content, not the search query or thread title that found it. A comment in an "alternatives" thread might actually discuss issues — categorize it as issues."""
 
 
 class ScoringService:
@@ -272,6 +320,84 @@ class ScoringService:
                     if score_data
                     else "Not scored — API timeout or error",
                     source=comment.source,
+                )
+            )
+        return results
+
+    # ===== Product Research Scoring =====
+
+    def score_comments_with_category(
+        self,
+        product_name: str,
+        comments: List[RedditComment],
+        progress_callback: Optional[Callable] = None,
+    ) -> List[ScoredComment]:
+        """Score comments and assign product research categories.
+        progress_callback(batch_num, total_batches, batch_results) is called after each batch.
+        """
+        scored = []
+        total_batches = (len(comments) + self.batch_size - 1) // self.batch_size
+
+        for i in range(0, len(comments), self.batch_size):
+            batch_num = i // self.batch_size + 1
+            batch = comments[i : i + self.batch_size]
+            batch_scored = self._score_product_batch(product_name, batch)
+            scored.extend(batch_scored)
+
+            if progress_callback:
+                progress_callback(batch_num, total_batches, batch_scored)
+
+        return scored
+
+    def _score_product_batch(
+        self, product_name: str, batch: List[RedditComment]
+    ) -> List[ScoredComment]:
+        """Score a single batch of comments with product category assignment."""
+        def _format_comment(c: RedditComment) -> str:
+            source_label = getattr(c, "source", "reddit") or "reddit"
+            # Only show upvote score for community sources where it's meaningful
+            if source_label in ("web", "reviews", "producthunt"):
+                return f"[Comment ID: {c.id}] (source: {source_label})\n{c.body[:500]}"
+            return f"[Comment ID: {c.id}] (source: {source_label}, score: {c.score})\n{c.body[:500]}"
+
+        comments_text = "\n\n".join(_format_comment(c) for c in batch)
+        user_prompt = (
+            f"Product being researched: {product_name}\n\n"
+            f"Comments to score:\n{comments_text}"
+        )
+
+        try:
+            response: ProductBatchScoreResponse = self.llm.complete(
+                system_prompt=PRODUCT_SCORING_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                response_model=ProductBatchScoreResponse,
+            )
+            score_map = {s.comment_id: s for s in response.scores}
+        except Exception:
+            score_map = {}
+
+        results = []
+        for comment in batch:
+            score_data = score_map.get(comment.id)
+            category = None
+            if score_data and score_data.category in PRODUCT_CATEGORIES:
+                category = score_data.category
+            results.append(
+                ScoredComment(
+                    id=comment.id,
+                    thread_id=comment.thread_id,
+                    author=comment.author,
+                    body=comment.body,
+                    score=comment.score,
+                    created_utc=comment.created_utc,
+                    depth=comment.depth,
+                    permalink=comment.permalink,
+                    relevancy_score=score_data.relevancy_score if score_data else None,
+                    reasoning=score_data.reasoning
+                    if score_data
+                    else "Not scored — API timeout or error",
+                    source=comment.source,
+                    category=category,
                 )
             )
         return results

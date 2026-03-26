@@ -23,6 +23,7 @@ from services.storage_service import StorageService
 from services.web_search_service import WebSearchService
 from services.hn_service import HNService
 from services.article_service import ArticleService
+from services.producthunt_service import ProductHuntService
 from models.data_models import ScoredComment, RedditThread
 
 app = Flask(__name__)
@@ -47,6 +48,7 @@ storage_svc = StorageService(config.DB_PATH, config.EXPORT_DIR)
 web_search_svc = WebSearchService(reddit_svc.reddit)
 hn_svc = HNService()
 article_svc = ArticleService(llm)
+ph_svc = ProductHuntService(config.PRODUCT_HUNT_API_TOKEN)
 
 # Active research streams: research_id -> queue.Queue
 progress_queues: dict[str, queue.Queue] = {}
@@ -85,8 +87,11 @@ def results(research_id):
     research = storage_svc.get_research(research_id)
     if not research:
         return redirect(url_for("index"))
+    settings = json.loads(research.get("settings_json") or "{}")
+    research_type = settings.get("research_type", "general")
+    template = "product_results.html" if research_type == "product" else "results.html"
     return render_template(
-        "results.html", research_id=research_id, research=research, history=history
+        template, research_id=research_id, research=research, history=history
     )
 
 
@@ -162,8 +167,10 @@ def _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, artic
     """Dispatch comment collection based on thread source."""
     if thread.source == "hackernews":
         return hn_svc.collect_comments(thread.id, max_comments=max_comments)
-    elif thread.source == "web":
+    elif thread.source in ("web", "reviews"):
         return article_svc.get_cached_quotes(thread.id)
+    elif thread.source == "producthunt":
+        return ph_svc.collect_comments(thread.id, max_comments=max_comments)
     else:
         return reddit_svc.collect_comments(thread.id, max_comments=max_comments)
 
@@ -1225,6 +1232,353 @@ def rescore_stream(research_id):
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Product Research Mode ─────────────────────────────────────────────────────
+
+PRODUCT_CATEGORIES = {
+    "issues": ["{product} issues", "{product} problems"],
+    "feature_requests": ["{product} feature request", "{product} missing feature"],
+    "general": ["{product} review", "{product}", "{product} use cases"],
+    "competitors": ["{product} competitors", "{product} vs"],
+    "benefits": ["{product} benefits", "why use {product}"],
+    "alternatives": ["{product} alternatives", "switching from {product}"],
+}
+
+REVIEW_SITES = ["g2.com", "capterra.com", "trustpilot.com", "quora.com"]
+
+
+@app.route("/api/product-research", methods=["POST"])
+def start_product_research():
+    data = request.get_json()
+    product_name = (data.get("product_name") or "").strip()
+    if not product_name:
+        return jsonify(error="Product name is required"), 400
+
+    max_threads = min(
+        int(data.get("max_threads", config.DEFAULT_MAX_THREADS)),
+        config.MAX_THREADS_LIMIT,
+    )
+    max_comments = min(
+        int(data.get("max_comments_per_thread", config.DEFAULT_MAX_COMMENTS_PER_THREAD)),
+        config.MAX_COMMENTS_PER_THREAD_LIMIT,
+    )
+    time_filter = data.get("time_filter", "all")
+    if time_filter not in ("hour", "day", "week", "month", "year", "all"):
+        time_filter = "all"
+
+    sources = data.get("sources", ["reddit", "hackernews", "web", "reviews", "producthunt"])
+    if not isinstance(sources, list) or not sources:
+        sources = ["reddit", "hackernews", "web", "reviews", "producthunt"]
+
+    research_id = uuid.uuid4().hex[:12]
+    settings = {
+        "research_type": "product",
+        "product_name": product_name,
+        "max_threads": max_threads,
+        "max_comments_per_thread": max_comments,
+        "time_filter": time_filter,
+        "sources": sources,
+    }
+    storage_svc.create_research(research_id, f"Product research: {product_name}", settings)
+
+    q: queue.Queue = queue.Queue()
+    progress_queues[research_id] = q
+    t = threading.Thread(
+        target=run_product_research_pipeline,
+        args=(research_id, product_name, max_threads, max_comments, time_filter, q, sources),
+        daemon=True,
+    )
+    t.start()
+    return jsonify(research_id=research_id)
+
+
+def run_product_research_pipeline(
+    research_id: str,
+    product_name: str,
+    max_threads: int,
+    max_comments: int,
+    time_filter: str,
+    q: queue.Queue,
+    sources: list = None,
+):
+    """Background task for product research across multiple question categories."""
+    if sources is None:
+        sources = ["reddit", "hackernews", "web", "reviews", "producthunt"]
+    try:
+        threads = []
+        seen_ids: set = set()
+        category_list = list(PRODUCT_CATEGORIES.items())
+        total_categories = len(category_list)
+
+        # Stage 1: Search all categories across all sources
+        for cat_idx, (category, query_templates) in enumerate(category_list):
+            cat_pct_base = int(40 * (cat_idx / total_categories))
+            cat_pct_range = int(40 / total_categories)
+            queries = [t.format(product=product_name) for t in query_templates]
+
+            q.put({
+                "stage": "searching",
+                "message": f"Searching for {category.replace('_', ' ')}...",
+                "progress": cat_pct_base,
+            })
+
+            # Reddit
+            if "reddit" in sources:
+                try:
+                    reddit_threads = list(reddit_svc.search_threads(
+                        queries[0], max_threads=max(3, max_threads // total_categories),
+                        time_filter=time_filter,
+                    ))
+                    for t in reddit_threads:
+                        if t.id not in seen_ids:
+                            t.category = category
+                            threads.append(t)
+                            seen_ids.add(t.id)
+                except Exception:
+                    pass
+
+                # Web-augmented Reddit
+                try:
+                    web_reddit = web_search_svc.search_reddit_threads(
+                        queries, max_results=5, max_total=5,
+                    )
+                    for t in web_reddit:
+                        if t.id not in seen_ids:
+                            t.category = category
+                            threads.append(t)
+                            seen_ids.add(t.id)
+                except Exception:
+                    pass
+
+            # Hacker News
+            if "hackernews" in sources:
+                try:
+                    hn_stories = hn_svc.search_stories(queries, max_results=3)
+                    for t in hn_stories:
+                        if t.id not in seen_ids:
+                            t.category = category
+                            threads.append(t)
+                            seen_ids.add(t.id)
+                except Exception:
+                    pass
+
+            # Web articles
+            if "web" in sources:
+                try:
+                    article_urls = web_search_svc.search_web_articles(queries, max_results=3)
+                    for url in article_urls:
+                        result = article_svc.fetch_article(url)
+                        if result:
+                            title, body = result
+                            thread = article_svc.make_thread(url, title, body)
+                            if thread.id not in seen_ids:
+                                article_svc.extract_quotes(thread.id, url, title, body, product_name)
+                                thread.category = category
+                                threads.append(thread)
+                                seen_ids.add(thread.id)
+                except Exception:
+                    pass
+
+            # Review sites
+            if "reviews" in sources:
+                try:
+                    review_urls = web_search_svc.search_review_sites(
+                        product_name, sites=REVIEW_SITES, max_per_site=2,
+                    )
+                    for url in review_urls:
+                        result = article_svc.fetch_article(url)
+                        if result:
+                            title, body = result
+                            thread = article_svc.make_thread(url, title, body)
+                            if thread.id not in seen_ids:
+                                article_svc.extract_quotes(thread.id, url, title, body, product_name)
+                                thread.source = "reviews"
+                                thread.category = category
+                                threads.append(thread)
+                                seen_ids.add(thread.id)
+                except Exception:
+                    pass
+
+            # Product Hunt
+            if "producthunt" in sources and cat_idx == 0:
+                # Only search PH once (on first category) since it's name-based
+                try:
+                    ph_posts = ph_svc.search_posts(product_name, max_results=config.PH_MAX_POSTS)
+                    for t in ph_posts:
+                        if t.id not in seen_ids:
+                            t.category = "general"
+                            threads.append(t)
+                            seen_ids.add(t.id)
+                    if ph_posts:
+                        q.put({
+                            "stage": "searching",
+                            "message": f"Found {len(ph_posts)} Product Hunt posts",
+                            "progress": cat_pct_base + cat_pct_range,
+                        })
+                except Exception:
+                    pass
+
+            q.put({
+                "stage": "searching",
+                "message": f"Found {len(threads)} threads so far ({category.replace('_', ' ')} done)",
+                "progress": cat_pct_base + cat_pct_range,
+            })
+
+        q.put({
+            "stage": "searching",
+            "message": f"Found {len(threads)} threads total — filtering for relevancy...",
+            "progress": 40,
+        })
+
+        if not threads:
+            storage_svc.update_research_status(research_id, "complete", 0, 0)
+            q.put({"stage": "complete", "message": "No threads found.", "progress": 100})
+            return
+
+        # Score threads for relevancy
+        relevant_threads = scoring_svc.score_threads(
+            f"Product research about {product_name}", threads,
+        )
+        q.put({
+            "stage": "searching",
+            "message": f"{len(relevant_threads)} of {len(threads)} threads are relevant",
+            "progress": 45,
+            "threads_relevant": len(relevant_threads),
+            "threads_total": len(threads),
+        })
+        storage_svc.save_threads(research_id, relevant_threads)
+
+        # Stage 2: Collect comments
+        all_comments = []
+        for i, thread in enumerate(relevant_threads):
+            q.put({
+                "stage": "collecting",
+                "message": f"Collecting comments from thread {i + 1}/{len(relevant_threads)}: {thread.title[:60]}...",
+                "progress": 45 + int(15 * (i / len(relevant_threads))),
+                "thread_title": thread.title[:60],
+            })
+            comments = _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc)
+            all_comments.extend(comments)
+            if comments:
+                storage_svc.save_raw_comments(research_id, comments)
+            q.put({
+                "stage": "collecting",
+                "message": f"Collected {len(comments)} comments from \"{thread.title[:40]}\"",
+                "progress": 45 + int(15 * ((i + 1) / len(relevant_threads))),
+                "thread_title": thread.title[:60],
+                "thread_comments": len(comments),
+            })
+
+        # Apply total cap
+        if len(all_comments) > config.TOTAL_COMMENTS_CAP:
+            all_comments.sort(key=lambda c: c.score, reverse=True)
+            all_comments = all_comments[: config.TOTAL_COMMENTS_CAP]
+
+        q.put({
+            "stage": "collecting",
+            "message": f"Collected {len(all_comments)} comments total",
+            "progress": 60,
+        })
+
+        if not all_comments:
+            storage_svc.update_research_status(
+                research_id, "complete", len(relevant_threads), 0,
+            )
+            q.put({"stage": "complete", "message": "No comments found.", "progress": 100})
+            return
+
+        # Stage 3: Score with category assignment
+        q.put({
+            "stage": "scoring",
+            "message": f"Scoring {len(all_comments)} comments for relevancy...",
+            "progress": 62,
+        })
+
+        scored_comments = scoring_svc.score_comments_with_category(
+            product_name, all_comments,
+            progress_callback=_make_scoring_progress_callback(q, 62, 33, research_id=research_id),
+        )
+        storage_svc.save_scored_comments(research_id, scored_comments)
+
+        # Stage 4: Finalize
+        storage_svc.update_research_status(
+            research_id, "complete",
+            num_threads=len(relevant_threads),
+            num_comments=len(scored_comments),
+        )
+        storage_svc.export_csv(research_id)
+        q.put({"stage": "complete", "message": "Product research complete!", "progress": 100})
+
+    except Exception as e:
+        storage_svc.update_research_status(research_id, "error")
+        q.put({"stage": "error", "message": str(e), "progress": 0})
+    finally:
+        article_svc.clear_cache()
+        q.put(None)
+
+
+@app.route("/api/research/<research_id>/summarize-product", methods=["POST"])
+def summarize_product(research_id):
+    """Generate per-category product summaries."""
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+
+    data = request.get_json(silent=True) or {}
+    max_comments = int(data.get("max_comments", 50))
+    max_comments = max(25, min(max_comments, 200))
+    feedback = (data.get("feedback") or "")[:500].strip() or None
+
+    comments_data = storage_svc.get_comments(research_id)
+    scored_fields = {f for f in ScoredComment.__dataclass_fields__}
+    comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
+    threads_data = storage_svc.get_threads(research_id)
+
+    settings = json.loads(research.get("settings_json") or "{}")
+    product_name = settings.get("product_name", research["question"])
+
+    summaries = summary_svc.summarize_product(
+        product_name, comments, threads=threads_data,
+        max_comments=max_comments, user_feedback=feedback,
+    )
+    storage_svc.save_product_summaries(research_id, summaries)
+    return jsonify(summaries=summaries)
+
+
+@app.route("/api/research/<research_id>/summarize-product-section", methods=["POST"])
+def summarize_product_section(research_id):
+    """Regenerate a single product summary section with optional feedback."""
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+
+    data = request.get_json(silent=True) or {}
+    category = data.get("category", "")
+    if category not in SummaryService.PRODUCT_SECTION_PROMPTS:
+        return jsonify(error=f"Invalid category: {category}"), 400
+
+    feedback = (data.get("feedback") or "")[:500].strip() or None
+
+    comments_data = storage_svc.get_comments(research_id)
+    scored_fields = {f for f in ScoredComment.__dataclass_fields__}
+    comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
+    threads_data = storage_svc.get_threads(research_id)
+
+    settings = json.loads(research.get("settings_json") or "{}")
+    product_name = settings.get("product_name", research["question"])
+
+    summary_text = summary_svc.summarize_product_section(
+        product_name, comments, category,
+        threads=threads_data, user_feedback=feedback,
+    )
+
+    # Merge into existing summaries
+    existing = storage_svc.get_product_summaries(research_id)
+    existing[category] = summary_text
+    storage_svc.save_product_summaries(research_id, existing)
+
+    return jsonify(summary=summary_text, category=category)
 
 
 if __name__ == "__main__":

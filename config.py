@@ -30,9 +30,13 @@ class Config:
     TOTAL_COMMENTS_CAP = 750
     LLM_BATCH_SIZE = 20
 
+    # Product Hunt API
+    PRODUCT_HUNT_API_TOKEN = os.environ.get("PRODUCT_HUNT_API_TOKEN", "")
+
     # Multi-source settings
     HN_MAX_STORIES = 10
     WEB_MAX_ARTICLES = 8
+    PH_MAX_POSTS = 5
 
     # Max pages for HN/Web pagination in "Find More" expand
     HN_MAX_EXPAND_PAGES = 3

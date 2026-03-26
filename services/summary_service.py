@@ -136,3 +136,174 @@ class SummaryService:
             temperature=0.5,
             max_tokens=2000,
         )
+
+    # ===== Product Research Summaries =====
+
+    PRODUCT_SECTION_PROMPTS = {
+        "general": (
+            "Summarize this product using these sections as markdown headers (##): "
+            "Overview (what is it, what does it do), Primary Users (who uses it and why), "
+            "Common Use Cases, and Pricing. Write each section in prose paragraphs, not numbered lists."
+        ),
+        "issues": (
+            "List the top 5 issues and problems users report. "
+            "One sentence per issue, then a short supporting quote."
+        ),
+        "feature_requests": (
+            "List the top 5 features users wish this product had. "
+            "One sentence per request, then a short supporting quote."
+        ),
+        "benefits": (
+            "List the top 5 benefits and strengths users praise. "
+            "One sentence per benefit, then a short supporting quote."
+        ),
+        "competitors": (
+            "List the top 5 competitors mentioned and how they compare. "
+            "One sentence per competitor with the key differentiator."
+        ),
+        "alternatives": (
+            "List the top 5 reasons users stop using this product or switch away. "
+            "One sentence per reason, then a short supporting quote."
+        ),
+    }
+
+    PRODUCT_SECTION_SYSTEM_PROMPT = """You are a product research summarizer. You will receive a product name, a specific research question about that product, and a collection of comments and article excerpts from various sources.
+
+Structure your response as a focused answer to the specific question. Use numbered lists only when the question asks for a "top N" list. For general overview questions, use prose paragraphs instead.
+
+Citation rules:
+- Use the exact comment ID provided (e.g. [#abc123ef])
+- Every significant factual claim or direct quote MUST have a citation
+- When quoting, use blockquote format: > "quote text" [#comment_id]
+- Keep quotes under 20 words
+- IMPORTANT: Comments come from multiple sources (Reddit, Hacker News, Web articles, review sites, Product Hunt). Cite from ALL available sources, not just Reddit. Web and review site excerpts are often the most informative — prioritize citing them when relevant.
+
+Be concise — no filler, no preamble, no "users have reported..." lead-ins. Get straight to the points. Aim for 150-250 words."""
+
+    PRODUCT_SECTION_LABELS = {
+        "general": "General Information",
+        "issues": "Top Issues",
+        "feature_requests": "Feature Requests",
+        "benefits": "Benefits & Strengths",
+        "competitors": "Competitors",
+        "alternatives": "Churn & Alternatives",
+    }
+
+    @staticmethod
+    def _build_posts_preamble(threads: list) -> str:
+        """Build thread post bodies preamble shared across product sections."""
+        if not threads:
+            return ""
+        posts_with_body = [t for t in threads if (t.get("selftext") or "").strip()]
+        if not posts_with_body:
+            return ""
+        posts_lines = "\n\n".join(
+            f"[Post: {t['title']}] by {t.get('author', '')}\n{t['selftext'][:1500]}"
+            for t in posts_with_body[:10]
+        )
+        return (
+            f"Thread Post Bodies (original posts — treat as primary source material):\n\n"
+            f"{posts_lines}\n\n---\n\n"
+        )
+
+    def _select_with_quotas(self, pool: List[ScoredComment], total_slots: int) -> List[ScoredComment]:
+        """Select comments from pool with per-source minimum quotas."""
+        SOURCE_QUOTAS = {"web": 0.20, "hackernews": 0.10, "reviews": 0.10}
+        upvote_key = lambda c: self._effective_relevancy(c) * max(c.score, 1)
+        relevancy_key = lambda c: self._effective_relevancy(c)
+
+        by_source = {}
+        for c in pool:
+            by_source.setdefault(c.source, []).append(c)
+        for src, items in by_source.items():
+            if src in ("reddit", "hackernews"):
+                items.sort(key=upvote_key, reverse=True)
+            else:
+                items.sort(key=relevancy_key, reverse=True)
+
+        reserved = []
+        used_ids = set()
+        for src, frac in SOURCE_QUOTAS.items():
+            quota = int(total_slots * frac)
+            for c in by_source.get(src, [])[:quota]:
+                reserved.append(c)
+                used_ids.add(c.id)
+
+        remaining_slots = total_slots - len(reserved)
+        remaining_pool = [c for c in pool if c.id not in used_ids]
+        remaining_pool.sort(key=upvote_key, reverse=True)
+        return reserved + remaining_pool[:remaining_slots]
+
+    def summarize_product_section(
+        self, product_name: str, comments: List[ScoredComment],
+        category: str, threads: list = None, min_relevancy: int = 4,
+        max_comments: int = 50, user_feedback: str = None,
+    ) -> str:
+        """Generate a single product summary section. Returns summary text."""
+        if category not in self.PRODUCT_SECTION_PROMPTS:
+            return "Invalid section category."
+
+        relevant = [c for c in comments if self._effective_relevancy(c) >= min_relevancy]
+        if not relevant:
+            return "No sufficiently relevant comments were found for this section."
+
+        posts_preamble = self._build_posts_preamble(threads)
+        section_prompt = self.PRODUCT_SECTION_PROMPTS[category]
+
+        cat_comments = [c for c in relevant if getattr(c, "category", None) == category]
+        other_comments = [c for c in relevant if getattr(c, "category", None) != category]
+
+        cat_slots = int(max_comments * 0.6)
+        other_slots = max_comments - cat_slots
+        input_comments = (
+            self._select_with_quotas(cat_comments, cat_slots)
+            + self._select_with_quotas(other_comments, other_slots)
+        )
+
+        if not input_comments:
+            return "No relevant comments found for this section."
+
+        def _format_relevancy(c: ScoredComment) -> str:
+            if c.user_relevancy_score is not None:
+                return f"{c.user_relevancy_score}/10 (user)"
+            return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
+
+        comments_text = "\n\n".join(
+            f"[ID: {c.id} | Source: {c.source} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
+            for c in input_comments
+        )
+
+        user_prompt = (
+            f"Product: {product_name}\n"
+            f"Question: {section_prompt}\n\n"
+            + posts_preamble
+            + f"Comments ({len(input_comments)} selected, {len(cat_comments)} directly about this topic):\n{comments_text}"
+        )
+
+        if user_feedback:
+            user_prompt += f"\n\n---\nUser feedback on this summary: {user_feedback}"
+
+        try:
+            return self.llm.complete_text(
+                system_prompt=self.PRODUCT_SECTION_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                temperature=0.5,
+                max_tokens=1500,
+            )
+        except Exception:
+            return "Summary generation failed for this section."
+
+    def summarize_product(
+        self, product_name: str, comments: List[ScoredComment],
+        threads: list = None, min_relevancy: int = 4, max_comments: int = 50,
+        user_feedback: str = None,
+    ) -> dict:
+        """Generate per-category product summaries. Returns {category: summary_text}."""
+        summaries = {}
+        for category in self.PRODUCT_SECTION_PROMPTS:
+            summaries[category] = self.summarize_product_section(
+                product_name, comments, category,
+                threads=threads, min_relevancy=min_relevancy,
+                max_comments=max_comments, user_feedback=user_feedback,
+            )
+        return summaries

@@ -320,8 +320,25 @@ This document tracks all features and their functionality. Update this file when
   - No additional API calls — all data was already flowing through the pipeline
   - Negligible performance impact (microseconds of queue overhead between existing API calls)
 
-### 27. Save Before Score & Rescore
-- **Description**: Comments are saved to the database before scoring begins, ensuring no data is lost if scoring is interrupted. Unscored comments can be rescored later.
+### 27. Product Research Mode
+- **Description**: Dedicated research mode for product managers to investigate a product across 6 categories — issues, feature requests, general info, competitors, benefits, and alternatives — with structured per-category summaries
+- **Location**: `app.py` - `product_research()`, `run_product_research_pipeline()`, `summarize_product()`, `templates/index.html`, `templates/product_results.html`, `static/js/app.js`, `static/js/tables.js`, `static/css/style.css`
+- **Details**:
+  - **Homepage toggle**: Two-button toggle switches between "General Research" and "Product Research" modes
+  - **Product research form**: Single text input for product name, source checkboxes (Reddit, HN, Web, Review Sites, Product Hunt), max threads/comments sliders, time range
+  - **Multi-category search**: Automatically searches 6 categories (issues, feature_requests, general, competitors, benefits, alternatives) using 2 query templates each across all enabled sources
+  - **Category assignment**: LLM classifies each comment into a category during scoring (not inherited from search query), using extended `ProductCommentScore` Pydantic model with `category` field
+  - **Review site search**: DuckDuckGo `site:` searches for G2, Capterra, Trustpilot, and Quora content. Results processed through the existing web article pipeline (trafilatura + LLM quote extraction), stored with `source="reviews"`
+  - **Product Hunt integration**: Dedicated GraphQL v2 API service (`services/producthunt_service.py`). Searches posts by product name, collects comments with reply flattening. IDs prefixed `ph_`. Gracefully degrades if no API token configured
+  - **Product results page**: Dedicated template with product research badge, "Generate Summaries" button, 6 scrollable summary cards in a 2-column grid (General Info, Issues, Feature Requests, Benefits, Competitors, Alternatives)
+  - **Per-category summaries**: 6 separate LLM calls, each focused on one category. Same-category comments boosted to top of input (30), cross-category comments included for context (20). Citations use `[#comment_id]` format resolved to numbered superscript links
+  - **Category filter tabs**: All | Issues | Feature Requests | General | Competitors | Benefits | Alternatives — filters both threads and comments tables by category
+  - **Source tabs**: Extended with "Reviews" and "Product Hunt" tabs alongside Reddit, HN, Web
+  - **Pipeline**: 4-stage background pipeline — search all categories (0-40%), collect comments (40-60%), score with category assignment (60-95%), finalize (95-100%). Uses same SSE progress system
+  - **Data model**: `category` column on threads and comments tables, `research_type` and `product_summaries_json` columns on researches table. All migrations use `ALTER TABLE ADD COLUMN` in try/except for idempotency
+
+### 28. Save Before Score & Rescore
+- **Description**: Comments are saved to the database before scoring begins, ensuring no data is lost if scoring is interrupted. Unscored comments can be rescored later
 - **Location**: `services/storage_service.py` - `save_raw_comments()`, `get_unscored_count()`, `get_unscored_comments()`, `app.py` - rescore endpoints, `static/js/app.js` - `checkUnscoredComments()`, `handleRescore()`
 - **Details**:
   - All collected comments are saved with `relevancy_score = NULL` immediately after collection, before scoring begins
@@ -332,7 +349,7 @@ This document tracks all features and their functionality. Update this file when
   - Rescore uses a dedicated SSE stream (`/api/research/<id>/rescore/stream`) to avoid conflicts with other operations
   - Applies to all three pipelines: research, expand, and add-thread
 
-### 28. Early Redirect to Results
+### 29. Early Redirect to Results
 - **Description**: Users are redirected to the results page as soon as comment collection finishes, allowing them to browse results while scoring continues in the background
 - **Location**: `app.py`, `static/js/app.js` - `listenToProgress()`, `listenToScoringProgress()`, `static/js/tables.js` - `insertLiveComments()`
 - **Details**:

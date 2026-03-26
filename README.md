@@ -1,73 +1,64 @@
 # Research Assistant
 
-A web application that helps you research topics by collecting comments and articles from Reddit, Hacker News, and the web, scoring them for relevancy using AI, displaying results in sortable tables, and generating cited summaries weighted by community sentiment.
+A web app that researches topics by collecting comments and articles from Reddit, Hacker News, Product Hunt and the web, scoring them for relevancy with AI, and generating cited summaries weighted by community sentiment.
 
-## Prerequisites
+![Home](docs/research-home.png)
 
-- Python 3.9+
-- A Reddit API application (for API credentials)
-- An OpenAI API key (for comment scoring and summarization)
+![Results](docs/research-results.png)
+
+## Two Research Modes
+
+- **General Research** — Enter any question or topic. The app searches across sources, collects and scores comments, and generates a single cited summary.
+- **Product Research** — Enter a product name. The app runs targeted searches across six categories (issues, feature requests, competitors, benefits, alternatives, general info) and generates a structured report with per-category summary cards.
 
 ## Setup
 
-### 1. Clone and install dependencies
+### 1. Install dependencies
 
 ```bash
-cd research-assistant
 pip3 install -r requirements.txt
 ```
 
-### 2. Get Reddit API credentials
+### 2. Get API credentials
 
-1. Go to https://www.reddit.com/prefs/apps
-2. Click "create another app..."
-3. Fill in the form:
-   - **name**: ResearchAssistant (or anything you like)
-   - **type**: Select "script"
-   - **redirect uri**: http://localhost:8080
-4. Click "create app"
-5. Note your **client_id** (the string under the app name) and **client_secret**
+- **Reddit**: Create a "script" app at https://www.reddit.com/prefs/apps — note the client ID and secret
+- **OpenAI**: Get an API key at https://platform.openai.com/api-keys
+- **Product Hunt** (optional): Get a Developer Token at https://www.producthunt.com/v2/oauth/applications
 
-### 3. Get an OpenAI API key
-
-1. Go to https://platform.openai.com/api-keys
-2. Create a new API key
-3. Ensure you have billing set up at https://platform.openai.com/settings/organization/billing/overview
-
-### 4. Configure environment variables
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your credentials:
+Edit `.env` with your credentials:
 
 ```
 REDDIT_CLIENT_ID=your_client_id
 REDDIT_CLIENT_SECRET=your_client_secret
-REDDIT_USER_AGENT=ResearchAssistant/1.0
 OPENAI_API_KEY=sk-your-key-here
+PRODUCT_HUNT_API_TOKEN=your_developer_token_here  # optional
 ```
 
-### 5. Run the application
+### 4. Run
 
 ```bash
 python3 app.py
 ```
 
-Open http://localhost:5000 in your browser.
+Open http://localhost:5000.
 
 ## Usage
 
-1. Enter a question or topic in the search box
-2. Optionally adjust settings (sources: Reddit / Hacker News / Web Articles, max threads, max comments, time range)
-3. Click "Research" and watch the live activity feed as threads and comments are collected and scored
-4. Browse the Threads and Comments tables — click a thread to filter comments and see the full post body
-5. Star (⭐) interesting comments, set your own relevancy scores, filter by source tab (All / Reddit / HN / Web)
-6. Click **Find More Comments & Articles** to search for additional content across all three sources in one click; use the ⚙ gear button to choose which sources to include
-7. Click **Summarize Comments** for an AI-generated summary with numbered citations; a Sources section lists every cited comment with a link
-8. Click **Export CSV** to download the data
-9. Use the sidebar to view or archive past research sessions
+1. Choose **General Research** or **Product Research** on the homepage
+2. Enter your question or product name, adjust settings (sources, max threads/comments, time range), and click Research
+3. Watch the live activity feed as threads and comments are collected and scored
+4. Browse the sortable Threads and Comments tables — click a thread to filter its comments and view the full post
+5. Star interesting comments, set your own relevancy scores, and filter by source
+6. Click **Summarize** (or **Generate Summaries** in product mode) for AI-generated summaries with numbered citations
+7. Use **customize** to control comment count and provide focus instructions
+8. In product mode, regenerate individual summary cards with per-card feedback
+9. Click **Find More Comments & Articles** to expand your results, or **Export CSV** to download
 
 ## Configuration
 
@@ -77,14 +68,14 @@ Open http://localhost:5000 in your browser.
 | `REDDIT_CLIENT_SECRET` | (required) | Reddit app client secret |
 | `REDDIT_USER_AGENT` | `ResearchAssistant/1.0` | User agent for Reddit API |
 | `OPENAI_API_KEY` | (required) | OpenAI API key |
+| `PRODUCT_HUNT_API_TOKEN` | (optional) | Product Hunt Developer Token |
 | `LLM_MODEL` | `gpt-4o-mini` | OpenAI model to use |
-| `FLASK_DEBUG` | `true` | Enable Flask debug mode |
 | `PORT` | `5000` | Port to run the app on |
 
 ## Cost
 
-The app uses GPT-4o-mini for scoring and summarization. Typical cost per research query is $0.02-0.05 depending on the number of comments and sources collected.
+Uses GPT-4o-mini for scoring and summarization. Typical cost: ~$0.02-0.05 per general research query, ~$0.10-0.15 per product research (more searches and 6 summary calls).
 
 ## Data
 
-Research data is stored in `data/research.db` (SQLite) and CSV exports are saved to `data/exports/`. The `data/` directory is created automatically on first run and is excluded from git.
+Research data is stored in `data/research.db` (SQLite). CSV exports are saved to `data/exports/`. The `data/` directory is created automatically and is git-ignored.

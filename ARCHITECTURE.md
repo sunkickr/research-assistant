@@ -63,12 +63,14 @@ research-assistant/
 │   ├── base.html             # Shared layout (nav, sidebar)
 │   ├── index.html            # Landing page (general + product research modes)
 │   ├── results.html          # General research results page
-│   └── product_results.html  # Product research results page
+│   ├── product_results.html  # Product research results page
+│   └── published_research.html  # Self-contained published report template
 ├── static/
 │   ├── css/style.css         # All styles
 │   └── js/
 │       ├── app.js            # Form, SSE, summarize, find-more, add-thread logic
 │       └── tables.js         # Table rendering, sorting, filtering, pagination
+├── published/                # Published HTML reports (git-tracked)
 └── data/                     # Runtime data (auto-created, git-ignored)
     ├── research.db           # SQLite database
     └── exports/              # CSV files
@@ -213,6 +215,25 @@ User clicks "Generate Summaries" on product results page
            └─► Rendered in 2-column grid of scrollable summary cards
 ```
 
+### Publish Research Flow
+
+```
+User clicks "Publish Research" on results page (requires summaries)
+   │
+   └─► POST /api/research/{id}/publish
+       ├─► Load research, settings, summaries, all comments, threads
+       ├─► Select top 50 comments with source diversity quotas
+       │   (Reddit 50%, Web 30%, HN 10%, Product Hunt 10%)
+       │   Sorted by relevancy desc, then date desc
+       ├─► For each product summary section (or single general summary):
+       │   ├─► Convert markdown to HTML with citation anchors
+       │   ├─► Extract cited comment IDs from [#id] markers
+       │   └─► Attach cited source details (numbered) for Sources footer
+       ├─► Render published_research.html Jinja template (self-contained, inline CSS)
+       ├─► Write to published/<slug>-research.html (auto-increment on collision)
+       └─► Return {filename, path} → button transforms to "View Published" link
+```
+
 ### Find More Comments & Articles Flow
 
 ```
@@ -343,6 +364,10 @@ User clicks "Summarize Comments" (optionally via Customize panel)
 | GET | `/api/research/<id>/rescore/stream` | SSE: rescore progress |
 | GET | `/api/research/<id>/unscored-count` | Count of comments with null relevancy scores |
 | DELETE | `/api/research/<id>` | Permanently delete research |
+| POST | `/api/research/<id>/publish` | Generate self-contained published HTML report |
+| GET | `/published/<filename>` | Serve a published HTML research report |
+| POST | `/api/research/<id>/summarize-product-section` | Regenerate a single product summary section |
+| GET | `/api/models` | Return default and alt LLM model names for UI |
 
 ## Service Layer Design
 
@@ -519,7 +544,7 @@ index.html (landing page)
 
 results.html (general research results page)
 ├── Question header + metadata
-├── Action buttons (Summarize | Customize, Find More Comments & Articles + ⚙ configure, Export CSV)
+├── Action buttons (Summarize | Customize, Find More Comments & Articles + ⚙ configure, Export CSV, Publish Research)
 ├── Expand progress feed (hidden, shown during expansion)
 ├── Add Thread input + progress feed
 ├── Summary section (hidden until generated)
@@ -530,12 +555,13 @@ results.html (general research results page)
 
 product_results.html (product research results page)
 ├── Product research badge + product name header
-├── Action buttons (Generate Summaries, Export CSV, Rescore)
+├── Action buttons (Generate Summaries, Export CSV, Rescore, Publish Research)
 ├── Add Thread input + progress feed
 ├── Product summary cards (2-column grid, 6 cards)
 │   ├── General Info, Issues, Feature Requests
 │   ├── Benefits, Competitors, Alternatives
 │   └── Each card: scrollable content with [1][2] citation links
+│   └── Per-card actions: hide/show toggle (▲/▼) + regenerate (↻) with comment count & model selection
 ├── Category filter tabs (All | Issues | Feature Requests | General | Competitors | Benefits | Alternatives)
 ├── Threads table (with source tabs including Reviews + Product Hunt)
 └── Comments table with source tabs, category column, star, user score, and pagination

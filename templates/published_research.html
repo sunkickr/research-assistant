@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} — Research Summary</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: #1a1a1a;
+            background: #fff;
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* ===== Header ===== */
+        .pub-header { margin-bottom: 40px; border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; }
+        .pub-header h1 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+        .pub-meta { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
+        .pub-badge {
+            display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 2px 8px; border-radius: 4px;
+            background: #eff6ff; color: #2563eb; margin-bottom: 12px;
+        }
+
+        /* ===== Summary Sections ===== */
+        .pub-summaries { margin-bottom: 48px; }
+        .pub-section { margin-bottom: 32px; }
+        .pub-section h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #111; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px; }
+        .pub-section h3 { font-size: 17px; font-weight: 600; margin: 16px 0 8px; }
+        .pub-section h4 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+        .pub-section p { margin-bottom: 10px; }
+        .pub-section ul, .pub-section ol { padding-left: 24px; margin-bottom: 10px; }
+        .pub-section li { margin-bottom: 4px; }
+        .pub-section blockquote {
+            border-left: 3px solid #d1d5db; padding: 4px 12px; margin: 8px 0;
+            color: #4b5563; font-style: italic;
+        }
+        .pub-section a { color: #2563eb; text-decoration: none; }
+        .pub-section a:hover { text-decoration: underline; }
+        .pub-section .citation-ref {
+            font-size: 11px; vertical-align: super; color: #dc2626;
+            text-decoration: none; font-weight: 600; padding: 0 1px;
+        }
+        .pub-section .citation-ref:hover { text-decoration: underline; }
+
+        /* ===== Cited Sources per Section ===== */
+        .pub-cited-sources {
+            margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb;
+        }
+        .cited-sources-heading {
+            font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px;
+        }
+        .cited-source-item {
+            display: flex; align-items: baseline; gap: 8px;
+            font-size: 13px; line-height: 1.5; margin-bottom: 6px;
+            color: #4b5563;
+        }
+        .cited-source-num {
+            flex-shrink: 0; font-size: 12px; font-weight: 600; color: #dc2626;
+            min-width: 24px;
+        }
+        .cited-source-item .pub-source-badge { flex-shrink: 0; font-size: 10px; }
+        .cited-source-body {
+            flex: 1; overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+        .cited-source-link { flex-shrink: 0; font-size: 12px; color: #2563eb; text-decoration: none; }
+        .cited-source-link:hover { text-decoration: underline; }
+
+        /* ===== Comments Section ===== */
+        .pub-comments-header { margin-bottom: 20px; }
+        .pub-comments-header h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+        .pub-comments-header p { font-size: 14px; color: #6b7280; }
+
+        .pub-comment {
+            border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;
+            margin-bottom: 12px; background: #fafafa;
+        }
+        .pub-comment-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .pub-source-badge {
+            font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+            padding: 2px 6px; border-radius: 3px; color: #fff;
+        }
+        .pub-source-badge.reddit { background: #ff4500; }
+        .pub-source-badge.hackernews { background: #ff6600; }
+        .pub-source-badge.web { background: #059669; }
+        .pub-source-badge.reviews { background: #7c3aed; }
+        .pub-source-badge.producthunt { background: #da552f; }
+        .pub-category-badge {
+            font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 3px;
+            background: #f3f4f6; color: #374151;
+        }
+        .pub-comment-score { font-size: 12px; color: #6b7280; }
+        .pub-comment-body { font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+        .pub-comment-link { font-size: 12px; }
+        .pub-comment-link a { color: #2563eb; text-decoration: none; }
+        .pub-comment-link a:hover { text-decoration: underline; }
+
+        details { margin-top: 8px; }
+        details summary {
+            font-size: 12px; color: #6b7280; cursor: pointer; user-select: none;
+        }
+        details summary:hover { color: #374151; }
+        .pub-comment-details { margin-top: 8px; font-size: 13px; color: #4b5563; }
+        .pub-comment-details .detail-row { margin-bottom: 4px; }
+        .pub-comment-details .detail-label { font-weight: 600; color: #374151; }
+        .pub-comment-full-body {
+            margin-top: 8px; padding: 12px; background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        }
+
+        /* ===== Footer ===== */
+        .pub-footer {
+            margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+            font-size: 12px; color: #9ca3af; text-align: center;
+        }
+
+        /* ===== Comment anchor highlight ===== */
+        .pub-comment:target { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
+    </style>
+</head>
+<body>
+
+<header class="pub-header">
+    <div class="pub-badge">{{ 'Product Research' if is_product else 'General Research' }}</div>
+    <h1>{{ title }}</h1>
+    <p class="pub-meta">
+        {{ num_threads }} threads and articles &middot;
+        {{ total_comments }} comments scored &middot;
+        {{ created_date }}
+    </p>
+    <p class="pub-meta">Sources: {{ sources_label }}</p>
+</header>
+
+<div class="pub-summaries">
+{% if is_product %}
+    {% for section in summary_sections %}
+    <div class="pub-section">
+        <h2>{{ section.label }}</h2>
+        {{ section.html | safe }}
+        {% if section.cited_sources %}
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            {% for src in section.cited_sources %}
+            <div class="cited-source-item">
+                <span class="cited-source-num">[{{ src.citation_num }}]</span>
+                <span class="pub-source-badge {{ src.source }}">{{ src.source_label }}</span>
+                <span class="cited-source-body">{{ src.body_short }}</span>
+                {% if src.permalink %}
+                <a href="{{ src.permalink }}" target="_blank" class="cited-source-link">View &rarr;</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="pub-section">
+        {{ summary_html | safe }}
+    </div>
+{% endif %}
+</div>
+
+<div class="pub-comments-header">
+    <h2>Top Comments</h2>
+    <p>Showing {{ comments | length }} of {{ total_comments }} comments collected</p>
+</div>
+
+{% for c in comments %}
+<div class="pub-comment" id="comment-{{ c.id }}">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge {{ c.source }}">{{ c.source_label }}</span>
+        {% if c.category_label %}<span class="pub-category-badge">{{ c.category_label }}</span>{% endif %}
+        <span class="pub-comment-score">{% if c.relevancy_score is not none %}{{ c.relevancy_score }}/10 relevancy{% endif %} &middot; {{ c.author }} &middot; {{ c.date }}</span>
+    </div>
+    <div class="pub-comment-body">{{ c.body_short }}</div>
+    {% if c.permalink %}
+    <div class="pub-comment-link"><a href="{{ c.permalink }}" target="_blank">View original &rarr;</a></div>
+    {% endif %}
+    {% if c.has_more or c.relevancy_score is not none or c.thread_title %}
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            {% if c.thread_title %}
+            <div class="detail-row"><span class="detail-label">Thread:</span> {{ c.thread_title }}</div>
+            {% endif %}
+            {% if c.relevancy_score is not none %}
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> {{ c.relevancy_score }}/10</div>
+            {% endif %}
+            {% if c.reasoning %}
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> {{ c.reasoning }}</div>
+            {% endif %}
+            {% if c.has_more %}
+            <div class="pub-comment-full-body">{{ c.body_full }}</div>
+            {% endif %}
+        </div>
+    </details>
+    {% endif %}
+</div>
+{% endfor %}
+
+<footer class="pub-footer">
+    Generated by Research Assistant &middot; {{ created_date }}
+</footer>
+
+</body>
+</html>

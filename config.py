@@ -13,6 +13,7 @@ class Config:
     # OpenAI API
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
     LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+    ALT_SUMMARY_MODEL = os.environ.get("ALT_SUMMARY_MODEL", "gpt-4.1-mini")
 
     # App settings
     DEBUG = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
@@ -38,6 +39,7 @@ class Config:
     WEB_MAX_ARTICLES = 8
     PH_MAX_POSTS = 5
 
-    # Max pages for HN/Web pagination in "Find More" expand
+    # Max pages for HN/Web/Reviews pagination in "Find More" expand
     HN_MAX_EXPAND_PAGES = 3
     WEB_MAX_EXPAND_PAGES = 3
+    REVIEWS_MAX_EXPAND_PAGES = 2

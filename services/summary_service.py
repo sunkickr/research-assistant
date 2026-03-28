@@ -1,6 +1,15 @@
+from datetime import datetime, timezone
 from typing import List
 from models.data_models import ScoredComment
 from services.llm_provider import LLMProvider
+
+
+def _format_comment_date(created_utc: float) -> str:
+    """Format a Unix timestamp as 'Mon YYYY' for LLM prompts, or 'unknown date' if missing."""
+    if not created_utc:
+        return "unknown date"
+    dt = datetime.fromtimestamp(created_utc, tz=timezone.utc)
+    return dt.strftime("%b %Y")
 
 SUMMARY_SYSTEM_PROMPT = """You are a research summarizer. You will receive a research question and a collection of comments and article excerpts from various sources (Reddit, Hacker News, web articles). Each item has an ID, source, relevancy score, and upvote count.
 
@@ -42,6 +51,13 @@ The research question provides context, but do NOT use it to fill in gaps or inf
 ## Conclusion
 End every summary with a "## Conclusion" section (use that exact heading). Write 2–4 sentences that directly answer the research question based on the evidence in the comments. If the evidence is mixed or inconclusive, say so plainly. Do not introduce new claims here — only synthesize what was covered above.
 
+RECENCY AWARENESS:
+Each comment includes a date. Today's date will be provided in the user message.
+- When synthesizing findings, note when key claims come from older sources (2+ years old) that may be outdated
+- Prefer recent sources when multiple comments make the same point
+- If older comments describe issues or features, qualify with "as of [date]" when the information may have changed
+- Flag when the available data is mostly old and findings may not reflect the current state
+
 Aim for 300–600 words total (excluding the Key Takeaways and Conclusion).
 
 USER FEEDBACK POLICY:
@@ -82,9 +98,9 @@ class SummaryService:
         community = [c for c in relevant if c.source != "web"]
         web = [c for c in relevant if c.source == "web"]
 
-        sort_key = lambda c: self._effective_relevancy(c) * max(c.score, 1)
+        sort_key = lambda c: (self._effective_relevancy(c) * max(c.score, 1), c.created_utc or 0)
         community.sort(key=sort_key, reverse=True)
-        web.sort(key=lambda c: self._effective_relevancy(c), reverse=True)
+        web.sort(key=lambda c: (self._effective_relevancy(c), c.created_utc or 0), reverse=True)
 
         # Reserve 20% of slots for web, fill remainder with community
         web_slots = max(1, max_comments // 5)
@@ -101,7 +117,7 @@ class SummaryService:
             return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
 
         comments_text = "\n\n".join(
-            f"[ID: {c.id} | Source: {c.source} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
+            f"[ID: {c.id} | Source: {c.source} | Date: {_format_comment_date(c.created_utc)} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
             for c in top_comments
         )
 
@@ -119,8 +135,10 @@ class SummaryService:
                     f"{posts_lines}\n\n---\n\n"
                 )
 
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
         user_prompt = (
-            f"Research Question: {question}\n\n"
+            f"Research Question: {question}\n"
+            f"Today's date: {today}\n\n"
             + posts_preamble
             + f"Total comments analyzed: {len(comments)}\n"
             f"Comments meeting relevancy threshold ({min_relevancy}+): {len(relevant)}\n\n"
@@ -142,28 +160,44 @@ class SummaryService:
     PRODUCT_SECTION_PROMPTS = {
         "general": (
             "Summarize this product using these sections as markdown headers (##): "
-            "Overview (what is it, what does it do), Primary Users (who uses it and why), "
-            "Common Use Cases, and Pricing. Write each section in prose paragraphs, not numbered lists."
+            "Overview (1-2 sentences: what it is and what it does), "
+            "Primary Users (bulleted list — each item formatted as: **User Type**: One sentence description), "
+            "Common Use Cases (bulleted list — each item formatted as: **Use Case**: One sentence description), "
+            "and Monetization (how the product makes money — e.g. freemium, subscription tiers, "
+            "enterprise licensing, usage-based — but do NOT include specific dollar amounts or prices "
+            "as these change frequently and will be inaccurate). "
+            "You must STILL include [#comment_id] citations after each claim as required by the citation rules."
+            "All comments must be cited. Include at lest 1 sited comment no more than 7"
         ),
         "issues": (
             "List the top 5 issues and problems users report. "
-            "One sentence per issue, then a short supporting quote."
+            "Look for interesting non-obvious issues brought up by comments"
+            "One sentence per issue, then a short supporting quote with its [#comment_id] citation."
+            "All comments must be cited. Include at lest 1 sited comment no more than 7"
         ),
         "feature_requests": (
             "List the top 5 features users wish this product had. "
-            "One sentence per request, then a short supporting quote."
+            "Look for interesting non-obvious feature requests brought up by comments"
+            "One sentence per request, then a short supporting quote with its [#comment_id] citation."
+            "All comments must be cited. Include at lest 1 sited comment no more than 7"
         ),
         "benefits": (
             "List the top 5 benefits and strengths users praise. "
-            "One sentence per benefit, then a short supporting quote."
+            "One sentence per benefit, then a short supporting quote with its [#comment_id] citation."
+            "All comments must be cited. Include at lest 1 sited comment no more than 7"
         ),
         "competitors": (
             "List the top 5 competitors mentioned and how they compare. "
-            "One sentence per competitor with the key differentiator."
+            "One sentence per competitor with the key differentiator. "
+            "Format each competitor name as a markdown link to their website, e.g. [Competitor](https://competitor.com). "
+            "You must STILL include [#comment_id] citations after each claim as required by the citation rules."
+            "For example site a comment metioning the competitor"
+            "All comments must be cited. Include at lest 1 sited comment no more than 7"
         ),
         "alternatives": (
             "List the top 5 reasons users stop using this product or switch away. "
-            "One sentence per reason, then a short supporting quote."
+            "One sentence per reason, then a short supporting quote with its [#comment_id] citation."
+            "All comments must be cited. Include at lest 1 sited comment no more than 7"
         ),
     }
 
@@ -173,10 +207,17 @@ Structure your response as a focused answer to the specific question. Use number
 
 Citation rules:
 - Use the exact comment ID provided (e.g. [#abc123ef])
-- Every significant factual claim or direct quote MUST have a citation
+- EVERY quote or paraphrase MUST end with a [#comment_id] citation. NEVER include a quote without a citation — if you cannot find a matching comment ID for a claim, do not include that claim.
 - When quoting, use blockquote format: > "quote text" [#comment_id]
 - Keep quotes under 20 words
+- Each section MUST cite at least 1 and no more than 7 unique comments. Aim for 3-5 citations per section.
 - IMPORTANT: Comments come from multiple sources (Reddit, Hacker News, Web articles, review sites, Product Hunt). Cite from ALL available sources, not just Reddit. Web and review site excerpts are often the most informative — prioritize citing them when relevant.
+
+RECENCY AWARENESS:
+Each comment includes a date. Today's date will be provided in the user message.
+- Prefer recent sources when multiple comments make the same point
+- If older comments (2+ years) describe issues or features, qualify with "as of [date]" when the information may have changed
+- Flag when the available data is mostly old and findings may not reflect the current state
 
 Be concise — no filler, no preamble, no "users have reported..." lead-ins. Get straight to the points. Aim for 150-250 words.
 
@@ -212,8 +253,8 @@ The user may provide optional feedback requesting that this section focus on spe
     def _select_with_quotas(self, pool: List[ScoredComment], total_slots: int) -> List[ScoredComment]:
         """Select comments from pool with per-source minimum quotas."""
         SOURCE_QUOTAS = {"web": 0.20, "hackernews": 0.10, "reviews": 0.10}
-        upvote_key = lambda c: self._effective_relevancy(c) * max(c.score, 1)
-        relevancy_key = lambda c: self._effective_relevancy(c)
+        upvote_key = lambda c: (self._effective_relevancy(c) * max(c.score, 1), c.created_utc or 0)
+        relevancy_key = lambda c: (self._effective_relevancy(c), c.created_utc or 0)
 
         by_source = {}
         for c in pool:
@@ -272,12 +313,14 @@ The user may provide optional feedback requesting that this section focus on spe
             return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
 
         comments_text = "\n\n".join(
-            f"[ID: {c.id} | Source: {c.source} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
+            f"[ID: {c.id} | Source: {c.source} | Date: {_format_comment_date(c.created_utc)} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
             for c in input_comments
         )
 
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
         user_prompt = (
             f"Product: {product_name}\n"
+            f"Today's date: {today}\n"
             f"Question: {section_prompt}\n\n"
             + posts_preamble
             + f"Comments ({len(input_comments)} selected, {len(cat_comments)} directly about this topic):\n{comments_text}"

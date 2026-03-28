@@ -62,6 +62,11 @@
             <a href="/api/research/{{ research_id }}/export" class="btn btn-outline">
                 Export CSV
             </a>
+            <button class="btn btn-primary" id="publishBtn"
+                    onclick="handlePublishResearch('{{ research_id }}')"
+                    {% if not research.summary %}disabled{% endif %}>
+                Publish Research
+            </button>
             <button class="btn btn-outline" id="rescoreBtn" style="display:none"
                     onclick="handleRescore('{{ research_id }}')">
                 Score Unscored Comments (<span id="unscoredCount">0</span>)
@@ -95,6 +100,16 @@
                     placeholder="e.g. Focus on the most controversial opinions, or Only summarize comments about pricing..."
                     rows="3"
                 ></textarea>
+            </div>
+            <div class="customize-setting">
+                <label class="customize-label">
+                    AI Model
+                    <span class="customize-hint">Higher quality model costs more per summary</span>
+                </label>
+                <label class="model-toggle-label">
+                    <input type="checkbox" id="useAltModel">
+                    <span class="model-toggle-text" id="modelToggleText">Use enhanced model</span>
+                </label>
             </div>
             <p class="feedback-hint">Tell the AI what to focus on or emphasize. Must relate to summarizing the comments.</p>
             <div class="feedback-actions">

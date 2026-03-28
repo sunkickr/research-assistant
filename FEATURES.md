@@ -360,3 +360,36 @@ This document tracks all features and their functionality. Update this file when
   - Live renders are debounced (500ms) to prevent rapid DOM replacement from breaking sort header clicks
   - SSE generator catches `GeneratorExit` on client disconnect and keeps the queue alive for reconnection
   - On scoring completion: summary button is enabled, sidebar counts refresh, header metadata updates
+
+### 30. Publish Research as Shareable HTML
+- **Description**: Generates a self-contained HTML report that can be shared via GitHub Pages or any static hosting
+- **Location**: `app.py` - `publish_research()`, `serve_published()`, `_md_to_html()`, `_select_publish_comments()`, `_make_publish_filename()`, `templates/published_research.html`, `static/js/app.js` - `handlePublishResearch()`
+- **Details**:
+  - "Publish Research" button on both general and product results pages (disabled until summaries exist)
+  - Generates a standalone HTML file with all CSS inlined — no external dependencies
+  - Product research: renders all 6 summary sections in order with per-section numbered Sources footer showing cited comments
+  - General research: renders the single summary with citations
+  - Selects top 50 comments with source diversity quotas (Reddit 50%, Web 30%, HN 10%, Product Hunt 10%)
+  - Comments sorted by AI relevancy score descending, then date descending as tiebreaker
+  - Each comment shows relevancy score, author, date, source badge, and truncated body with expandable full text
+  - Citation numbers in summaries (`[1]`, `[2]`, etc.) match numbered sources listed below each section
+  - Files saved to `published/` directory with slug-based naming and auto-increment on collision
+  - Button transforms to "View Published" link after successful generation
+
+### 31. Section Hide/Show Toggle
+- **Description**: Allows users to collapse individual product summary cards to focus on sections of interest
+- **Location**: `templates/product_results.html`, `static/js/app.js` - `toggleSectionVisibility()`, `static/css/style.css`
+- **Details**:
+  - ▲/▼ toggle button in each summary card header, next to the regenerate button
+  - Clicking hides the card body while keeping the header visible
+  - Click again to restore — purely client-side, no server round-trip
+  - Both buttons grouped in a `.summary-card-actions` flex container for proper alignment
+
+### 32. Per-Section Regeneration Settings
+- **Description**: When regenerating a single product summary section, users can control the number of input comments and choose the enhanced LLM model
+- **Location**: `templates/product_results.html` (section feedback modal), `static/js/app.js` - `handleRegenerateSection()`, `app.py` - `summarize_product_section()`
+- **Details**:
+  - Section regenerate modal now includes a "Comments to use" number input (10–100, default 50) and an alt model checkbox
+  - Alt model checkbox displays the exact model name (e.g. "Use gpt-4.1-mini") fetched from `/api/models`
+  - Both values sent to `POST /api/research/{id}/summarize-product-section` as `max_comments` and `use_alt_model`
+  - Backend caps `max_comments` at 100 and routes to the alt summary service when `use_alt_model` is true

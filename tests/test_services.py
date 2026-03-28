@@ -328,14 +328,16 @@ class TestArticleService:
     def test_fetch_article_returns_title_and_body(self, svc):
         meta = MagicMock()
         meta.title = "My Article Title"
+        meta.date = "2024-06-15"
         with patch("trafilatura.fetch_url", return_value="raw html"), \
              patch("trafilatura.extract", return_value="A" * 200), \
              patch("trafilatura.extract_metadata", return_value=meta):
             result = svc.fetch_article("https://example.com")
             assert result is not None
-            title, body = result
+            title, body, created_utc = result
             assert title == "My Article Title"
             assert len(body) >= 100
+            assert created_utc > 0  # date was parsed successfully
 
     def test_fetch_article_exception_returns_none(self, svc):
         with patch("trafilatura.fetch_url", side_effect=Exception("network error")):

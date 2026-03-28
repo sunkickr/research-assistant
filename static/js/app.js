@@ -49,6 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (productForm) {
         productForm.addEventListener('submit', handleProductResearchSubmit);
     }
+    // Load model names for the toggle
+    const modelToggle = document.getElementById('modelToggleText');
+    if (modelToggle) {
+        fetch('/api/models').then(r => r.json()).then(data => {
+            modelToggle.textContent = `Use ${data.alt_model}`;
+            const sectionToggle = document.getElementById('sectionModelToggleText');
+            if (sectionToggle) sectionToggle.textContent = `Use ${data.alt_model}`;
+        }).catch(() => {});
+    }
 });
 
 async function handleResearchSubmit(e) {
@@ -335,6 +344,8 @@ async function handleSummarize(researchId, withFeedback = false) {
         ? parseInt(document.getElementById('commentCountInput')?.value || '50', 10)
         : 50;
 
+    const useAltModel = document.getElementById('useAltModel')?.checked || false;
+
     feedbackPanel.classList.remove('visible');
     btn.disabled = true;
     feedbackToggle.disabled = true;
@@ -350,6 +361,7 @@ async function handleSummarize(researchId, withFeedback = false) {
             body: JSON.stringify({
                 ...(feedback ? { feedback } : {}),
                 max_comments: maxComments,
+                use_alt_model: useAltModel,
             }),
         });
 
@@ -362,6 +374,8 @@ async function handleSummarize(researchId, withFeedback = false) {
         btn.textContent = 'Regenerate Summary';
         btn.disabled = false;
         feedbackToggle.disabled = false;
+        const pubBtn = document.getElementById('publishBtn');
+        if (pubBtn) pubBtn.disabled = false;
     } catch (err) {
         summarySection.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
         btn.textContent = 'Retry Summary';
@@ -399,9 +413,11 @@ function renderSummary(text) {
         return `<a href="${href}" target="_blank" class="ref-link" title="View source">[${num}]</a>`;
     });
 
-    // Process inline markdown: **bold** → <strong>
+    // Process inline markdown: **bold** → <strong>, [text](url) → <a>
     function inlineMd(text) {
-        return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        return text;
     }
 
     // Track whether we're inside a <ul> list
@@ -547,6 +563,30 @@ async function handleAddThread(researchId) {
     }
 }
 
+// ===== Publish Research =====
+
+async function handlePublishResearch(researchId) {
+    const btn = document.getElementById('publishBtn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Publishing...';
+    try {
+        const resp = await fetch(`/api/research/${researchId}/publish`, { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) {
+            alert(data.error || 'Failed to publish');
+            btn.disabled = false;
+            btn.textContent = 'Publish Research';
+            return;
+        }
+        btn.outerHTML = `<a href="/published/${data.filename}" target="_blank" class="btn btn-primary">View Published</a>`;
+    } catch (e) {
+        alert('Failed to publish: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Publish Research';
+    }
+}
+
 // ===== Find More Comments & Articles =====
 
 // Per-source config state for the find-more configure panel
@@ -581,6 +621,8 @@ function _initExpandConfig(researchSources, statusData) {
     _configureCheckbox('fmReddit', 'fmRedditLabel', 'reddit', researchSources, statusData.reddit_exhausted);
     _configureCheckbox('fmHN', 'fmHNLabel', 'hackernews', researchSources, statusData.hn_exhausted);
     _configureCheckbox('fmWeb', 'fmWebLabel', 'web', researchSources, statusData.web_exhausted);
+    // Reviews checkbox only exists on product results page
+    _configureCheckbox('fmReviews', 'fmReviewsLabel', 'reviews', researchSources, statusData.reviews_exhausted);
 }
 
 function _configureCheckbox(cbId, labelId, source, researchSources, exhausted) {
@@ -1000,6 +1042,8 @@ async function handleGenerateProductSummaries(researchId, withCustom = false) {
         feedback = document.getElementById('productFeedbackInput')?.value.trim() || null;
     }
 
+    const useAltModel = document.getElementById('useAltModel')?.checked || false;
+
     if (feedbackPanel) feedbackPanel.classList.remove('visible');
     btn.disabled = true;
     if (feedbackToggle) feedbackToggle.disabled = true;
@@ -1012,6 +1056,7 @@ async function handleGenerateProductSummaries(researchId, withCustom = false) {
             body: JSON.stringify({
                 max_comments: maxComments,
                 ...(feedback ? { feedback } : {}),
+                use_alt_model: useAltModel,
             }),
         });
         if (!resp.ok) {
@@ -1022,6 +1067,8 @@ async function handleGenerateProductSummaries(researchId, withCustom = false) {
         const data = await resp.json();
         renderProductSummaries(data.summaries);
         btn.textContent = 'Regenerate Summaries';
+        const pubBtn = document.getElementById('publishBtn');
+        if (pubBtn) pubBtn.disabled = false;
     } catch (e) {
         alert('Failed to generate summaries: ' + e.message);
     } finally {
@@ -1035,6 +1082,17 @@ const SECTION_LABELS = {
     feature_requests: 'Feature Requests', benefits: 'Benefits & Strengths',
     competitors: 'Competitors', alternatives: 'Churn & Alternatives',
 };
+
+function toggleSectionVisibility(btn) {
+    const card = btn.closest('.summary-card');
+    if (!card) return;
+    const body = card.querySelector('.summary-card-body');
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? '' : 'none';
+    btn.innerHTML = isHidden ? '\u25B2' : '\u25BC';
+    btn.title = isHidden ? 'Hide this section' : 'Show this section';
+}
 
 function openSectionFeedback(researchId, category) {
     const modal = document.getElementById('sectionFeedbackModal');
@@ -1063,6 +1121,8 @@ async function handleRegenerateSection(researchId, category) {
     if (!body || !btn) return;
 
     const feedback = document.getElementById('sectionFeedbackInput')?.value.trim() || null;
+    const useAltModel = document.getElementById('sectionUseAltModel')?.checked || false;
+    const maxComments = parseInt(document.getElementById('sectionMaxComments')?.value, 10) || 50;
     closeSectionFeedback();
 
     btn.disabled = true;
@@ -1076,6 +1136,8 @@ async function handleRegenerateSection(researchId, category) {
             body: JSON.stringify({
                 category,
                 ...(feedback ? { feedback } : {}),
+                use_alt_model: useAltModel,
+                max_comments: maxComments,
             }),
         });
         if (!resp.ok) {
@@ -1159,6 +1221,8 @@ function renderProductSectionHtml(text) {
             const link = c && c.permalink ? c.permalink : '#';
             return `<a href="${link}" target="_blank" class="citation-link" title="${escapeHtml(c.body?.substring(0, 100) || '')}">[${num}]</a>`;
         });
+        // Markdown links [text](url) — run after citations to avoid conflicts
+        line = line.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
         return line;
     }
 
@@ -1166,9 +1230,16 @@ function renderProductSectionHtml(text) {
     // Blank lines do NOT close lists — only non-list content does.
     let inOl = false;
     let inUl = false;
+    let inLi = false;
+
+    function closeLi() {
+        let s = '';
+        if (inLi) { inLi = false; s += '</li>'; }
+        return s;
+    }
 
     function closeList() {
-        let close = '';
+        let close = closeLi();
         if (inOl) { inOl = false; close += '</ol>'; }
         if (inUl) { inUl = false; close += '</ul>'; }
         return close;
@@ -1185,33 +1256,39 @@ function renderProductSectionHtml(text) {
         if (trimmed.startsWith('## ')) {
             return closeList() + `<h4>${inlineMd(trimmed.slice(3))}</h4>`;
         }
-        // Blockquotes
+        // Blockquotes — keep inside list item if in a list
         if (trimmed.startsWith('> ')) {
-            return closeList() + `<blockquote>${inlineMd(trimmed.slice(2))}</blockquote>`;
+            if (inOl || inUl) {
+                return `<blockquote>${inlineMd(trimmed.slice(2))}</blockquote>`;
+            }
+            return `<blockquote>${inlineMd(trimmed.slice(2))}</blockquote>`;
         }
         // Numbered list items
         const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
         if (olMatch) {
-            // Close any open <ul> first (switching list type)
             let close = '';
-            if (inUl) { inUl = false; close += '</ul>'; }
-            const item = `<li>${inlineMd(olMatch[1])}</li>`;
-            if (!inOl) { inOl = true; return close + `<ol>${item}`; }
-            return close + item;
+            if (inUl) { close += closeList(); }
+            close += closeLi();
+            if (!inOl) { inOl = true; close += '<ol>'; }
+            inLi = true;
+            return close + `<li>${inlineMd(olMatch[1])}`;
         }
         // Bullet list items
         if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-            // Close any open <ol> first
             let close = '';
-            if (inOl) { inOl = false; close += '</ol>'; }
-            const item = `<li>${inlineMd(trimmed.slice(2))}</li>`;
-            if (!inUl) { inUl = true; return close + `<ul>${item}`; }
-            return close + item;
+            if (inOl) { close += closeList(); }
+            close += closeLi();
+            if (!inUl) { inUl = true; close += '<ul>'; }
+            inLi = true;
+            return close + `<li>${inlineMd(trimmed.slice(2))}`;
         }
-        // Regular paragraph — close any open list
-        let close = '';
+        // Regular paragraph — keep inside list item if in a list
+        if (inOl || inUl) {
+            return `<p>${inlineMd(trimmed)}</p>`;
+        }
         return closeList() + `<p>${inlineMd(trimmed)}</p>`;
     });
+    // Set inLi for all new list items
     // Close any list still open at the end
     const trailing = closeList();
     if (trailing) lines.push(trailing);

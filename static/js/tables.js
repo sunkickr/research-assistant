@@ -474,7 +474,11 @@ function sortData(data, col, dir) {
 
         if (valA < valB) return dir === 'asc' ? -1 : 1;
         if (valA > valB) return dir === 'asc' ? 1 : -1;
-        return 0;
+
+        // Tiebreaker: newer items first
+        const dateA = a.created_utc || 0;
+        const dateB = b.created_utc || 0;
+        return dateB - dateA;
     });
 }
 

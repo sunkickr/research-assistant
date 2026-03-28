@@ -1,0 +1,2332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dbt — Research Summary</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: #1a1a1a;
+            background: #fff;
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* ===== Header ===== */
+        .pub-header { margin-bottom: 40px; border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; }
+        .pub-header h1 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+        .pub-meta { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
+        .pub-badge {
+            display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 2px 8px; border-radius: 4px;
+            background: #eff6ff; color: #2563eb; margin-bottom: 12px;
+        }
+
+        /* ===== Summary Sections ===== */
+        .pub-summaries { margin-bottom: 48px; }
+        .pub-section { margin-bottom: 32px; }
+        .pub-section h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #111; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px; }
+        .pub-section h3 { font-size: 17px; font-weight: 600; margin: 16px 0 8px; }
+        .pub-section h4 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+        .pub-section p { margin-bottom: 10px; }
+        .pub-section ul, .pub-section ol { padding-left: 24px; margin-bottom: 10px; }
+        .pub-section li { margin-bottom: 4px; }
+        .pub-section blockquote {
+            border-left: 3px solid #d1d5db; padding: 4px 12px; margin: 8px 0;
+            color: #4b5563; font-style: italic;
+        }
+        .pub-section a { color: #2563eb; text-decoration: none; }
+        .pub-section a:hover { text-decoration: underline; }
+        .pub-section .citation-ref {
+            font-size: 11px; vertical-align: super; color: #dc2626;
+            text-decoration: none; font-weight: 600; padding: 0 1px;
+        }
+        .pub-section .citation-ref:hover { text-decoration: underline; }
+
+        /* ===== Cited Sources per Section ===== */
+        .pub-cited-sources {
+            margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb;
+        }
+        .cited-sources-heading {
+            font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px;
+        }
+        .cited-source-item {
+            display: flex; align-items: baseline; gap: 8px;
+            font-size: 13px; line-height: 1.5; margin-bottom: 6px;
+            color: #4b5563;
+        }
+        .cited-source-num {
+            flex-shrink: 0; font-size: 12px; font-weight: 600; color: #dc2626;
+            min-width: 24px;
+        }
+        .cited-source-item .pub-source-badge { flex-shrink: 0; font-size: 10px; }
+        .cited-source-body {
+            flex: 1; overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+        .cited-source-link { flex-shrink: 0; font-size: 12px; color: #2563eb; text-decoration: none; }
+        .cited-source-link:hover { text-decoration: underline; }
+
+        /* ===== Comments Section ===== */
+        .pub-comments-header { margin-bottom: 20px; }
+        .pub-comments-header h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+        .pub-comments-header p { font-size: 14px; color: #6b7280; }
+
+        .pub-comment {
+            border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;
+            margin-bottom: 12px; background: #fafafa;
+        }
+        .pub-comment-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .pub-source-badge {
+            font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+            padding: 2px 6px; border-radius: 3px; color: #fff;
+        }
+        .pub-source-badge.reddit { background: #ff4500; }
+        .pub-source-badge.hackernews { background: #ff6600; }
+        .pub-source-badge.web { background: #059669; }
+        .pub-source-badge.reviews { background: #7c3aed; }
+        .pub-source-badge.producthunt { background: #da552f; }
+        .pub-category-badge {
+            font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 3px;
+            background: #f3f4f6; color: #374151;
+        }
+        .pub-comment-score { font-size: 12px; color: #6b7280; }
+        .pub-comment-body { font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+        .pub-comment-link { font-size: 12px; }
+        .pub-comment-link a { color: #2563eb; text-decoration: none; }
+        .pub-comment-link a:hover { text-decoration: underline; }
+
+        details { margin-top: 8px; }
+        details summary {
+            font-size: 12px; color: #6b7280; cursor: pointer; user-select: none;
+        }
+        details summary:hover { color: #374151; }
+        .pub-comment-details { margin-top: 8px; font-size: 13px; color: #4b5563; }
+        .pub-comment-details .detail-row { margin-bottom: 4px; }
+        .pub-comment-details .detail-label { font-weight: 600; color: #374151; }
+        .pub-comment-full-body {
+            margin-top: 8px; padding: 12px; background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        }
+
+        /* ===== Footer ===== */
+        .pub-footer {
+            margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+            font-size: 12px; color: #9ca3af; text-align: center;
+        }
+
+        /* ===== Comment anchor highlight ===== */
+        .pub-comment:target { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
+    </style>
+</head>
+<body>
+
+<header class="pub-header">
+    <div class="pub-badge">Product Research</div>
+    <h1>dbt</h1>
+    <p class="pub-meta">
+        74 threads and articles &middot;
+        2116 comments scored &middot;
+        2026-03-26
+    </p>
+    <p class="pub-meta">Sources: Reddit, Hacker News, Web, Reviews, Product Hunt</p>
+</header>
+
+<div class="pub-summaries">
+
+    
+    <div class="pub-section">
+        <h2>General Information</h2>
+        <h3>Overview</h3>
+<p>dbt (data build tool) is an open-source software tool that enables data analysts and engineers to transform and model data directly in the data warehouse using SQL. It streamlines the transformation step in ELT (Extract, Load, Transform) workflows, providing features like version control, testing, documentation, and lineage visualization to improve data quality and collaboration across teams <a href="#comment-hn_37120353" class="citation-ref">[1]</a><a href="#comment-web_ee566a04f8_q0" class="citation-ref">[2]</a><a href="#comment-web_ca47d30973_q5" class="citation-ref">[3]</a>.</p>
+<h3>Primary Users</h3>
+
+<ul><li><strong>Data Analysts</strong>: Empowered to build and maintain SQL-based data models without heavy engineering support <a href="#comment-jkbz8f3" class="citation-ref">[4]</a>.
+</li><li><strong>Data Engineers</strong>: Use dbt to enforce good development practices and manage complex data transformation pipelines <a href="#comment-iymf2lg" class="citation-ref">[5]</a>.
+</li><li><strong>Solo Data Practitioners</strong>: Benefit from dbt Cloud’s ease of use and integration for managing data transformations independently <a href="#comment-n1nx96r" class="citation-ref">[6]</a>.
+</li><li><strong>Engineering Teams</strong>: Employ dbt to implement software engineering best practices like git workflows, testing, and CI/CD in data projects <a href="#comment-hn_37120353" class="citation-ref">[1]</a>.
+</li></ul><h3>Common Use Cases</h3>
+
+<ul><li><strong>Data Transformation in Cloud Warehouses</strong>: Transform raw data inside cloud data warehouses like Snowflake or Redshift using SQL models managed by dbt <a href="#comment-web_ca47d30973_q3" class="citation-ref">[7]</a>.
+</li><li><strong>Version Control and Collaboration</strong>: Manage SQL code with git integration to enable collaboration and code review among teams <a href="#comment-hn_45931803" class="citation-ref">[8]</a>.
+</li><li><strong>Data Lineage and Documentation</strong>: Automatically generate documentation and visualize dependencies between data models to improve understanding and maintenance <a href="#comment-l47h6q7" class="citation-ref">[9]</a>.
+</li><li><strong>Testing and Quality Assurance</strong>: Implement automated tests on data models to reduce errors and increase trust in analytics <a href="#comment-web_ee566a04f8_q2" class="citation-ref">[10]</a>.
+</li><li><strong>Integration with Orchestration Tools</strong>: Use dbt in combination with schedulers like Airflow to automate and orchestrate data workflows <a href="#comment-j5lgksu" class="citation-ref">[11]</a>.
+</li></ul><h3>Monetization</h3>
+<p>dbt Labs offers a freemium model with open-source dbt Core available for free and a paid dbt Cloud providing additional features such as a cloud-based IDE, job scheduling, and enhanced collaboration tools. Enterprise licensing and subscription tiers cater to larger organizations needing advanced governance and support <a href="#comment-n1nx96r" class="citation-ref">[6]</a><a href="#comment-web_ca47d30973_q3" class="citation-ref">[7]</a>.</p>
+
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge hackernews">Hacker News</span>
+                <span class="cited-source-body">For those also wondering what is ETL and dbt:&lt;p&gt;&amp;gt; ETL (Extract, Transform, Load) is a process that involves extracting data from various sources, transforming it to fit operational needs, and loadi</span>
+                
+                <a href="https://news.ycombinator.com/item?id=37120353" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">dbt enables analysts and engineers to transform data directly in the data warehouse using SQL, making workflows more transparent, testable, and easier to manage.</span>
+                
+                <a href="https://kanerika.com/blogs/data-build-tool/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">I&#39;ve used dbt for four years to streamline data engineering with features like built-in lineage and Jinja templating, though debugging is limited; it&#39;s cost-effective and efficient, but better suited </span>
+                
+                <a href="https://www.peerspot.com/products/dbt-reviews" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">One of the key objectives we wanted in our org was to &#39;empower&#39; the analysts - who are ultimately the SME&#39;s in the data - to be more innovative and productive without causing a huge data engineering b</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkbz8f3/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">I generally like dbt, but one of the upsides like Software practicies, Git, testing and such is also one of the downsides. Just like an inexperienced software engineer has a tendency to write complex </span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/zamewl/whats_wrong_with_dbt/iymf2lg/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[6]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Imo if you want complete control then using a dedicated orchestrator is wayyyy better. 
+
+My situation at work is I’m a solo data person and dbt cloud just works. It’s not perfect but to me it isn’t wo</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1lt6d2y/dbt_cloud_is_brainless_and_useless/n1nx96r/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[7]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">I&#39;ve used dbt Cloud with Snowflake to manage SQL-based transformations as code, enabling version control, collaboration, CI/CD, and templating.</span>
+                
+                <a href="https://www.peerspot.com/products/dbt-reviews" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[8]</span>
+                <span class="pub-source-badge hackernews">Hacker News</span>
+                <span class="cited-source-body">Hey HN - Zingle came out of a pretty painful reality we kept seeing across data teams. We were reviewing ~60 dbt&amp;#x2F;SQL PRs a week for a client, and the senior engineers were overloaded while analys</span>
+                
+                <a href="https://news.ycombinator.com/item?id=45931803" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[9]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">As someone who&#39;s worked in SQL for over a decade but started using dbt this year I&#39;d say the biggest upside is the reduction of redundancy (or redundant code) in datasets. You can create one data set </span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1cstq6v/why_is_dbt_so_good/l47h6q7/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[10]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">By introducing version control, testing, and documentation into data workflows, dbt improves data quality, reduces errors, and builds trust in analytics across teams.</span>
+                
+                <a href="https://kanerika.com/blogs/data-build-tool/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[11]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">We&#39;re running it on kubernetes using airflow as the scheduler.  It works fine.
+
+What does the pricing look like on Enterprise?</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/10jn7dw/dbt_cloud_alternatives/j5lgksu/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section">
+        <h2>Top Issues</h2>
+        <p>Top 5 Issues and Problems Reported by Users of dbt (Data Build Tool):</p>
+
+<ol><li><strong>Complexity and Messiness of Large SQL Repositories</strong>
+<p>Users report that managing large dbt projects results in a tangled mess of SQL models that are hard to maintain and slow to develop, especially with multiple schemas and business requirements.</p>
+<blockquote>"We do large ETLs and our repo is a big mess of SQL in different models. It's extremely hard to support business requirements...mind-numbingly slow for us." <a href="#comment-jkb0zlj" class="citation-ref">[1]</a></blockquote>
+<blockquote>"Code sprawl is probably the worst part of it. Several folks write the same piece of code multiple times because they were unaware it existed." <a href="#comment-iymgrll" class="citation-ref">[2]</a></blockquote>
+</li><li><strong>Inflexible and Limited Features in dbt Cloud, Especially for Orchestration</strong>
+<p>Users find dbt Cloud restrictive, lacking dynamic command submission, skipping failed models, and retry capabilities, making integration with workflow tools like Airflow frustrating.</p>
+<blockquote>"Doesn't let you dynamically submit dbt commands...doesn't let you skip models when it fails...Dbt cloud + Airflow doesn't let you retry on failed models." <a href="#comment-RutabagaJumpy2134" class="citation-ref">[3]</a></blockquote>
+<blockquote>"There's an --exclude flag to skip models, but it stops after failed tests by design." <a href="#comment-n1o8n8a" class="citation-ref">[4]</a></blockquote>
+</li><li><strong>Steep Learning Curve and Usability Challenges for Non-Engineers</strong>
+<p>The reliance on SQL, Git workflows, YAML configurations, and Jinja templating creates barriers for analysts or users without strong technical backgrounds.</p>
+<blockquote>"Dbt requires Git workflows, YAML configuration, and Jinja templating – skills that aren’t common among all data professionals and analysts." <a href="#comment-web_4fdf16025f_q3" class="citation-ref">[5]</a></blockquote>
+<blockquote>"Org pushing it on analysts who can't (or won't) learn it...my job is SQL to DBT model conversation support." <a href="#comment-lt980p1" class="citation-ref">[6]</a></blockquote>
+</li><li><strong>Limited Testing and Quality Assurance Capabilities</strong>
+<p>While dbt supports data quality control tests, it lacks expressive unit testing and QA features for transformations, making it difficult to catch errors early or write complex assertions.</p>
+<blockquote>"SQL is poor at supporting QA...best you can do is create data for edge cases and run tests in staging." <a href="#comment-hoxnihg" class="citation-ref">[7]</a></blockquote>
+<blockquote>"Assertions are essentially useless in DBT if you want to pass your code on to a QA engineer not trained in DBT." <a href="#comment-jkb0zlj" class="citation-ref">[1]</a></blockquote>
+</li><li><strong>Challenges with Adapter Architecture and Integration with Some Platforms</strong>
+<p>Users find writing or modifying dbt adapters difficult due to scattered codebases and poor support for certain platforms like Databricks.</p>
+<blockquote>"Writing or modifying a dbt adapter is a huge pain...you have to look across 3 different repos." <a href="#comment-lt9daus" class="citation-ref">[8]</a></blockquote>
+<blockquote>"I have been trying to find a way to run dbt on a Databricks job cluster, which isn't natively supported." <a href="#comment-ForlornPlague" class="citation-ref">[9]</a></blockquote>
+<p>These issues highlight non-obvious pain points beyond the usual praises for dbt's version control and modular SQL approach, focusing on usability, orchestration limitations, and maintainability challenges in larger or complex environments.</p>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Not just you. 
+
+We do large ETLs and our repo is a big mess of SQL in different models. It&#39;s extremely hard to support business requirements whereby we have to have multiple schemas for multiple requi</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkb0zlj/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Code sprawl is probably the worst part of it.  If you have a bunch of developers on a dbt project, you can have several folks write the same piece of code multiple times because they were unaware that</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/zamewl/whats_wrong_with_dbt/iymgrll/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">&gt; Doesn&#39;t let you skip models when it fails
+
+
+There&#39;s an --exclude flag, if you want to skip a model. 
+
+
+It stops after failed tests by design, if the severity is changed to warn then the run will con</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1lt6d2y/dbt_cloud_is_brainless_and_useless/n1o8n8a/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">dbt requires Git workflows, YAML configuration, and Jinja templating – skills that aren’t common among all data professionals and analysts.</span>
+                
+                <a href="https://peliqan.io/blog/dbt-alternatives-competitors/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[6]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">It&#39;s fine. My main frustration is org pushing it on analysts who can&#39;t (or won&#39;t) learn it. Therefore my job is SQL to DBT model conversation support</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1g9w0ft/is_dbt_actually_a_hot_mess_or_is_it_just_me/lt980p1/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[7]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">No, the lack of QA capability can&#39;t be blamed on the victims here: it&#39;s simply a result of using raw SQL to transform data.   Sure, there&#39;s a really good quality-control framework that allows us to ru</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/ri2k6b/can_someone_explain_the_big_deal_with_dbt/hoxnihg/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[8]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Writing or modifying a dbt adapter is a huge pain in the ass. You have to look across 3 different repos to determine what code is being run. It&#39;s hard to tell if you need to change Python, SQL, or som</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1g9w0ft/is_dbt_actually_a_hot_mess_or_is_it_just_me/lt9daus/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section">
+        <h2>Feature Requests</h2>
+        
+<ol><li>Improved error handling with the ability to skip failing models and retry selectively in orchestration workflows.
+<blockquote>"Doesn't let you skip models when it fails... Dbt cloud + Airflow doesn't let you retry on failed models" <a href="#comment-RutabagaJumpy2134" class="citation-ref">[1]</a></blockquote>
+<blockquote>"There's an --exclude flag, if you want to skip a model. It stops after failed tests by design..." <a href="#comment-n1o8n8a" class="citation-ref">[2]</a></blockquote>
+</li><li>Enhanced debugging and lineage verification tools to better correlate failing tests with their models and reduce confusion.
+<blockquote>"In this command I ran, I'm only selecting the models and tests related to +model_x the tests which are failing are related to a completely different model!!" <a href="#comment-web_a0aaa7c477_q2" class="citation-ref">[3]</a></blockquote>
+<blockquote>"I tried to verify the lineage using dbt docs and the tests which are failing related to models are not included in the lineage..." <a href="#comment-web_a0aaa7c477_q3" class="citation-ref">[4]</a></blockquote>
+</li><li>More modular and scalable code architecture, especially for large or complex SQL pipelines, to avoid messy, nested, and redundant SQL code.
+<blockquote>"It's a good tool... but if you want to do absolutely anything outside of the basics, it's impossible. The codebase is an awful nested mess..." <a href="#comment-ForlornPlague" class="citation-ref">[5]</a></blockquote>
+<blockquote>"We do large ETLs and our repo is a big mess of SQL in different models... methodology of writing stage tables before writing the models is mind-numbingly slow..." <a href="#comment-jkb0zlj" class="citation-ref">[6]</a></blockquote>
+</li><li>Native support or better integration for running dbt on alternative platforms like Databricks and improved adapter architecture.
+<blockquote>"I have been trying to find a way to run dbt on a databricks job cluster, which isn't natively supported..." <a href="#comment-ForlornPlague" class="citation-ref">[5]</a></blockquote>
+<blockquote>"Are adapters challenging to work with? oh yeah! Could they be better architected? totally..." <a href="#comment-lt9tiu3" class="citation-ref">[7]</a></blockquote>
+</li><li>Automated PR review and code quality tools tailored to dbt and SQL models to reduce errors and speed up code reviews.
+<blockquote>"We were reviewing ~60 dbt/SQL PRs a week... combination of fast-moving code and slow reviews led to mistakes... needed a reviewer that understands data behavior" <a href="#comment-hn_45931803" class="citation-ref">[8]</a></blockquote>
+<blockquote>"Having an automated PR review for DBTs will be very valuable to ensure DBTs and SQL are following the best practices." <a href="#comment-hn_41663985" class="citation-ref">[9]</a></blockquote>
+<p>These requests highlight users' desire for more robust orchestration flexibility, better debugging and lineage clarity, cleaner scalable code architecture, improved platform support, and enhanced automation for code quality assurance in dbt workflows.</p>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">&gt; Doesn&#39;t let you skip models when it fails
+
+
+There&#39;s an --exclude flag, if you want to skip a model. 
+
+
+It stops after failed tests by design, if the severity is changed to warn then the run will con</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1lt6d2y/dbt_cloud_is_brainless_and_useless/n1o8n8a/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">My main problem is, in this command I ran, I&#39;m only selecting the models and tests related to +model_x the tests which are failing are related to a completely different model!!</span>
+                
+                <a href="https://stackoverflow.com/questions/78782260/dbt-lineage-issue-with-dbt-build-and-tests" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">I tried to verify the lineage using dbt docs and the tests which are failing related to models are not included in the lineage, so why am I getting errors for them???</span>
+                
+                <a href="https://stackoverflow.com/questions/78782260/dbt-lineage-issue-with-dbt-build-and-tests" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[6]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Not just you. 
+
+We do large ETLs and our repo is a big mess of SQL in different models. It&#39;s extremely hard to support business requirements whereby we have to have multiple schemas for multiple requi</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkb0zlj/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[7]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">hi there, I work at dbt Labs and work closely with the OSS adapters team. I&#39;m sorry you&#39;re not getting what you need from dbt and Databricks today and I&#39;d love to be able to look back at this post 6 m</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1g9w0ft/is_dbt_actually_a_hot_mess_or_is_it_just_me/lt9tiu3/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[8]</span>
+                <span class="pub-source-badge hackernews">Hacker News</span>
+                <span class="cited-source-body">Hey HN - Zingle came out of a pretty painful reality we kept seeing across data teams. We were reviewing ~60 dbt&amp;#x2F;SQL PRs a week for a client, and the senior engineers were overloaded while analys</span>
+                
+                <a href="https://news.ycombinator.com/item?id=45931803" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[9]</span>
+                <span class="pub-source-badge hackernews">Hacker News</span>
+                <span class="cited-source-body">Having an automated PR review for DBTs will be very valuable to ensure DBTs and SQL are following the best practices.&lt;p&gt;I feel like SQL and data is always a second class citizen compared to code revie</span>
+                
+                <a href="https://news.ycombinator.com/item?id=41663985" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section">
+        <h2>Benefits &amp; Strengths</h2>
+        <p>Top 5 benefits and strengths users praise about dbt:</p>
+
+<ol><li><strong>Simplifies and modularizes SQL transformations, reducing redundancy and improving maintainability.</strong>
+<blockquote>"The biggest upside is the reduction of redundancy... you make the update once and you're good." <a href="#comment-l47h6q7" class="citation-ref">[1]</a></blockquote>
+</li><li><strong>Empowers analysts and non-engineers to write and manage data transformations autonomously, reducing bottlenecks.</strong>
+<blockquote>"dbt is a great fit... to 'empower' the analysts... to be more innovative and productive." <a href="#comment-jkbz8f3" class="citation-ref">[2]</a></blockquote>
+<blockquote>"Definitely way lower technical barriers to entry to write pipelines." <a href="#comment-hous6g5" class="citation-ref">[3]</a></blockquote>
+</li><li><strong>Introduces software engineering best practices like version control, testing, CI/CD, and documentation to data workflows.</strong>
+<blockquote>"dbt has made [source control, automated testing, CI/CD, environment management] standard." <a href="#comment-jkbxyjx" class="citation-ref">[4]</a></blockquote>
+<blockquote>"dbt allows you to write simple tests... keeps running forever and will alert you whenever mismatches occur." <a href="#comment-hywstms" class="citation-ref">[5]</a></blockquote>
+</li><li><strong>Provides strong data lineage visualization and documentation, improving transparency and collaboration across teams.</strong>
+<blockquote>"The lineage graph is nice... I like the docs it generates... I can see how my tables make other tables." <a href="#comment-jkb0c0y" class="citation-ref">[6]</a></blockquote>
+<blockquote>"Data Lineage is dope." <a href="#comment-hn74phe" class="citation-ref">[7]</a></blockquote>
+</li><li><strong>Cost-effective and flexible open-source tool that integrates well with existing data warehouses and orchestration tools.</strong>
+<blockquote>"It’s immensely powerful at helping teams... And it’s cheap/free. Honestly a no brainer." <a href="#comment-hn6x6pu" class="citation-ref">[8]</a></blockquote>
+<blockquote>"I use dbt open source all the time... schedule it as an azure function, GCP cloud function, or aws batch script." <a href="#comment-n1o0ewd" class="citation-ref">[9]</a></blockquote>
+<p>These strengths reflect dbt's role in modernizing data transformation by making SQL pipelines more maintainable, collaborative, and reliable, while lowering barriers for analysts to contribute directly to data workflows <a href="#comment-l47h6q7, #jkbz8f3, #jkbxyjx, #hywstms, #hn74phe, #hn6x6pu, #n1o0ewd" class="citation-ref">[10]</a>.</p>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">As someone who&#39;s worked in SQL for over a decade but started using dbt this year I&#39;d say the biggest upside is the reduction of redundancy (or redundant code) in datasets. You can create one data set </span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1cstq6v/why_is_dbt_so_good/l47h6q7/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">One of the key objectives we wanted in our org was to &#39;empower&#39; the analysts - who are ultimately the SME&#39;s in the data - to be more innovative and productive without causing a huge data engineering b</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkbz8f3/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Definitely way lower technical barriers to entry to write pipelines. 
+
+Framework leads user to more development flow with ci/Cd that is not normal for analysts. 
+
+Analysts that could write sql before,</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/ri2k6b/can_someone_explain_the_big_deal_with_dbt/hous6g5/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">I think it’s a good thing for the practices it bought in rather than the tool.  Source control, automated testing, CI/CD, environment management.  These things were creeping into DE but dbt has made t</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkbxyjx/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">No that’s a great question.  
+In my experience, a couple things set it apart. 
+
+1. Testing. DBT allows you to write simple tests going forward, which are executed as often as you want to verify the in</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/t2mh65/why_this_subreddit_dislikes_the_socalled_modern/hywstms/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[6]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">the lineage graph is nice, if you are using dbt-core you can use any ide you want. I like the large mess of sql more than hte large mess of python. i like the docs it generates and i can see how my ta</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkb0c0y/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[7]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">TL;DR Data Lineage is dope.
+
+Obviously the workflow is cool, and it depends on your use case, but in my last company (which was pretty sizable), it was becoming increasingly difficult to sort out wher</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/r8pa3i/why_is_data_build_tool_dbt_is_so_popular_what_are/hn74phe/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[8]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Once data is in the DWH, there’s a big challenge — how do we turn that raw data into usable tables for the business?
+
+You can do this all on your own and try to schedule stuff to run and update and ch</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/r8pa3i/why_is_data_build_tool_dbt_is_so_popular_what_are/hn6x6pu/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[9]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">I use dbt open source all the time.  To “orchestrate” it, I usually just throw my dbt project into a docker image, have a python or bash script that basically just does “run dbt” with any needed setup</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1lt6d2y/dbt_cloud_is_brainless_and_useless/n1o0ewd/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section">
+        <h2>Competitors</h2>
+        <p>The top 5 competitors to dbt mentioned are:</p>
+
+<ol><li><a href="https://sqlmesh.com" target="_blank">SQLMesh</a> – A newer SQL templating framework addressing dbt's gaps like column lineage and unit testing, with the ability to import dbt projects, making it a potential drop-in replacement for smaller dbt projects <a href="#comment-hn_37131253, #jk4oyvg" class="citation-ref">[1]</a>.
+</li><li><a href="https://cloud.google.com/dataform" target="_blank">Dataform</a> – Acquired by Google and integrated exclusively with BigQuery, Dataform offers dbt-like functionality tightly coupled to the Google Cloud ecosystem, ideal for teams fully invested in BigQuery <a href="#comment-kq0w0f7, #jce236v" class="citation-ref">[2]</a>.
+</li><li><a href="https://serra.io" target="_blank">Serra</a> – An open-core, Python-based alternative that replaces brittle SQL with modular Spark objects for ELT/ETL, supporting both transformations and data connectors, thus extending beyond dbt’s focus on transformation <a href="#comment-hn_37121543, #hn_37126976" class="citation-ref">[3]</a>.
+</li><li><a href="http://Paradime.io" target="_blank">Paradime.io</a> – Positioned more as an IDE with scheduling and modeling capabilities, it is suggested as a potential replacement for dbt Cloud combined with Airflow, offering more dynamic job control and failure handling <a href="#comment-hn_37121543, #RutabagaJumpy2134" class="citation-ref">[4]</a>.
+</li><li><a href="https://sdf.com" target="_blank">SDF</a> – Developed by an ex-Meta team, it is noted as a competitor focusing on improving business model maturity and addressing some limitations of dbt, though less detail is provided <a href="#comment-hn_37121543, #k31us0p" class="citation-ref">[5]</a>.
+<p>These competitors differentiate themselves by either focusing on enhanced testing and lineage (SQLMesh), cloud-specific integration (Dataform), broader ETL capabilities with Python and Spark (Serra), improved orchestration and IDE features (Paradime.io), or business model maturity (SDF) compared to dbt's SQL-centric transformation approach <a href="#comment-hn_37121543, #jk4oyvg, #kq0w0f7, #hn_37126976, #RutabagaJumpy2134" class="citation-ref">[6]</a>.</p>
+</li></ol>
+        
+    </div>
+    
+    <div class="pub-section">
+        <h2>Churn &amp; Alternatives</h2>
+        <p>Top 5 reasons users stop using or switch away from dbt:</p>
+
+<ol><li>Integration and migration effort is high for mature projects already having stable pipelines, offering little added benefit.
+<blockquote>"For us to adopt dbt would be a tremendous amount of work... with very little benefit, since all the benefits it brings we already have." <a href="#comment-howb6h8" class="citation-ref">[1]</a></blockquote>
+</li><li>The dbt Cloud UI and orchestration features lack flexibility, such as inability to dynamically submit commands, skip failing models, or retry failed jobs.
+<blockquote>"Doesn't let you dynamically submit dbt commands... Doesn't let you skip models when it fails... Dbt cloud + Airflow doesn't let you retry on failed models." <a href="#comment-RutabagaJumpy2134" class="citation-ref">[2]</a></blockquote>
+</li><li>Large or complex ETL projects become unwieldy, with messy SQL spread across many models and slow development due to the required staged approach.
+<blockquote>"Our repo is a big mess of SQL in different models... The methodology of writing stage tables before writing the models is mind-numbingly slow for us." <a href="#comment-jkb0zlj" class="citation-ref">[3]</a></blockquote>
+</li><li>The dbt codebase and adapter ecosystem have architectural and usability challenges, especially with non-natively supported platforms like Databricks.
+<blockquote>"The codebase is an awful nested mess... I have been trying to find a way to run dbt on a databricks job cluster, which isn't natively supported." <a href="#comment-ForlornPlague" class="citation-ref">[4]</a></blockquote>
+<blockquote>"Are adapters challenging to work with? oh yeah!... we're about to hire 4+ more engineers to work on OSS adapters." <a href="#comment-lt9tiu3" class="citation-ref">[5]</a></blockquote>
+</li><li>Some users find dbt development boring or limiting, with poor error catching, less expressive testing, and lack of a REPL for prototyping.
+<blockquote>"I find developing using the tool extremely boring. Errors aren’t caught when run, dbt expectations is less expressive than if you just wrote your own assertions." <a href="#comment-PeruseAndSnooze" class="citation-ref">[6]</a></blockquote>
+<p>These issues reflect trade-offs in dbt’s design and ecosystem maturity, leading some teams to prefer alternatives or custom solutions better aligned with their scale, workflows, or platform needs.</p>
+<p><a href="#comment-howb6h8" class="citation-ref">[1]</a> <a href="#comment-RutabagaJumpy2134" class="citation-ref">[2]</a> <a href="#comment-jkb0zlj" class="citation-ref">[3]</a> <a href="#comment-ForlornPlague" class="citation-ref">[4]</a> <a href="#comment-lt9tiu3" class="citation-ref">[5]</a> <a href="#comment-PeruseAndSnooze" class="citation-ref">[6]</a></p>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">I mean my current team is exactly that. We have dedicated engineers who take care of the pipeline and DWH. We already do all the things dbt does. For us to adopt dbt would be a tremendous amount of wo</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/ri2k6b/can_someone_explain_the_big_deal_with_dbt/howb6h8/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Not just you. 
+
+We do large ETLs and our repo is a big mess of SQL in different models. It&#39;s extremely hard to support business requirements whereby we have to have multiple schemas for multiple requi</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkb0zlj/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">hi there, I work at dbt Labs and work closely with the OSS adapters team. I&#39;m sorry you&#39;re not getting what you need from dbt and Databricks today and I&#39;d love to be able to look back at this post 6 m</span>
+                
+                <a href="https://reddit.com/r/dataengineering/comments/1g9w0ft/is_dbt_actually_a_hot_mess_or_is_it_just_me/lt9tiu3/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+
+</div>
+
+<div class="pub-comments-header">
+    <h2>Top Comments</h2>
+    <p>Showing 50 of 2116 comments collected</p>
+</div>
+
+
+<div class="pub-comment" id="comment-l47jr2m">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; Captain_Coffee_III &middot; May 15, 2024</span>
+    </div>
+    <div class="pub-comment-body">They added Python models now.  You can still use the SQL models but the Python ones fill in some gaps that you couldn&#39;t do before, like throwing some machine learning stuff at it or pulling from different sources or even serving as a QA checkpoint by exporting the data to a flat file.
+
+One example o</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/1cstq6v/why_is_dbt_so_good/l47jr2m/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is DBT so good</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses dbt&#39;s new features with Python models, providing specific examples of how it enhances functionality.</div>
+            
+            
+            <div class="pub-comment-full-body">They added Python models now.  You can still use the SQL models but the Python ones fill in some gaps that you couldn&#39;t do before, like throwing some machine learning stuff at it or pulling from different sources or even serving as a QA checkpoint by exporting the data to a flat file.
+
+One example of how the Python model just saved the day is ingesting a hive partitioned folder of JSON and land it as a table.  It was trivial in Python to merge them all into a dataframe and pass that up the chain in DBT.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jrhecan">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">10/10 relevancy &middot; attention_pleas &middot; Jul 11, 2023</span>
+    </div>
+    <div class="pub-comment-body">I’m currently leading the charge into dbt Core as the only analytics engineer on my team. We had to do this instead of Cloud due to cost constraints, of course. We’re still in early phases but here’s how I set it up:
+
+- our raw tables get ingested to a Redshift DW via Fivetran. Then those tables go </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/14w832y/anything_one_should_know_before_going_for/jrhecan/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Anything one should know before going for self-hosted dbt?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a detailed first-hand account of setting up dbt in a data pipeline, directly relevant to dbt usage.</div>
+            
+            
+            <div class="pub-comment-full-body">I’m currently leading the charge into dbt Core as the only analytics engineer on my team. We had to do this instead of Cloud due to cost constraints, of course. We’re still in early phases but here’s how I set it up:
+
+- our raw tables get ingested to a Redshift DW via Fivetran. Then those tables go into dbt for transformation.
+- the dbt project lives in a repo on GitHub, which has an integration with our AWS CodePipeline service
+- CodePipeline detects changes to master branch and triggers an update, which uses CodeDeploy to push the update to an EC2 machine
+- the repo includes a series of pre- and post-hook operations that set up a cron file on the EC2 machine and execute dbt deps, run and test commands. This gets all the views refreshed and ensures the packages are up to date. Most of these operations are just wrapped in bash scripts I threw together.
+- the EC2 machine runs incremental models daily based on cron file
+- the entire project also has a Python virtualenv so we can just use a requirements.txt file to keep all of our machines in sync on dependencies
+- the profiles.yml file is loaded with environment variables. The database creds and schema come from .bash_profiles for local environments, but the production machine securely fetches them via AWS ParameterStore.
+- every developer has their own dev schema based on a “DBT_SCHEMA” variable in their .bash_profile</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jk4i9a5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; Culpgrant21 &middot; May 14, 2023</span>
+    </div>
+    <div class="pub-comment-body">If you want all the features of DBT why not use DBT? 
+
+Otherwise coalesce might be worth looking into.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/13he7yf/data_transformation_tools_other_than_dbt/jk4i9a5/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Data transformation tools other than DBT</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses dbt and suggests it as a solution, providing actionable advice.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-gxmrgkd">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; kenfar &middot; May 10, 2021</span>
+    </div>
+    <div class="pub-comment-body">A few thoughts:
+
+* The common stitch/fivetran/dms pattern of copying all tables into your raw area and then transforming them into staging &amp; load has a big problem with tightly coupling your data warehouse to the physical models of upstream systems.   This is a bad pattern that leads to huge mainten</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/n98s5b/is_there_a_python_alternative_to_dbt/gxmrgkd/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Is there a Python alternative to DBT ?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Offers a detailed critique of common data transformation patterns and how dbt can improve them, providing valuable insights.</div>
+            
+            
+            <div class="pub-comment-full-body">A few thoughts:
+
+* The common stitch/fivetran/dms pattern of copying all tables into your raw area and then transforming them into staging &amp; load has a big problem with tightly coupling your data warehouse to the physical models of upstream systems.   This is a bad pattern that leads to huge maintenance challenges down the road.   To be fair, it&#39;s sometimes required.  But if your upstream systems have engineers involved, you might be much happier pulling data modeled by \*them\* into interface tables.
+* DBT vs Python I think comes mostly down to what&#39;s the skillset of the folks doing the work and how much do you need to support complex transforms and how much you care about data quality - and unit-testing.     Python will take more work to build (though you can still issue SQL queries with joins, etc out of python code with very little effort).   But you also have tight little transform functions that are fully unit-tested - which will protect you more than just doing quality-control against data that arrived earlier today.
+* So, another possibility is DBT + Python:  while DBT doesn&#39;t provide a way to run python programs, it does have a good quality-control framework that people should use.  And you can use it to build your models.
+* Looker: it&#39;s useful to think about boundaries: can people query raw &amp; staging data from Looker?   can they created persisted data tables and define all company metrics in Looker - or should they do that on the warehouse where they can get better testing and reuse?</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-gxmpcge">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; HansProleman &middot; May 10, 2021</span>
+    </div>
+    <div class="pub-comment-body">&gt;SQL is so much easier and simpler
+
+I&#39;d argue that this is subjective, that Python is simpler/more viable where significant abstraction/complex logic is required (not least because of library support), and that what you write for dbt is more like a DSL (that compiles to SQL) than SQL.
+
+That said, db</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/n98s5b/is_there_a_python_alternative_to_dbt/gxmpcge/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Is there a Python alternative to DBT ?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the advantages of dbt in handling framework complexities, providing a nuanced perspective on its use.</div>
+            
+            
+            <div class="pub-comment-full-body">&gt;SQL is so much easier and simpler
+
+I&#39;d argue that this is subjective, that Python is simpler/more viable where significant abstraction/complex logic is required (not least because of library support), and that what you write for dbt is more like a DSL (that compiles to SQL) than SQL.
+
+That said, dbt handles *so much* boring/tricky framework stuff for you (in a nice manner), this doesn&#39;t sound like a use case that would demand massive complexity, and AFAIK there are no particularly good Python-y ways to interact with MPP SQL DBs anyway (because you can&#39;t run Python against them, perhaps with the exception of Azure Synapse) - I agree that OP shouldn&#39;t let a lack of confidence in SQL dissuade them from using dbt.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-gxmeyxp">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; LaurenRhymesWOrange &middot; May 10, 2021</span>
+    </div>
+    <div class="pub-comment-body">Do not use Python for transformations when you can use DBT. SQL is so much easier and simpler. It will benefit your company in the long run by making templates DBT and running your basic transformations there.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/n98s5b/is_there_a_python_alternative_to_dbt/gxmeyxp/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Is there a Python alternative to DBT ?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly advises against using Python for transformations in favor of dbt, providing clear actionable advice.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ock5lfr">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Competitors</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; heytarun &middot; Mar 26, 2026</span>
+    </div>
+    <div class="pub-comment-body">Once your volume grows, MAR starts working against you. We can suggest dlt or Airbyte to avoid MAR, but that shifts the cost to engineering time. You have to handle connectors, retries, etc etc all the stuff Fivetran handles. That tradeoff only makes sense if you already have people maintaining pipe</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/1s3393o/fivetran_pricing_is_out_of_hand_and_i_need/ock5lfr/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Fivetran pricing is out of hand and I need cheaper alternatives</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses trade-offs in data ingestion strategies related to dbt, providing actionable insights.</div>
+            
+            
+            <div class="pub-comment-full-body">Once your volume grows, MAR starts working against you. We can suggest dlt or Airbyte to avoid MAR, but that shifts the cost to engineering time. You have to handle connectors, retries, etc etc all the stuff Fivetran handles. That tradeoff only makes sense if you already have people maintaining pipelines and not if ingestion is supposed to be boring infrastructure. You should also compare some flat pricing vendors before renewing. Integrate ETL (working with them), Hevo, Estuary are your options. Integrate has flat pricing. Worth checking multiple quotes before you sign anything.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l4adoie">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; Scot_atl &middot; May 16, 2024</span>
+    </div>
+    <div class="pub-comment-body">This is where I advise folks start if they’re new to dbt.
+(Source: I work at dbt labs)
+
+
+dbt Cloud overview
+1. What, exactly, is dbt? Wwritten by the dbt Labs CEO, Tristan Handy (now outdated, but shows where it started). 
+
+https://www.getdbt.com/blog/what-exactly-is-dbt/
+
+This gives more detail on </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/1cstq6v/why_is_dbt_so_good/l4adoie/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is DBT so good</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Offers a clear starting point for newcomers to dbt, including links to resources and personal credibility from working at dbt Labs.</div>
+            
+            
+            <div class="pub-comment-full-body">This is where I advise folks start if they’re new to dbt.
+(Source: I work at dbt labs)
+
+
+dbt Cloud overview
+1. What, exactly, is dbt? Wwritten by the dbt Labs CEO, Tristan Handy (now outdated, but shows where it started). 
+
+https://www.getdbt.com/blog/what-exactly-is-dbt/
+
+This gives more detail on the core framework components. 
+
+https://docs.getdbt.com/docs/introduction
+
+2. If you&#39;re looking to move away from heavy use of Stored Procedures, then this is worth reading 
+
+https://docs.getdbt.com/blog/migrating-from-stored-procs
+
+Getting Started 
+1. dbt Learn should be your hub for all learning, and for those more receptive to videos, we have lots of content on our YouTube channel, including lots of customer deployment lessons learned. 
+
+https://courses.getdbt.com/collections/beginner
+
+https://www.youtube.com/c/dbt-labs
+
+
+Start with dbt Fundamentals (this is where EVERY person coming into dbt is advised to start to get hands on). This is around 4-6 hours of work in tutorials and labs, and will make sure you get the foundational components understood well enough that you can begin to create your own dbt models, and jobs.
+
+https://courses.getdbt.com/courses/fundamentals</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l47h6q7">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; [deleted] &middot; May 15, 2024</span>
+    </div>
+    <div class="pub-comment-body">As someone who&#39;s worked in SQL for over a decade but started using dbt this year I&#39;d say the biggest upside is the reduction of redundancy (or redundant code) in datasets. You can create one data set (object) used in a dozen other data sets and when you need to make an update to the underlying datas</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/1cstq6v/why_is_dbt_so_good/l47h6q7/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is DBT so good</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a detailed personal experience with dbt, highlighting its benefits in reducing redundancy.</div>
+            
+            
+            <div class="pub-comment-full-body">As someone who&#39;s worked in SQL for over a decade but started using dbt this year I&#39;d say the biggest upside is the reduction of redundancy (or redundant code) in datasets. You can create one data set (object) used in a dozen other data sets and when you need to make an update to the underlying dataset you make the update once and you&#39;re good. With my previous employer if a scope change was implemented I might have to update 12-14 different views or stored procs because a table name (or field) changed, etc. dbt does away with all that. Plus you really don&#39;t need stored procs at all. You can orchestrate all your changes and build pipelines incrementally without having to rely on stored proc updates. Pretty slick IMO.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-khqlaxy">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; valorsubmarine &middot; Jan 13, 2024</span>
+    </div>
+    <div class="pub-comment-body">Withdrawal of warmth is a DBT contingency strategy. If you have Marsha Linehan’s book Cognitive Behavioural Treatment of Borderline Personality Disorder it’s outlined in Chapter 10 which looks at change procedures in DBT</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dbtselfhelp/comments/195l2de/concerned_about_dbt/khqlaxy/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Concerned about DBT</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides specific information about DBT strategies, directly relevant to understanding dbt.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-khqdd0w">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; [deleted] &middot; Jan 13, 2024</span>
+    </div>
+    <div class="pub-comment-body">In my experience, DBT will be perfect for the situation you describe. My DBT therapist was extremely validating and mindful of saying things that might be invalidating, in a way that other therapist I’ve seen did not do at all. I was almost never triggered by my DBT therapist. If it’s group, that’s </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dbtselfhelp/comments/195l2de/concerned_about_dbt/khqdd0w/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Concerned about DBT</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly shares personal experience with DBT, highlighting its effectiveness and validating nature.</div>
+            
+            
+            <div class="pub-comment-full-body">In my experience, DBT will be perfect for the situation you describe. My DBT therapist was extremely validating and mindful of saying things that might be invalidating, in a way that other therapist I’ve seen did not do at all. I was almost never triggered by my DBT therapist. If it’s group, that’s a different thing that I’ve not experienced first hand, but it is probably pretty similar. I would never have been able to make the progress I did without DBT, and when the time came to do couples therapy, I chose to do it with my DBT therapist because I trusted her so much, and it’s been really successful.
+
+I’ve also never heard the phrase “withdrawal of warmth”</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jsrbsy6">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; TheWinterSystem &middot; Jul 20, 2023</span>
+    </div>
+    <div class="pub-comment-body">I would like to add that Reddit like raised by narcissists (and bpd loved ones) are very harmful to people with cluster b personality disorders, which have a high likelihood of being diagnosed along with DID and other dissociative disorders, a large number of people with cluster b personality disord</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/DID/comments/154j1l2/has_anyone_found_dbt_not_helpful_or_even/jsrbsy6/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Has anyone found DBT not helpful or even triggering?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the impact of being raised by narcissists on those with cluster b personality disorders, relevant to dbt.</div>
+            
+            
+            <div class="pub-comment-full-body">I would like to add that Reddit like raised by narcissists (and bpd loved ones) are very harmful to people with cluster b personality disorders, which have a high likelihood of being diagnosed along with DID and other dissociative disorders, a large number of people with cluster b personality disorders have significant trauma, it can be same trauma that can cause DID. I’m not wanting to start anything but I think it is important to protect other mental disorders, especially when sufferers could be in this Reddit/nm</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jspz4kr">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; frxsys &middot; Jul 20, 2023</span>
+    </div>
+    <div class="pub-comment-body">We found DBT to be one of the most helpful treatments we&#39;ve been through, but I think the key difference is that our therapist (who was also our DBT group lead) takes a trauma-informed approach to it that not everyone does. It can feel really minimizing if one doesn&#39;t account for the patient&#39;s traum</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/DID/comments/154j1l2/has_anyone_found_dbt_not_helpful_or_even/jspz4kr/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Has anyone found DBT not helpful or even triggering?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Shares a positive experience with dbt, emphasizing the importance of a trauma-informed approach, relevant to its effectiveness.</div>
+            
+            
+            <div class="pub-comment-full-body">We found DBT to be one of the most helpful treatments we&#39;ve been through, but I think the key difference is that our therapist (who was also our DBT group lead) takes a trauma-informed approach to it that not everyone does. It can feel really minimizing if one doesn&#39;t account for the patient&#39;s trauma when teaching the skills.
+
+Also, I don&#39;t think this is what you came here for, but radical acceptance was a really difficult one for us too. It&#39;s a more advanced skill that you need to build on top of other skills. It&#39;s less &#34;this is fine&#34; (when it&#39;s not) and more &#34;these are the facts that I need to work with.&#34; You don&#39;t have to like that it&#39;s raining, but you will be a lot better off if you accept it and bring an umbrella instead of trying to stay dry on your own.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jsp8vbx">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; Wise_Ad6601 &middot; Jul 20, 2023</span>
+    </div>
+    <div class="pub-comment-body">Are there any other kind of therapy types then? We’re looking for a new therapist and trying to decide what type would benefit us most. Any suggestions very welcomed and appreciated!</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/DID/comments/154j1l2/has_anyone_found_dbt_not_helpful_or_even/jsp8vbx/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Has anyone found DBT not helpful or even triggering?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Asking for suggestions on therapy types, directly related to dbt and seeking actionable advice.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jsp5ky2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; Time-Tackle-6182 &middot; Jul 20, 2023</span>
+    </div>
+    <div class="pub-comment-body">Thank you!</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/DID/comments/154j1l2/has_anyone_found_dbt_not_helpful_or_even/jsp5ky2/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Has anyone found DBT not helpful or even triggering?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> A thank you that indicates engagement with the topic, though not substantive.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jn33ulg">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; flotsette &middot; Jun 06, 2023</span>
+    </div>
+    <div class="pub-comment-body">OMG, I love that!!  The coach used to be a teacher, so I sent a &#34;book report&#34; with my feedback, LOL.
+
+Call me Freudette for a minute, while I offer my armchair analysis of Ellis:   
+
+He made a bizarre reference to a kid who&#39;s father &#34;*hadn&#39;t* caught him masturbating and threatened to cut his penis o</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/therapyabuse/comments/140ht6i/why_in_your_opinion_is_dbt_bad/jn33ulg/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> why in your opinion is DBT bad=?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses DBT with specific feedback and personal experience, making it highly relevant.</div>
+            
+            
+            <div class="pub-comment-full-body">OMG, I love that!!  The coach used to be a teacher, so I sent a &#34;book report&#34; with my feedback, LOL.
+
+Call me Freudette for a minute, while I offer my armchair analysis of Ellis:   
+
+He made a bizarre reference to a kid who&#39;s father &#34;*hadn&#39;t* caught him masturbating and threatened to cut his penis off&#34;   ???    (As a ridiculous proof of why the kid was not traumatized.)
+
+In the same chapter he starts using the term &#34;musterbating,&#34; which is essentially calling the reader a masturbator as an insult.  He associates &#34;musterbating&#34; with &#34;grandiosity&#34; and &#34;god-like demands,&#34; which he projects on a socially anxious kid with a lisp.  Hmmm.
+
+But he spends the whole book *essentially* telling you that you should and must stop making yourself unhappy, just not using those words. It&#39;s the equivalent of a person screaming at the top of their lungs, &#34;I&#39;M NOT ANGRY!!!!!!!&#34;   
+
+Conclusion:  Ellis was a grandiose narcissist, the golden child of a very cruel narcissistic father, who once caught him masturbating and threatened to cut off his penis. Ellis dealt with this by becoming an overachieving psychological theorist and punishing his clients as if they were his father. Deriding masturbation in his terminology was his way of sublimating his desire to masturbate. Deeply uninsightful, Ellis appealed to others who were also uninsightful (other golden child therapists), and his method -- surely inspired by the treatment of the family scapegoat -- is made to brainwash people into gaslighting themselves and staying under the thumb of those in control.  His legacy has damaged therapy immeasurably, especially since any idiot can do it and feel &#34;evidence-based.&#34;</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jn322jn">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; flotsette &middot; Jun 06, 2023</span>
+    </div>
+    <div class="pub-comment-body">Like I said I&#39;m not defending DBT, but I do believe validation and bearing witness gives permission to grieve. Grieving is the treatment IMO. But anything can be weaponized, and fake validation is everywhere.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/therapyabuse/comments/140ht6i/why_in_your_opinion_is_dbt_bad/jn322jn/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> why in your opinion is DBT bad=?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses DBT and the importance of validation, providing a relevant perspective.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jkbz8f3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; extrobe &middot; May 16, 2023</span>
+    </div>
+    <div class="pub-comment-body">One of the key objectives we wanted in our org was to &#39;empower&#39; the analysts - who are ultimately the SME&#39;s in the data - to be more innovative and productive without causing a huge data engineering bottleneck. We instead use DE to build a framework / toolkit around dbt / the orchestrator to allow t</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkbz8f3/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Is there something wrong with me, I hate dbt, what am I missing ?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The comment provides a detailed account of how DBT is used in the organization, highlighting its benefits and practical application.</div>
+            
+            
+            <div class="pub-comment-full-body">One of the key objectives we wanted in our org was to &#39;empower&#39; the analysts - who are ultimately the SME&#39;s in the data - to be more innovative and productive without causing a huge data engineering bottleneck. We instead use DE to build a framework / toolkit around dbt / the orchestrator to allow the analysts to work more autonomously.
+
+Every org has different requirements, but for us dbt is a great fit</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jkbxyjx">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; Mysterious_Act_3652 &middot; May 16, 2023</span>
+    </div>
+    <div class="pub-comment-body">I think it’s a good thing for the practices it bought in rather than the tool.  Source control, automated testing, CI/CD, environment management.  These things were creeping into DE but dbt has made them standard.  
+
+Also the organisational changes of breaking up the reliance on a central data team </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/13ip8e5/is_there_something_wrong_with_me_i_hate_dbt_what/jkbxyjx/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Is there something wrong with me, I hate dbt, what am I missing ?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment highlights the benefits of dbt in terms of practices it introduced, such as source control and CI/CD, providing valuable insights into its impact on data engineering.</div>
+            
+            
+            <div class="pub-comment-full-body">I think it’s a good thing for the practices it bought in rather than the tool.  Source control, automated testing, CI/CD, environment management.  These things were creeping into DE but dbt has made them standard.  
+
+Also the organisational changes of breaking up the reliance on a central data team because of dbts simplicity and accessibility are big benefits.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-j5lx8vp">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; BlakeBurch &middot; Jan 23, 2023</span>
+    </div>
+    <div class="pub-comment-body">Our team at Shipyard has put together some [video guides](https://youtu.be/iMQ8D9w2NaA) for automating dbt Core on our platform. Level of effort is maybe 15 minutes to switch from dbt Cloud if you&#39;re using GitHub? Nothing to host. Same executional features.
+
+[https://www.shipyardapp.com/compare/dbt-</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/10jn7dw/dbt_cloud_alternatives/j5lx8vp/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Cloud Alternatives?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes creating video guides for automating dbt Core and provides a clear, actionable comparison to dbt Cloud, making it highly relevant.</div>
+            
+            
+            <div class="pub-comment-full-body">Our team at Shipyard has put together some [video guides](https://youtu.be/iMQ8D9w2NaA) for automating dbt Core on our platform. Level of effort is maybe 15 minutes to switch from dbt Cloud if you&#39;re using GitHub? Nothing to host. Same executional features.
+
+[https://www.shipyardapp.com/compare/dbt-cloud-alternative](https://www.shipyardapp.com/compare/dbt-cloud-alternative)
+
+For an exhaustive list of alternative execution platforms, see Christophe Blefari&#39;s article. https://www.blef.fr/manage-and-schedule-dbt/</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-j5liq77">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; FecesOfAtheism &middot; Jan 23, 2023</span>
+    </div>
+    <div class="pub-comment-body">Varies by company I believe, but it’s $3.6K per “developer seat,” with an overall ~$60K annual lift for us.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/10jn7dw/dbt_cloud_alternatives/j5liq77/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Cloud Alternatives?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides specific pricing information for dbt, which directly addresses a common concern for users considering the product.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hov6is0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; chestnutcough &middot; Dec 17, 2021</span>
+    </div>
+    <div class="pub-comment-body">It removes the need to ever write DDL statements which in itself is a big value add in my opinion.  Select statements only!</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/ri2k6b/can_someone_explain_the_big_deal_with_dbt/hov6is0/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Can someone explain the big deal with dbt?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Highlights a significant advantage of dbt, providing a clear and actionable benefit for users.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hov3bnc">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; thickmartian &middot; Dec 17, 2021</span>
+    </div>
+    <div class="pub-comment-body">The parameterization is really nice. Pretty fast way to write docs and the UI offers a nice exploration of the data models.
+
+It also has built-in features like tests and snapshots which are interesting.
+
+Can you replace all this by other stuff? Sure.
+Will it be packaged as nicely? Not so sure.
+
+I fi</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/ri2k6b/can_someone_explain_the_big_deal_with_dbt/hov3bnc/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Can someone explain the big deal with dbt?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes specific features of dbt and their benefits, providing actionable insights for potential users.</div>
+            
+            
+            <div class="pub-comment-full-body">The parameterization is really nice. Pretty fast way to write docs and the UI offers a nice exploration of the data models.
+
+It also has built-in features like tests and snapshots which are interesting.
+
+Can you replace all this by other stuff? Sure.
+Will it be packaged as nicely? Not so sure.
+
+I find I gain a crazy amount of time in my work due to how simple it is to build and debug stuff. So it&#39;s worth it for me.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn79b71">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; DaveGot &middot; Dec 04, 2021</span>
+    </div>
+    <div class="pub-comment-body">dbt doesn&#39;t handles the data, it handles the code and execute it in your DWH. Data stays in your DWH platform (Snowflake, Amazon Redshift, etc), it never leaves. Hence dbt handles as much data as your DWH.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/r8pa3i/why_is_data_build_tool_dbt_is_so_popular_what_are/hn79b71/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is Data Build Tool (DBT) is so popular? What are some other alternatives?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses dbt&#39;s functionality, explaining how it handles code execution in data warehouses, which is highly relevant to product research.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn73kd5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; [deleted] &middot; Dec 04, 2021</span>
+    </div>
+    <div class="pub-comment-body">You do not need to use an orchestrator such as airflow which I think is one of the benefits. DBT will figure out all the dependencies on its own. I think that is one of the positives because I like to make development as self service as possible and data engineers, analysts and data scientists all n</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/r8pa3i/why_is_data_build_tool_dbt_is_so_popular_what_are/hn73kd5/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is Data Build Tool (DBT) is so popular? What are some other alternatives?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the benefit of dbt managing dependencies without needing an orchestrator, emphasizing its usability for different technical proficiencies.</div>
+            
+            
+            <div class="pub-comment-full-body">You do not need to use an orchestrator such as airflow which I think is one of the benefits. DBT will figure out all the dependencies on its own. I think that is one of the positives because I like to make development as self service as possible and data engineers, analysts and data scientists all need to build datasets that update reliably but all have different levels of technical proficiency. So I love that the analysts and data scientists can just focus on the SQL portion and not have to worry about how it interacts with an orchestration tool.
+
+
+My team is looking to integrate Prefect with DBT so we can get a little more visibility into each individual step but honestly that isn&#39;t really needed and you can get by without it. DBT actually does have some very in depth logging but my team is having some difficulty integrating that with Datadog.
+
+
+Before we had DBT we were relying on an in house system I wrote which would read every SQL file we used to define a table or view, make a graph of the dependencies and then convert that into an AWS Step Function but that system was clunky. It worked and the step functions have extremely high uptime and reliability but they were really lacking on observability so when there was a bug in a query it could be hard to diagnose.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn6yp6t">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; goddard18 &middot; Dec 04, 2021</span>
+    </div>
+    <div class="pub-comment-body">Coming from tools like Talend that are very antiquated, dbt Is very simple and lets you do all transformations in SQL, so even analysts can quickly get simple pipelines setup without having the bottleneck / silo of data engineering team members. Because it’s so clean with folder structure, git repo,</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/r8pa3i/why_is_data_build_tool_dbt_is_so_popular_what_are/hn6yp6t/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is Data Build Tool (DBT) is so popular? What are some other alternatives?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides first-hand experience comparing dbt to Talend, highlighting its simplicity and benefits for analysts, which is directly relevant.</div>
+            
+            
+            <div class="pub-comment-full-body">Coming from tools like Talend that are very antiquated, dbt Is very simple and lets you do all transformations in SQL, so even analysts can quickly get simple pipelines setup without having the bottleneck / silo of data engineering team members. Because it’s so clean with folder structure, git repo, adding tests, documentation, and to see scheduling dependencies, having analysts suddenly contribute to engineering doesn’t become too risky. Still isn’t applicable to large scale real time big data applications for example but majority of companies don’t need that as a priority. 
+
+However it’s so popular and also so new, I’m finding it very hard to find engineers given I’m in a medium size non tech company. Any US based agency is an insane hourly rate. So whilst I’m here — if anyone knows of good nearshore / offshore analytics consulting please let me know! :)</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn6x6pu">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; dataguy24 &middot; Dec 04, 2021</span>
+    </div>
+    <div class="pub-comment-body">Once data is in the DWH, there’s a big challenge — how do we turn that raw data into usable tables for the business?
+
+You can do this all on your own and try to schedule stuff to run and update and check for errors and test and document…and…and…
+
+Or, you can use dbt to either do much of that for you</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/dataengineering/comments/r8pa3i/why_is_data_build_tool_dbt_is_so_popular_what_are/hn6x6pu/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why is Data Build Tool (DBT) is so popular? What are some other alternatives?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a clear explanation of dbt&#39;s role in transforming data and its advantages, making it very relevant for product research.</div>
+            
+            
+            <div class="pub-comment-full-body">Once data is in the DWH, there’s a big challenge — how do we turn that raw data into usable tables for the business?
+
+You can do this all on your own and try to schedule stuff to run and update and check for errors and test and document…and…and…
+
+Or, you can use dbt to either do much of that for you or make it really easy. 
+
+It’s immensely powerful at helping teams like mine transform data into datasets everyone can use. And it’s cheap/free. Honestly a no brainier.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-h8q0tel">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; VivaSisyphus &middot; Aug 13, 2021</span>
+    </div>
+    <div class="pub-comment-body">&gt;The clinician told them that, oh yeah, DBT is totally invalidating.
+
+Oof... really not sure about this at all.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/BPD/comments/p340fj/therapist_confirmed_that_dbt_might_have_done_more/h8q0tel/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Therapist confirmed that DBT might have done more harm than good</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Engages with the topic of DBT&#39;s validity, expressing skepticism and encouraging discussion.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-h8prv8f">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; sugar_tit5 &middot; Aug 12, 2021</span>
+    </div>
+    <div class="pub-comment-body">I don&#39;t feel like this post was really very clear at all about how/why you found DBT invalidating? Is it because you tried it and it didn&#39;t help you? 
+
+Also, sorry you&#39;ve had some shit therapists. A good therapist will not judge you at all. I tell mine all the fucked up shit I do and think and they </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/BPD/comments/p340fj/therapist_confirmed_that_dbt_might_have_done_more/h8prv8f/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Therapist confirmed that DBT might have done more harm than good</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Asks clarifying questions about DBT&#39;s effectiveness, showing engagement with the topic and providing a supportive perspective.</div>
+            
+            
+            <div class="pub-comment-full-body">I don&#39;t feel like this post was really very clear at all about how/why you found DBT invalidating? Is it because you tried it and it didn&#39;t help you? 
+
+Also, sorry you&#39;ve had some shit therapists. A good therapist will not judge you at all. I tell mine all the fucked up shit I do and think and they never make me feel like a shit person. I think being completely honest and vulnerable is key to recovery (and obviously that takes finding a therapist you can trust to feel comfortable like that with).</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-h8pfa9w">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Issues</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; Nemini20 &middot; Aug 12, 2021</span>
+    </div>
+    <div class="pub-comment-body">You are speaking straight out of my soul. It really bothers me when people make dbt out to be this holy grail that will help all people with bpd and is all we need.
+
+The pressure of learning coping is so real. I always felt like my underlying issues for things like my eating disorders or self harm w</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/BPD/comments/p340fj/therapist_confirmed_that_dbt_might_have_done_more/h8pfa9w/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Therapist confirmed that DBT might have done more harm than good</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Expresses a critical view of dbt&#39;s effectiveness for BPD, providing personal insights that are relevant to its perception.</div>
+            
+            
+            <div class="pub-comment-full-body">You are speaking straight out of my soul. It really bothers me when people make dbt out to be this holy grail that will help all people with bpd and is all we need.
+
+The pressure of learning coping is so real. I always felt like my underlying issues for things like my eating disorders or self harm weren&#39;t being adresses, I was just put under pressure to stop and replace them with coping skills. But these coping skills came nowhere near in having the same &#34;survival&#34; effect, so I kept my bad habits. Que more talk about me needing dbt.
+
+Dbt is great if it works for you. But if it doesn&#39;t, or if it just isn&#39;t enough, then that is totally fine too. BPD has so many co-morbidities. Almost all of us have depression (or bipolar),  anxiety disorders (GAD or OCD, etc) and eating disorders. No wonder we might need different and several therapies to feel better.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ca47d30973_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; Senior Data Engineer at a pharma/biotech company with 10,001+ employees &middot; </span>
+    </div>
+    <div class="pub-comment-body">I&#39;ve used dbt for a year to streamline data transformations and pipeline orchestration, benefiting from its lineage, templating, and version control, though it needs improvements in stability, copilot usability, and overall governance.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.peerspot.com/products/dbt-reviews" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Reviews, Competitors and Pricing</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment shares specific first-hand experience using dbt, detailing its benefits and areas for improvement, providing valuable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ca47d30973_q5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; Head of Data &amp; AI engineering at One NZ &middot; </span>
+    </div>
+    <div class="pub-comment-body">I&#39;ve used dbt for four years to streamline data engineering with features like built-in lineage and Jinja templating, though debugging is limited; it&#39;s cost-effective and efficient, but better suited for hands-on coders than drag-and-drop users.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.peerspot.com/products/dbt-reviews" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Reviews, Competitors and Pricing</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides specific first-hand experience with dbt, mentioning its features and limitations, which directly addresses the research question about dbt.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_45931803">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        <span class="pub-category-badge">Issues</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; atishay_zingle &middot; Nov 14, 2025</span>
+    </div>
+    <div class="pub-comment-body">Hey HN - Zingle came out of a pretty painful reality we kept seeing across data teams. We were reviewing ~60 dbt&amp;#x2F;SQL PRs a week for a client, and the senior engineers were overloaded while analysts weren’t allowed to merge anything risky. The combination of fast-moving code and slow reviews led</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=45931803" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: Zingle – an AI code reviewer for data teams (SQL/dbt/Airflow/Spark)</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment shares a specific experience with reviewing DBT/SQL PRs and highlights a significant issue that arose, providing valuable context about the challenges faced by data teams using DBT.</div>
+            
+            
+            <div class="pub-comment-full-body">Hey HN - Zingle came out of a pretty painful reality we kept seeing across data teams. We were reviewing ~60 dbt&amp;#x2F;SQL PRs a week for a client, and the senior engineers were overloaded while analysts weren’t allowed to merge anything risky. The combination of fast-moving code and slow reviews led to mistakes. The worst one on our side was a PR that triggered repeated full refreshes on a big model and blew up into a $50k Snowflake bill.
+That’s when we realized we needed a reviewer that understands data behavior, not just code.&lt;p&gt;How Zingle works (technical outline):
+- SQL parser → identifies patterns, predicates, merge logic, join risks
+- Lineage graph engine → traces downstream models + dashboards
+- Warehouse metadata fetcher → table sizes, clustering, stats, partitions
+- Cost estimation engine → predicts warehouse impact (bytes scanned, compute, I&amp;#x2F;O)
+- Try re-creating affected downstream systems → safely runs new logic to analyse data diffs
+- Rules engine → custom governance checks (merge key, tests, docs, ownership)&lt;p&gt;We don’t store SQL, data, metadata, or logs. Nothing leaves the customer’s warehouse.&lt;p&gt;Would love any feedback - especially edge cases that are tricky or places where our reviewer’s judgment feels wrong or incomplete. Happy to answer any technical questions.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_37121543">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        <span class="pub-category-badge">Competitors</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; sails &middot; Aug 14, 2023</span>
+    </div>
+    <div class="pub-comment-body">I like that you improve on the underlying database error messages, as they are really unhelpful, and I think this is a great place to add value.&lt;p&gt;I&amp;#x27;ve been keeping track of a few dbt alternatives. Dbt have opened up the market to this use case, while only partially solving the business model a</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=37121543" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Launch HN: Serra (YC S23) – Open-core, Python-based dbt alternative</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses dbt alternatives and provides specific names, which is useful for understanding the competitive landscape around dbt.</div>
+            
+            
+            <div class="pub-comment-full-body">I like that you improve on the underlying database error messages, as they are really unhelpful, and I think this is a great place to add value.&lt;p&gt;I&amp;#x27;ve been keeping track of a few dbt alternatives. Dbt have opened up the market to this use case, while only partially solving the business model and maturity side. Here are the more interesting ones:&lt;p&gt;sdf.com (ex Meta team)&lt;p&gt;sqlmesh.com (relatively new)&lt;p&gt;paradime.io (more an IDE)&lt;p&gt;cloud.google.com&amp;#x2F;dataform (GCP only)</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ca47d30973_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; Principal Data Engineer at Integrant, Inc. &middot; </span>
+    </div>
+    <div class="pub-comment-body">I&#39;ve used dbt Cloud with Snowflake to manage SQL-based transformations as code, enabling version control, collaboration, CI/CD, and templating.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.peerspot.com/products/dbt-reviews" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Reviews, Competitors and Pricing</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides first-hand experience using dbt Cloud with Snowflake, detailing its benefits and features, making it highly relevant.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_41663985">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; bobbypage &middot; Sep 26, 2024</span>
+    </div>
+    <div class="pub-comment-body">Having an automated PR review for DBTs will be very valuable to ensure DBTs and SQL are following the best practices.&lt;p&gt;I feel like SQL and data is always a second class citizen compared to code review bots &amp;#x2F; the vast ecosystem of linters and review tools. As a result, it&amp;#x27;s great to see th</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=41663985" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: Structured, GitHub App for Automated DBT PR Reviews</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses the value of automated PR reviews for DBT and SQL, which is relevant to the topic. It also asks a specific question about integration with existing DBT schemas, providing context and perspective on the use of DBT.</div>
+            
+            
+            <div class="pub-comment-full-body">Having an automated PR review for DBTs will be very valuable to ensure DBTs and SQL are following the best practices.&lt;p&gt;I feel like SQL and data is always a second class citizen compared to code review bots &amp;#x2F; the vast ecosystem of linters and review tools. As a result, it&amp;#x27;s great to see that DBT and SQL models will benefit here as well!&lt;p&gt;Does the Github app integrate with my existing DBT schemas and provide customized recommendations depending on my data models, metrics, etc?</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_37126953">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; albertstanley &middot; Aug 14, 2023</span>
+    </div>
+    <div class="pub-comment-body">Sure, I’ll clarify some of the terms used in that one-liner in case it’s helpful for anyone else as well.&lt;p&gt;ETL is the process of extracting transforming and loading data from a source to a destination in a data pipeline. Spark, an engine for large scale data processing, allows us to write code that</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=37126953" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Launch HN: Serra (YC S23) – Open-core, Python-based dbt alternative</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides a useful overview of dbt and its functionality in the context of SQL scripts, which is relevant to understanding dbt&#39;s role in data processing.</div>
+            
+            
+            <div class="pub-comment-full-body">Sure, I’ll clarify some of the terms used in that one-liner in case it’s helpful for anyone else as well.&lt;p&gt;ETL is the process of extracting transforming and loading data from a source to a destination in a data pipeline. Spark, an engine for large scale data processing, allows us to write code that can work with large amounts of data. dbt is a tool you can use to break up your SQL scripts into smaller “models” - other SQL scripts that can be reused and tested.&lt;p&gt;We described us as an end to end because we also have extractors and loaders, whereas dbt focuses on the T ( transformation step  of ETL ). Each of our steps involved in extraction, transformation and loading correspond to a specific Python object defined in our Python framework. I have also updated the README in our repo to hopefully better explain how the config file links to user defined readers, writers, and transformers.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_37120353">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; geonnave &middot; Aug 14, 2023</span>
+    </div>
+    <div class="pub-comment-body">For those also wondering what is ETL and dbt:&lt;p&gt;&amp;gt; ETL (Extract, Transform, Load) is a process that involves extracting data from various sources, transforming it to fit operational needs, and loading it into a database for analysis. dbt (data build tool) is an open-source software tool that enabl</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=37120353" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Launch HN: Serra (YC S23) – Open-core, Python-based dbt alternative</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a clear definition of ETL and explains what dbt is, making it relevant and useful for understanding dbt&#39;s role in data processing.</div>
+            
+            
+            <div class="pub-comment-full-body">For those also wondering what is ETL and dbt:&lt;p&gt;&amp;gt; ETL (Extract, Transform, Load) is a process that involves extracting data from various sources, transforming it to fit operational needs, and loading it into a database for analysis. dbt (data build tool) is an open-source software tool that enables data analysts and engineers to transform and model data in the data warehouse, streamlining the transformation part of the ETL process.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_a0aaa7c477_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">Issues</span>
+        <span class="pub-comment-score">6/10 relevancy &middot; stackoverflow.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">My main problem is, in this command I ran, I&#39;m only selecting the models and tests related to +model_x the tests which are failing are related to a completely different model!!</div>
+    
+    <div class="pub-comment-link"><a href="https://stackoverflow.com/questions/78782260/dbt-lineage-issue-with-dbt-build-and-tests" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt lineage issue with dbt build and tests</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment describes a specific problem with model selection in DBT, providing context about the issue but lacking a solution or deeper insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_a0aaa7c477_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">Issues</span>
+        <span class="pub-comment-score">6/10 relevancy &middot; stackoverflow.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">I tried to verify the lineage using dbt docs and the tests which are failing related to models are not included in the lineage, so why am I getting errors for them???</div>
+    
+    <div class="pub-comment-link"><a href="https://stackoverflow.com/questions/78782260/dbt-lineage-issue-with-dbt-build-and-tests" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt lineage issue with dbt build and tests</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses verifying lineage in DBT and raises a specific issue, which is relevant but does not provide a resolution or broader context.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ee566a04f8_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; kanerika.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">dbt enables analysts and engineers to transform data directly in the data warehouse using SQL, making workflows more transparent, testable, and easier to manage.</div>
+    
+    <div class="pub-comment-link"><a href="https://kanerika.com/blogs/data-build-tool/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt (Data Build Tool): What It Does and Why It Matters</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment describes dbt&#39;s functionality in transforming data, which is relevant but lacks specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ee566a04f8_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; kanerika.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">By introducing version control, testing, and documentation into data workflows, dbt improves data quality, reduces errors, and builds trust in analytics across teams.</div>
+    
+    <div class="pub-comment-link"><a href="https://kanerika.com/blogs/data-build-tool/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt (Data Build Tool): What It Does and Why It Matters</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment highlights dbt&#39;s features like version control and testing, which is relevant but lacks specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ca47d30973_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; peerspot.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">dbt is a transformational tool that empowers data teams to quickly build trusted data models, providing a shared language for analysts and engineering teams.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.peerspot.com/products/dbt-reviews" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Reviews, Competitors and Pricing</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment describes dbt as a transformational tool, which is relevant but lacks specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ca47d30973_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; peerspot.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">Its SQL-centric approach reduces the learning curve for users familiar with it, allowing powerful transformations and data modeling without needing a custom backend.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.peerspot.com/products/dbt-reviews" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Reviews, Competitors and Pricing</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses dbt&#39;s SQL-centric approach, which is relevant but lacks specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ca47d30973_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; peerspot.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">In the finance industry, dbt helps in cleansing and preparing transactional data for analysis, leading to more accurate financial reporting.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.peerspot.com/products/dbt-reviews" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> dbt Reviews, Competitors and Pricing</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment mentions dbt&#39;s application in the finance industry, which is relevant but lacks specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_a63b6bc15d_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; matillion.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">Dbt has changed how many organizations handle their data transformations, but it&#39;s not the perfect fit for every data team.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.matillion.com/learn/blog/dbt-alternatives" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> 12 dbt Alternatives &amp; Competitors in 2025</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment mentions the impact of dbt on organizations but lacks specific personal experience or actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_a63b6bc15d_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; matillion.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">Organizations tend to find themselves looking beyond dbt for several practical reasons: Limited visual tools, steep learning curve, and enterprise requirements.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.matillion.com/learn/blog/dbt-alternatives" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> 12 dbt Alternatives &amp; Competitors in 2025</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment outlines reasons organizations may look beyond dbt, providing some context but lacking personal experience.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_a63b6bc15d_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; matillion.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">Dbt is great at batch transformations, but it falls short when you need real-time data processing capabilities.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.matillion.com/learn/blog/dbt-alternatives" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> 12 dbt Alternatives &amp; Competitors in 2025</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment mentions a limitation of dbt regarding real-time processing, providing context but lacking personal experience.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_a63b6bc15d_q5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; matillion.com &middot; </span>
+    </div>
+    <div class="pub-comment-body">Setting up dbt with your existing tools and workflows can be complicated, especially if you&#39;re not using a supported data warehouse.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.matillion.com/learn/blog/dbt-alternatives" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> 12 dbt Alternatives &amp; Competitors in 2025</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses the complexity of setting up dbt, providing context but lacking personal experience.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_4fdf16025f_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">6/10 relevancy &middot; peliqan.io &middot; </span>
+    </div>
+    <div class="pub-comment-body">dbt has been the backbone of modern ELT workflows since its launch, enabling analytics engineers to version-control, test, and modularize SQL transformations inside cloud data warehouses.</div>
+    
+    <div class="pub-comment-link"><a href="https://peliqan.io/blog/dbt-alternatives-competitors/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Top DBT Alternatives &amp; Competitors in 2026 - Peliqan</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment highlights dbt&#39;s role in ELT workflows but lacks personal experience or actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+
+<footer class="pub-footer">
+    Generated by Research Assistant &middot; 2026-03-26
+</footer>
+
+</body>
+</html>

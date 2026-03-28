@@ -1,8 +1,10 @@
 import json
+import os
 import re
 import uuid
 import threading
 import queue
+from datetime import datetime
 
 from flask import (
     Flask,
@@ -11,6 +13,7 @@ from flask import (
     jsonify,
     Response,
     send_file,
+    send_from_directory,
     redirect,
     url_for,
 )
@@ -42,8 +45,10 @@ reddit_svc = RedditService(
     config.REDDIT_CLIENT_ID, config.REDDIT_CLIENT_SECRET, config.REDDIT_USER_AGENT
 )
 llm = OpenAIProvider(config.OPENAI_API_KEY, config.LLM_MODEL)
+alt_llm = OpenAIProvider(config.OPENAI_API_KEY, config.ALT_SUMMARY_MODEL)
 scoring_svc = ScoringService(llm, batch_size=config.LLM_BATCH_SIZE)
 summary_svc = SummaryService(llm)
+alt_summary_svc = SummaryService(alt_llm)
 storage_svc = StorageService(config.DB_PATH, config.EXPORT_DIR)
 web_search_svc = WebSearchService(reddit_svc.reddit)
 hn_svc = HNService()
@@ -268,9 +273,9 @@ def run_research_pipeline(
                     # Fall back to web article
                     result = article_svc.fetch_article(url)
                     if result:
-                        title, body = result
-                        thread = article_svc.make_thread(url, title, body)
-                        article_svc.extract_quotes(thread.id, url, title, body, question)
+                        title, body, article_date = result
+                        thread = article_svc.make_thread(url, title, body, created_utc=article_date)
+                        article_svc.extract_quotes(thread.id, url, title, body, question, created_utc=article_date)
                         relevant_threads.append(thread)
                 except Exception:
                     continue
@@ -400,11 +405,11 @@ def run_research_pipeline(
                 for url in article_urls:
                     result = article_svc.fetch_article(url)
                     if result:
-                        title, body = result
-                        thread = article_svc.make_thread(url, title, body)
+                        title, body, article_date = result
+                        thread = article_svc.make_thread(url, title, body, created_utc=article_date)
                         if thread.id not in seen_ids:
                             # Extract quotes now and cache them
-                            article_svc.extract_quotes(thread.id, url, title, body, question)
+                            article_svc.extract_quotes(thread.id, url, title, body, question, created_utc=article_date)
                             threads.append(thread)
                             seen_ids.add(thread.id)
                             web_articles_added += 1
@@ -549,6 +554,15 @@ def research_stream(research_id):
     )
 
 
+@app.route("/api/models")
+def get_models():
+    """Return available summary model names for the UI toggle."""
+    return jsonify(
+        default_model=config.LLM_MODEL,
+        alt_model=config.ALT_SUMMARY_MODEL,
+    )
+
+
 @app.route("/api/research/<research_id>")
 def get_research(research_id):
     research = storage_svc.get_research(research_id)
@@ -572,11 +586,14 @@ def summarize(research_id):
     max_comments = int(data.get("max_comments", 50))
     max_comments = max(25, min(max_comments, 200))
 
+    use_alt = data.get("use_alt_model", False)
+    svc = alt_summary_svc if use_alt else summary_svc
+
     comments_data = storage_svc.get_comments(research_id)
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
     comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
     threads_data = storage_svc.get_threads(research_id)
-    summary = summary_svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data, max_comments=max_comments)
+    summary = svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data, max_comments=max_comments)
     storage_svc.save_summary(research_id, summary)
     return jsonify(summary=summary)
 
@@ -585,6 +602,355 @@ def summarize(research_id):
 def export(research_id):
     filepath = storage_svc.export_csv(research_id)
     return send_file(filepath, as_attachment=True)
+
+
+PUBLISH_DIR = os.path.join(os.path.dirname(__file__), "published")
+
+PUBLISH_SOURCE_QUOTAS = {
+    "reddit": 0.50,
+    "web": 0.30,
+    "hackernews": 0.10,
+    "producthunt": 0.10,
+}
+
+PUBLISH_SECTION_ORDER = [
+    ("general", "General Information"),
+    ("issues", "Top Issues"),
+    ("feature_requests", "Feature Requests"),
+    ("benefits", "Benefits & Strengths"),
+    ("competitors", "Competitors"),
+    ("alternatives", "Churn & Alternatives"),
+]
+
+PUBLISH_SOURCE_LABELS = {
+    "reddit": "Reddit",
+    "hackernews": "Hacker News",
+    "web": "Web",
+    "reviews": "Reviews",
+    "producthunt": "Product Hunt",
+}
+
+PUBLISH_CATEGORY_LABELS = {
+    "general": "General",
+    "issues": "Issues",
+    "feature_requests": "Features",
+    "benefits": "Benefits",
+    "competitors": "Competitors",
+    "alternatives": "Alternatives",
+}
+
+
+def _select_publish_comments(comments: list, total: int = 50) -> list:
+    """Select top comments with source diversity quotas."""
+    # Sort all by effective relevancy descending
+    def _eff(c):
+        ur = c.get("user_relevancy_score")
+        ar = c.get("relevancy_score") or 0
+        return (ur + 0.5 if ur is not None else ar)
+
+    by_source = {}
+    for c in sorted(comments, key=_eff, reverse=True):
+        src = c.get("source", "reddit") or "reddit"
+        by_source.setdefault(src, []).append(c)
+
+    selected = []
+    selected_ids = set()
+
+    # Reserve slots per source
+    for source, quota in PUBLISH_SOURCE_QUOTAS.items():
+        slots = int(total * quota)
+        pool = by_source.get(source, [])
+        for c in pool[:slots]:
+            if c["id"] not in selected_ids:
+                selected.append(c)
+                selected_ids.add(c["id"])
+
+    # Fill remaining slots from best across all sources
+    remaining = total - len(selected)
+    if remaining > 0:
+        all_sorted = sorted(comments, key=_eff, reverse=True)
+        for c in all_sorted:
+            if c["id"] not in selected_ids:
+                selected.append(c)
+                selected_ids.add(c["id"])
+                if len(selected) >= total:
+                    break
+
+    # Final sort by relevancy desc, then date desc
+    selected.sort(key=lambda c: (_eff(c), c.get("created_utc") or 0), reverse=True)
+    return selected
+
+
+def _md_to_html(text: str, comment_ids: set = None, return_citations: bool = False):
+    """Convert markdown summary text to HTML with citation anchors.
+
+    If return_citations is True, returns (html, cited_ids_list) tuple.
+    """
+    if not text:
+        return ("", []) if return_citations else ""
+    import re as _re
+
+    # Build citation ordering
+    citation_order = []
+    citation_index = {}
+    if comment_ids is None:
+        comment_ids = set()
+
+    for m in _re.finditer(r'\[#([^\]]+)\]', text):
+        cid = m.group(1)
+        if cid not in citation_index:
+            citation_index[cid] = len(citation_order) + 1
+            citation_order.append(cid)
+
+    lines = text.split('\n')
+    html_parts = []
+    in_ul = False
+    in_ol = False
+    in_li = False  # track whether we're inside a <li> with sub-content
+
+    def close_li():
+        nonlocal in_li
+        s = ''
+        if in_li:
+            s += '</li>'
+            in_li = False
+        return s
+
+    def close_list():
+        nonlocal in_ul, in_ol
+        s = close_li()
+        if in_ul:
+            s += '</ul>'
+            in_ul = False
+        if in_ol:
+            s += '</ol>'
+            in_ol = False
+        return s
+
+    def inline(line):
+        # Bold
+        line = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+        # Citations [#id] → superscript anchor links
+        def replace_citation(m):
+            cid = m.group(1)
+            num = citation_index.get(cid)
+            if not num:
+                return ''
+            return f'<a href="#comment-{cid}" class="citation-ref">[{num}]</a>'
+        line = _re.sub(r'\[#([^\]]+)\]', replace_citation, line)
+        # Markdown links [text](url)
+        line = _re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)', r'<a href="\2" target="_blank">\1</a>', line)
+        return line
+
+    for raw_line in lines:
+        trimmed = raw_line.strip()
+        if not trimmed:
+            continue
+
+        if trimmed.startswith('#### '):
+            html_parts.append(close_list() + f'<h4>{inline(trimmed[5:])}</h4>')
+        elif trimmed.startswith('### '):
+            html_parts.append(close_list() + f'<h4>{inline(trimmed[4:])}</h4>')
+        elif trimmed.startswith('## '):
+            html_parts.append(close_list() + f'<h3>{inline(trimmed[3:])}</h3>')
+        elif trimmed.startswith('# '):
+            html_parts.append(close_list() + f'<h2>{inline(trimmed[2:])}</h2>')
+        elif trimmed.startswith('> '):
+            if in_ol or in_ul:
+                # Keep blockquote inside the current list item
+                html_parts.append(f'<blockquote>{inline(trimmed[2:])}</blockquote>')
+            else:
+                html_parts.append(f'<blockquote>{inline(trimmed[2:])}</blockquote>')
+        elif _re.match(r'^\d+\.\s', trimmed):
+            content = _re.sub(r'^\d+\.\s', '', trimmed)
+            if not in_ol:
+                html_parts.append(close_list())
+                in_ol = True
+                html_parts.append(f'<ol>{close_li()}<li>{inline(content)}')
+                in_li = True
+            else:
+                html_parts.append(f'{close_li()}<li>{inline(content)}')
+                in_li = True
+        elif trimmed.startswith('- ') or trimmed.startswith('* '):
+            if not in_ul:
+                html_parts.append(close_list())
+                in_ul = True
+                html_parts.append(f'<ul>{close_li()}<li>{inline(trimmed[2:])}')
+                in_li = True
+            else:
+                html_parts.append(f'{close_li()}<li>{inline(trimmed[2:])}')
+                in_li = True
+        else:
+            if in_ol or in_ul:
+                # Continuation text stays inside the current list item
+                html_parts.append(f'<p>{inline(trimmed)}</p>')
+            else:
+                html_parts.append(close_list() + f'<p>{inline(trimmed)}</p>')
+
+    html_parts.append(close_list())
+    html = '\n'.join(html_parts)
+    if return_citations:
+        return html, citation_order
+    return html
+
+
+def _make_publish_filename(slug: str) -> str:
+    """Generate unique filename in published/ directory."""
+    os.makedirs(PUBLISH_DIR, exist_ok=True)
+    base = f"{slug}-research"
+    filename = f"{base}.html"
+    if not os.path.exists(os.path.join(PUBLISH_DIR, filename)):
+        return filename
+    n = 2
+    while os.path.exists(os.path.join(PUBLISH_DIR, f"{base}-{n}.html")):
+        n += 1
+    return f"{base}-{n}.html"
+
+
+@app.route("/api/research/<research_id>/publish", methods=["POST"])
+def publish_research(research_id):
+    """Generate a self-contained HTML research report."""
+    research = storage_svc.get_research(research_id)
+    if not research:
+        return jsonify(error="Not found"), 404
+
+    settings = storage_svc.get_settings(research_id)
+    is_product = settings.get("research_type") == "product"
+    product_name = settings.get("product_name", "")
+    title = product_name if is_product else research["question"]
+    research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
+
+    # Check summaries exist
+    if is_product:
+        raw_summaries = research.get("product_summaries_json")
+        if not raw_summaries:
+            return jsonify(error="Generate summaries before publishing"), 400
+        summaries = json.loads(raw_summaries)
+    else:
+        summary_text = research.get("summary")
+        if not summary_text:
+            return jsonify(error="Generate a summary before publishing"), 400
+        summaries = None
+
+    # Load comments and threads
+    all_comments = storage_svc.get_comments(research_id)
+    threads = storage_svc.get_threads(research_id)
+    thread_map = {t["id"]: t for t in threads}
+
+    # Select top comments with source quotas
+    selected = _select_publish_comments(all_comments, total=50)
+
+    # Format comments for template
+    comment_ids = {c["id"] for c in selected}
+
+    formatted_comments = []
+    for c in selected:
+        source = c.get("source", "reddit") or "reddit"
+        body = c.get("body", "")
+        body_short = body[:300] if len(body) > 300 else body
+        has_more = len(body) > 300
+        created = c.get("created_utc")
+        date_str = datetime.utcfromtimestamp(created).strftime("%b %d, %Y") if created else ""
+        thread = thread_map.get(c.get("thread_id", ""))
+        category = c.get("category")
+
+        formatted_comments.append({
+            "id": c["id"],
+            "source": source,
+            "source_label": PUBLISH_SOURCE_LABELS.get(source, source.title()),
+            "category_label": PUBLISH_CATEGORY_LABELS.get(category) if category else None,
+            "score": c.get("score", 0),
+            "author": c.get("author", "anonymous"),
+            "date": date_str,
+            "body_short": body_short,
+            "body_full": body if has_more else None,
+            "has_more": has_more,
+            "permalink": c.get("permalink", ""),
+            "relevancy_score": c.get("relevancy_score"),
+            "reasoning": c.get("reasoning", ""),
+            "thread_title": thread["title"] if thread else None,
+        })
+
+    # Build lookup of ALL comments by ID for citation sourcing
+    all_comment_map = {}
+    for c in all_comments:
+        cid = c["id"]
+        source = c.get("source", "reddit") or "reddit"
+        body = c.get("body", "")
+        created = c.get("created_utc")
+        date_str = datetime.utcfromtimestamp(created).strftime("%b %d, %Y") if created else ""
+        all_comment_map[cid] = {
+            "id": cid,
+            "source": source,
+            "source_label": PUBLISH_SOURCE_LABELS.get(source, source.title()),
+            "author": c.get("author", "anonymous"),
+            "date": date_str,
+            "body_short": body[:200] if len(body) > 200 else body,
+            "permalink": c.get("permalink", ""),
+            "score": c.get("score", 0),
+        }
+
+    # Build summary HTML
+    if is_product:
+        summary_sections = []
+        for cat_key, cat_label in PUBLISH_SECTION_ORDER:
+            section_text = summaries.get(cat_key, "")
+            if section_text:
+                html, cited_ids = _md_to_html(section_text, comment_ids, return_citations=True)
+                # Collect cited comment details with their citation numbers
+                cited_sources = []
+                for i, cid in enumerate(cited_ids):
+                    if cid in all_comment_map:
+                        src = dict(all_comment_map[cid])
+                        src["citation_num"] = i + 1
+                        cited_sources.append(src)
+                summary_sections.append({
+                    "label": cat_label,
+                    "html": html,
+                    "cited_sources": cited_sources,
+                })
+        summary_html = None
+    else:
+        summary_sections = None
+        summary_html = _md_to_html(summary_text, comment_ids)
+
+    # Source label
+    sources_label = ", ".join(
+        PUBLISH_SOURCE_LABELS.get(s, s.title()) for s in research_sources
+    )
+
+    created_date = (research.get("created_at") or "")[:10]
+
+    # Generate filename
+    slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:50]
+    filename = _make_publish_filename(slug)
+
+    # Render template
+    html_content = render_template(
+        "published_research.html",
+        title=title,
+        is_product=is_product,
+        num_threads=research.get("num_threads", 0),
+        total_comments=research.get("num_comments", 0),
+        created_date=created_date,
+        sources_label=sources_label,
+        summary_sections=summary_sections,
+        summary_html=summary_html,
+        comments=formatted_comments,
+    )
+
+    # Write file
+    filepath = os.path.join(PUBLISH_DIR, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    return jsonify(filename=filename, path=f"published/{filename}", total_comments=len(all_comments))
+
+
+@app.route("/published/<path:filename>")
+def serve_published(filename):
+    """Serve published research HTML files."""
+    return send_from_directory(PUBLISH_DIR, filename)
 
 
 @app.route("/api/history")
@@ -664,11 +1030,15 @@ def expand_research(research_id):
     sorts_tried = settings.get("sorts_tried", [])
     time_filter = settings.get("time_filter", "all")
     max_comments = settings.get("max_comments_per_thread", config.DEFAULT_MAX_COMMENTS_PER_THREAD)
-    research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
+    research_type = settings.get("research_type", "general")
+    is_product = research_type == "product"
+
+    default_sources = ["reddit", "hackernews", "web", "reviews", "producthunt"] if is_product else ["reddit", "hackernews", "web"]
+    research_sources = settings.get("sources", default_sources)
 
     # Determine which sources the user wants to search this click
     req_body = request.get_json(silent=True) or {}
-    requested_sources = req_body.get("sources", ["reddit", "hackernews", "web"])
+    requested_sources = req_body.get("sources", default_sources)
 
     # Build list of tasks to run for this click (multi-source)
     tasks = []
@@ -687,6 +1057,11 @@ def expand_research(research_id):
         web_tried_count = len([s for s in sorts_tried if s.startswith("web_") or s == "web"])
         if web_tried_count < config.WEB_MAX_EXPAND_PAGES:
             tasks.append(f"web_{web_tried_count}")
+    # Reviews: use next page (product mode only)
+    if is_product and "reviews" in requested_sources and "reviews" in research_sources:
+        reviews_tried_count = len([s for s in sorts_tried if s.startswith("reviews_")])
+        if reviews_tried_count < config.REVIEWS_MAX_EXPAND_PAGES:
+            tasks.append(f"reviews_{reviews_tried_count}")
 
     if not tasks:
         return jsonify(error="All search strategies have been tried for the selected sources."), 400
@@ -694,11 +1069,19 @@ def expand_research(research_id):
     q: queue.Queue = queue.Queue()
     expand_queues[research_id] = q
 
-    t = threading.Thread(
-        target=run_expand_pipeline,
-        args=(research_id, research["question"], subreddits, tasks, time_filter, max_comments, q),
-        daemon=True,
-    )
+    if is_product:
+        product_name = settings.get("product_name", research["question"])
+        t = threading.Thread(
+            target=run_product_expand_pipeline,
+            args=(research_id, product_name, tasks, time_filter, max_comments, q),
+            daemon=True,
+        )
+    else:
+        t = threading.Thread(
+            target=run_expand_pipeline,
+            args=(research_id, research["question"], subreddits, tasks, time_filter, max_comments, q),
+            daemon=True,
+        )
     t.start()
 
     return jsonify(sorts_used=tasks)
@@ -753,9 +1136,9 @@ def run_expand_pipeline(
                 for url in article_urls:
                     result = article_svc.fetch_article(url)
                     if result:
-                        title, article_body = result
-                        thd = article_svc.make_thread(url, title, article_body)
-                        article_svc.extract_quotes(thd.id, url, title, article_body, question)
+                        title, article_body, article_date = result
+                        thd = article_svc.make_thread(url, title, article_body, created_utc=article_date)
+                        article_svc.extract_quotes(thd.id, url, title, article_body, question, created_utc=article_date)
                         if thd.id not in seen_candidate_ids:
                             candidates.append(thd)
                             seen_candidate_ids.add(thd.id)
@@ -876,6 +1259,186 @@ def run_expand_pipeline(
         q.put(None)
 
 
+def run_product_expand_pipeline(
+    research_id: str,
+    product_name: str,
+    sorts: list,
+    time_filter: str,
+    max_comments: int,
+    q: queue.Queue,
+):
+    """Background task that finds more threads for product research across categories."""
+    try:
+        existing_thread_ids = storage_svc.get_existing_thread_ids(research_id)
+
+        candidates = []
+        seen_candidate_ids = set()
+        category_list = list(PRODUCT_CATEGORIES.items())
+        discovery_step = max(1, 13 // len(sorts))
+
+        for task_idx, sort in enumerate(sorts):
+            base_pct = 5 + task_idx * discovery_step
+
+            if sort.startswith("hn_"):
+                hn_page = int(sort.split("_")[1])
+                page_label = f" (page {hn_page + 1})" if hn_page > 0 else ""
+                q.put({"stage": "searching", "message": f"Searching Hacker News{page_label}...", "progress": base_pct})
+                for category, query_templates in category_list:
+                    queries = [t.format(product=product_name) for t in query_templates]
+                    try:
+                        for thd in hn_svc.search_stories(queries, max_results=3, page=hn_page):
+                            if thd.id not in seen_candidate_ids:
+                                thd.category = category
+                                candidates.append(thd)
+                                seen_candidate_ids.add(thd.id)
+                    except Exception:
+                        pass
+
+            elif sort.startswith("web_"):
+                web_page = int(sort.split("_")[1])
+                page_label = f" (page {web_page + 1})" if web_page > 0 else ""
+                q.put({"stage": "searching", "message": f"Searching the web for more articles{page_label}...", "progress": base_pct})
+                for category, query_templates in category_list:
+                    queries = [t.format(product=product_name) for t in query_templates]
+                    try:
+                        article_urls = web_search_svc.search_web_articles(queries, max_results=3, page=web_page)
+                        for url in article_urls:
+                            result = article_svc.fetch_article(url)
+                            if result:
+                                title, body, article_date = result
+                                thd = article_svc.make_thread(url, title, body, created_utc=article_date)
+                                if thd.id not in seen_candidate_ids:
+                                    article_svc.extract_quotes(thd.id, url, title, body, product_name, created_utc=article_date)
+                                    thd.category = category
+                                    candidates.append(thd)
+                                    seen_candidate_ids.add(thd.id)
+                    except Exception:
+                        pass
+
+            elif sort.startswith("reviews_"):
+                reviews_page = int(sort.split("_")[1])
+                page_label = f" (page {reviews_page + 1})" if reviews_page > 0 else ""
+                q.put({"stage": "searching", "message": f"Searching review sites{page_label}...", "progress": base_pct})
+                try:
+                    review_urls = web_search_svc.search_review_sites(
+                        product_name, sites=REVIEW_SITES, max_per_site=2,
+                    )
+                    for url in review_urls:
+                        result = article_svc.fetch_article(url)
+                        if result:
+                            title, body, article_date = result
+                            thd = article_svc.make_thread(url, title, body, created_utc=article_date)
+                            if thd.id not in seen_candidate_ids:
+                                article_svc.extract_quotes(thd.id, url, title, body, product_name, created_utc=article_date)
+                                thd.source = "reviews"
+                                thd.category = "general"
+                                candidates.append(thd)
+                                seen_candidate_ids.add(thd.id)
+                except Exception:
+                    pass
+
+            else:
+                # Reddit sort — search across all product categories
+                q.put({"stage": "searching", "message": f"Searching Reddit sorted by {sort}...", "progress": base_pct})
+                for category, query_templates in category_list:
+                    queries = [t.format(product=product_name) for t in query_templates]
+                    try:
+                        reddit_threads = list(reddit_svc.search_threads(
+                            queries[0], max_threads=max(3, 15 // len(category_list)),
+                            time_filter=time_filter, sort=sort,
+                        ))
+                        for thd in reddit_threads:
+                            if thd.id not in seen_candidate_ids:
+                                thd.category = category
+                                candidates.append(thd)
+                                seen_candidate_ids.add(thd.id)
+                    except Exception:
+                        pass
+                    try:
+                        web_reddit = web_search_svc.search_reddit_threads(queries, max_results=5, max_total=5)
+                        for thd in web_reddit:
+                            if thd.id not in seen_candidate_ids:
+                                thd.category = category
+                                candidates.append(thd)
+                                seen_candidate_ids.add(thd.id)
+                    except Exception:
+                        pass
+
+        # Remove threads already collected
+        new_threads = [thd for thd in candidates if thd.id not in existing_thread_ids]
+        q.put({"stage": "searching", "message": f"Found {len(new_threads)} new threads — filtering for relevancy...", "progress": 20})
+
+        if not new_threads:
+            current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
+            storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
+            q.put({"stage": "complete", "message": "No new threads found.", "progress": 100, "found_nothing": True})
+            return
+
+        # Score threads for relevancy
+        relevant_threads = scoring_svc.score_threads(f"Product research about {product_name}", new_threads)
+        q.put({
+            "stage": "searching",
+            "message": f"{len(relevant_threads)} of {len(new_threads)} new threads are relevant",
+            "progress": 30, "threads_relevant": len(relevant_threads), "threads_total": len(new_threads),
+        })
+
+        # Collect comments
+        all_comments = []
+        for i, thread in enumerate(relevant_threads):
+            q.put({
+                "stage": "collecting",
+                "message": f"Collecting comments from thread {i + 1}/{len(relevant_threads)}: {thread.title[:60]}...",
+                "progress": 30 + int(35 * (i / len(relevant_threads))), "thread_title": thread.title[:60],
+            })
+            comments = _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc)
+            all_comments.extend(comments)
+            if comments:
+                storage_svc.save_raw_comments(research_id, comments)
+            q.put({
+                "stage": "collecting",
+                "message": f"Collected {len(comments)} comments from \"{thread.title[:40]}\"",
+                "progress": 30 + int(35 * ((i + 1) / len(relevant_threads))),
+                "thread_title": thread.title[:60], "thread_comments": len(comments),
+            })
+
+        # Apply total cap
+        if len(all_comments) > config.TOTAL_COMMENTS_CAP:
+            all_comments.sort(key=lambda c: c.score, reverse=True)
+            all_comments = all_comments[: config.TOTAL_COMMENTS_CAP]
+
+        q.put({"stage": "collecting", "message": f"Collected {len(all_comments)} new comments total", "progress": 65})
+
+        if not all_comments:
+            current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
+            storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
+            q.put({"stage": "complete", "message": "No relevant threads or articles found.", "progress": 100, "found_nothing": True})
+            return
+
+        # Score comments with category assignment
+        scored = scoring_svc.score_comments_with_category(
+            product_name, all_comments,
+            progress_callback=_make_scoring_progress_callback(q, 65, 30, research_id=research_id),
+        )
+
+        # Save threads and comments
+        storage_svc.save_threads(research_id, relevant_threads)
+        storage_svc.save_scored_comments(research_id, scored)
+
+        # Update counts and mark sorts as tried
+        storage_svc.recalculate_counts(research_id)
+        current_tried = storage_svc.get_settings(research_id).get("sorts_tried", [])
+        storage_svc.update_settings(research_id, {"sorts_tried": current_tried + sorts})
+        storage_svc.export_csv(research_id)
+
+        q.put({"stage": "complete", "message": f"Added {len(scored)} new comments!", "progress": 100})
+
+    except Exception as e:
+        q.put({"stage": "error", "message": str(e), "progress": 0})
+    finally:
+        article_svc.clear_cache()
+        q.put(None)
+
+
 @app.route("/api/research/<research_id>/expand/stream")
 def expand_stream(research_id):
     """SSE endpoint for expand progress updates."""
@@ -914,7 +1477,10 @@ def expand_status(research_id):
     """Return whether more expansions are possible."""
     settings = storage_svc.get_settings(research_id)
     sorts_tried = settings.get("sorts_tried", [])
-    research_sources = settings.get("sources", ["reddit", "hackernews", "web"])
+    research_type = settings.get("research_type", "general")
+    is_product = research_type == "product"
+    default_sources = ["reddit", "hackernews", "web", "reviews", "producthunt"] if is_product else ["reddit", "hackernews", "web"]
+    research_sources = settings.get("sources", default_sources)
 
     # Reddit: up to 4 sorts (top/new/controversial/hot)
     reddit_remaining = [s for s in REDDIT_EXPAND_SORTS if s not in sorts_tried and "reddit" in research_sources]
@@ -928,15 +1494,25 @@ def expand_status(research_id):
     web_tried_count = len([s for s in sorts_tried if s.startswith("web_") or s == "web"])
     web_exhausted = web_tried_count >= config.WEB_MAX_EXPAND_PAGES or "web" not in research_sources
 
-    can_expand = not (reddit_exhausted and hn_exhausted and web_exhausted)
+    # Reviews: product mode only
+    reviews_tried_count = len([s for s in sorts_tried if s.startswith("reviews_")])
+    reviews_exhausted = reviews_tried_count >= config.REVIEWS_MAX_EXPAND_PAGES or "reviews" not in research_sources
+
+    all_exhausted = reddit_exhausted and hn_exhausted and web_exhausted
+    if is_product:
+        all_exhausted = all_exhausted and reviews_exhausted
+
+    can_expand = not all_exhausted
     return jsonify(
         can_expand=can_expand,
         next_sort=reddit_remaining[0] if reddit_remaining else None,
         sorts_tried=sorts_tried,
         research_sources=research_sources,
+        research_type=research_type,
         reddit_exhausted=reddit_exhausted,
         hn_exhausted=hn_exhausted,
         web_exhausted=web_exhausted,
+        reviews_exhausted=reviews_exhausted,
     )
 
 
@@ -1049,8 +1625,8 @@ def run_add_thread_pipeline(
             if not result:
                 q.put({"stage": "error", "message": "Could not extract content from this URL.", "progress": 0})
                 return
-            title, body = result
-            thread = article_svc.make_thread(url, title, body)
+            title, body, article_date = result
+            thread = article_svc.make_thread(url, title, body, created_utc=article_date)
             thread_id = thread.id
             storage_svc.save_threads(research_id, [thread])
             q.put({
@@ -1059,7 +1635,7 @@ def run_add_thread_pipeline(
                 "progress": 30,
                 "thread_title": thread.title[:60],
             })
-            comments = article_svc.extract_quotes(thread_id, url, title, body, question)
+            comments = article_svc.extract_quotes(thread_id, url, title, body, question, created_utc=article_date)
 
         else:
             # Reddit (existing behavior)
@@ -1370,10 +1946,10 @@ def run_product_research_pipeline(
                     for url in article_urls:
                         result = article_svc.fetch_article(url)
                         if result:
-                            title, body = result
-                            thread = article_svc.make_thread(url, title, body)
+                            title, body, article_date = result
+                            thread = article_svc.make_thread(url, title, body, created_utc=article_date)
                             if thread.id not in seen_ids:
-                                article_svc.extract_quotes(thread.id, url, title, body, product_name)
+                                article_svc.extract_quotes(thread.id, url, title, body, product_name, created_utc=article_date)
                                 thread.category = category
                                 threads.append(thread)
                                 seen_ids.add(thread.id)
@@ -1389,10 +1965,10 @@ def run_product_research_pipeline(
                     for url in review_urls:
                         result = article_svc.fetch_article(url)
                         if result:
-                            title, body = result
-                            thread = article_svc.make_thread(url, title, body)
+                            title, body, article_date = result
+                            thread = article_svc.make_thread(url, title, body, created_utc=article_date)
                             if thread.id not in seen_ids:
-                                article_svc.extract_quotes(thread.id, url, title, body, product_name)
+                                article_svc.extract_quotes(thread.id, url, title, body, product_name, created_utc=article_date)
                                 thread.source = "reviews"
                                 thread.category = category
                                 threads.append(thread)
@@ -1529,6 +2105,8 @@ def summarize_product(research_id):
     max_comments = int(data.get("max_comments", 50))
     max_comments = max(25, min(max_comments, 200))
     feedback = (data.get("feedback") or "")[:500].strip() or None
+    use_alt = data.get("use_alt_model", False)
+    svc = alt_summary_svc if use_alt else summary_svc
 
     comments_data = storage_svc.get_comments(research_id)
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
@@ -1538,7 +2116,7 @@ def summarize_product(research_id):
     settings = json.loads(research.get("settings_json") or "{}")
     product_name = settings.get("product_name", research["question"])
 
-    summaries = summary_svc.summarize_product(
+    summaries = svc.summarize_product(
         product_name, comments, threads=threads_data,
         max_comments=max_comments, user_feedback=feedback,
     )
@@ -1559,6 +2137,9 @@ def summarize_product_section(research_id):
         return jsonify(error=f"Invalid category: {category}"), 400
 
     feedback = (data.get("feedback") or "")[:500].strip() or None
+    use_alt = data.get("use_alt_model", False)
+    max_comments = min(int(data.get("max_comments", 50)), 100)
+    svc = alt_summary_svc if use_alt else summary_svc
 
     comments_data = storage_svc.get_comments(research_id)
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
@@ -1568,9 +2149,10 @@ def summarize_product_section(research_id):
     settings = json.loads(research.get("settings_json") or "{}")
     product_name = settings.get("product_name", research["question"])
 
-    summary_text = summary_svc.summarize_product_section(
+    summary_text = svc.summarize_product_section(
         product_name, comments, category,
         threads=threads_data, user_feedback=feedback,
+        max_comments=max_comments,
     )
 
     # Merge into existing summaries

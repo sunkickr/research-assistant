@@ -1345,6 +1345,21 @@ tbody tr.starred-row:hover {
     border-radius: 4px;
     font-size: 14px;
 }
+.model-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+}
+.model-toggle-label input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+.model-toggle-text {
+    user-select: none;
+}
 
 /* ===== Rescore Button ===== */
 #rescoreBtn {
@@ -1725,6 +1740,15 @@ tbody tr.starred-row:hover {
     margin: 12px 0 6px;
 }
 
+.summary-card-body a {
+    color: #0079d3;
+    text-decoration: none;
+}
+
+.summary-card-body a:hover {
+    text-decoration: underline;
+}
+
 .summary-card-body .citation-link {
     color: #ff4500;
     font-size: 11px;
@@ -1777,6 +1801,27 @@ tbody tr.starred-row:hover {
     margin-bottom: 0;
     padding-bottom: 0;
     border-bottom: none;
+}
+
+.summary-card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-card-toggle {
+    background: none;
+    border: 1px solid #edeff1;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    cursor: pointer;
+    color: #878a8c;
+    transition: all 0.15s;
+}
+
+.btn-card-toggle:hover {
+    color: #1a1a1b;
+    border-color: #1a1a1b;
 }
 
 .btn-card-regenerate {
@@ -1849,6 +1894,25 @@ tbody tr.starred-row:hover {
 .section-feedback-content textarea:focus {
     outline: none;
     border-color: #ff4500;
+}
+
+.section-feedback-settings {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.section-feedback-settings .customize-setting {
+    flex: 1;
+}
+
+.section-feedback-settings .input-number {
+    width: 72px;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
 }
 
 .section-feedback-content .feedback-actions {

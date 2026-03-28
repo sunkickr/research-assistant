@@ -1,7 +1,16 @@
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from typing import List, Optional, Callable, Tuple
 from models.data_models import RedditThread, RedditComment, ScoredComment
 from services.llm_provider import LLMProvider
+
+
+def _format_comment_date(created_utc: float) -> str:
+    """Format a Unix timestamp as 'Mon YYYY' for LLM prompts, or 'unknown date' if missing."""
+    if not created_utc:
+        return "unknown date"
+    dt = datetime.fromtimestamp(created_utc, tz=timezone.utc)
+    return dt.strftime("%b %Y")
 
 
 # ===== Subreddit Suggestion =====
@@ -168,6 +177,14 @@ Score: 9 — specific first-hand experience with a concrete metric, directly and
 
 --- END EXAMPLES ---
 
+RECENCY GUIDANCE:
+Each comment includes a date. Use it to contextualize the content:
+- Comments less than 1 year old are more likely to reflect the current state of a product or topic
+- Older comments may describe issues that have been fixed, features that have changed, or outdated advice
+- When two comments make similar points, the more recent one is slightly more valuable
+- However, older comments with detailed technical specifics or unique insights should still score highly
+- Do NOT penalize old comments just for being old — penalize them only if their content is likely outdated
+
 You MUST return a score for every comment in the batch. Use the exact comment IDs provided."""
 
 
@@ -234,12 +251,14 @@ class ScoringService:
             return []
 
         threads_text = "\n\n".join(
-            f"[Thread ID: {t.id}]\nSource: {t.source}\nTitle: {t.title}\nCommunity: {t.subreddit}"
+            f"[Thread ID: {t.id}]\nSource: {t.source}\nTitle: {t.title}\nCommunity: {t.subreddit}\nDate: {_format_comment_date(t.created_utc)}"
             + (f"\nDescription: {t.selftext[:200]}" if t.selftext.strip() else "")
             for t in threads
         )
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
         user_prompt = (
-            f"Research Question: {question}\n\n"
+            f"Research Question: {question}\n"
+            f"Today's date: {today}\n\n"
             f"Threads to score:\n{threads_text}"
         )
 
@@ -284,11 +303,13 @@ class ScoringService:
     ) -> List[ScoredComment]:
         """Score a single batch of comments via the LLM."""
         comments_text = "\n\n".join(
-            f"[Comment ID: {c.id}] (score: {c.score})\n{c.body[:500]}"
+            f"[Comment ID: {c.id}] (score: {c.score}, date: {_format_comment_date(c.created_utc)})\n{c.body[:500]}"
             for c in batch
         )
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
         user_prompt = (
-            f"Research Question: {question}\n\n"
+            f"Research Question: {question}\n"
+            f"Today's date: {today}\n\n"
             f"Comments to score:\n{comments_text}"
         )
 
@@ -355,14 +376,17 @@ class ScoringService:
         """Score a single batch of comments with product category assignment."""
         def _format_comment(c: RedditComment) -> str:
             source_label = getattr(c, "source", "reddit") or "reddit"
+            date_str = _format_comment_date(c.created_utc)
             # Only show upvote score for community sources where it's meaningful
             if source_label in ("web", "reviews", "producthunt"):
-                return f"[Comment ID: {c.id}] (source: {source_label})\n{c.body[:500]}"
-            return f"[Comment ID: {c.id}] (source: {source_label}, score: {c.score})\n{c.body[:500]}"
+                return f"[Comment ID: {c.id}] (source: {source_label}, date: {date_str})\n{c.body[:500]}"
+            return f"[Comment ID: {c.id}] (source: {source_label}, score: {c.score}, date: {date_str})\n{c.body[:500]}"
 
         comments_text = "\n\n".join(_format_comment(c) for c in batch)
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
         user_prompt = (
-            f"Product being researched: {product_name}\n\n"
+            f"Product being researched: {product_name}\n"
+            f"Today's date: {today}\n\n"
             f"Comments to score:\n{comments_text}"
         )
 

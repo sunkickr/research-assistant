@@ -42,13 +42,40 @@
                     customize
                 </button>
             </div>
+            <div class="find-more-group" style="position:relative">
+                <button class="btn btn-outline" id="findMoreBtn" onclick="handleFindMore('{{ research_id }}')">
+                    Find More Comments &amp; Articles
+                </button>
+                <button class="btn btn-outline btn-icon-sm" id="findMoreConfigBtn"
+                        onclick="toggleFindMoreConfig(event)" title="Configure sources">&#9881;</button>
+                <div id="findMoreConfig" class="find-more-config" style="display:none">
+                    <p class="find-more-config-label">Sources to search:</p>
+                    <label id="fmRedditLabel"><input type="checkbox" id="fmReddit"> Reddit</label>
+                    <label id="fmHNLabel"><input type="checkbox" id="fmHN"> Hacker News</label>
+                    <label id="fmWebLabel"><input type="checkbox" id="fmWeb"> Web Articles</label>
+                    <label id="fmReviewsLabel"><input type="checkbox" id="fmReviews"> Review Sites</label>
+                </div>
+            </div>
             <a href="/api/research/{{ research_id }}/export" class="btn btn-outline">
                 Export CSV
             </a>
+            <button class="btn btn-primary" id="publishBtn"
+                    onclick="handlePublishResearch('{{ research_id }}')"
+                    {% if not research.product_summaries_json %}disabled{% endif %}>
+                Publish Research
+            </button>
             <button class="btn btn-outline" id="rescoreBtn" style="display:none"
                     onclick="handleRescore('{{ research_id }}')">
                 Score Unscored Comments (<span id="unscoredCount">0</span>)
             </button>
+        </div>
+
+        <!-- Expand progress (hidden until active) -->
+        <div id="expandProgress" class="expand-progress" style="display: none;">
+            <div class="progress-bar-container" style="margin: 10px 0 6px;">
+                <div class="progress-bar" id="expandProgressBar" style="width: 0%"></div>
+            </div>
+            <div class="activity-feed mini" id="expandFeed"></div>
         </div>
 
         <!-- Add Thread -->
@@ -112,6 +139,16 @@
                 maxlength="500"
             ></textarea>
         </div>
+        <div class="customize-setting">
+            <label class="customize-label">
+                AI Model
+                <span class="customize-hint">Higher quality model costs more per summary</span>
+            </label>
+            <label class="model-toggle-label">
+                <input type="checkbox" id="useAltModel">
+                <span class="model-toggle-text" id="modelToggleText">Use enhanced model</span>
+            </label>
+        </div>
         <p class="feedback-hint">Tell the AI what to focus on or emphasize across all summary sections.</p>
         <div class="feedback-actions">
             <button class="btn btn-primary" onclick="handleGenerateProductSummaries('{{ research_id }}', true)">Generate Custom Summaries</button>
@@ -124,42 +161,60 @@
         <div class="summary-card" data-category="general">
             <div class="summary-card-header">
                 <h3>General Information</h3>
-                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'general')" title="Regenerate this section">&#x21bb;</button>
+                <div class="summary-card-actions">
+                    <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
+                    <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'general')" title="Regenerate this section">&#x21bb;</button>
+                </div>
             </div>
             <div class="summary-card-body" id="summary-general"></div>
         </div>
         <div class="summary-card" data-category="issues">
             <div class="summary-card-header">
                 <h3>Top Issues</h3>
-                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'issues')" title="Regenerate this section">&#x21bb;</button>
+                <div class="summary-card-actions">
+                    <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
+                    <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'issues')" title="Regenerate this section">&#x21bb;</button>
+                </div>
             </div>
             <div class="summary-card-body" id="summary-issues"></div>
         </div>
         <div class="summary-card" data-category="feature_requests">
             <div class="summary-card-header">
                 <h3>Feature Requests</h3>
-                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'feature_requests')" title="Regenerate this section">&#x21bb;</button>
+                <div class="summary-card-actions">
+                    <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
+                    <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'feature_requests')" title="Regenerate this section">&#x21bb;</button>
+                </div>
             </div>
             <div class="summary-card-body" id="summary-feature_requests"></div>
         </div>
         <div class="summary-card" data-category="benefits">
             <div class="summary-card-header">
                 <h3>Benefits & Strengths</h3>
-                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'benefits')" title="Regenerate this section">&#x21bb;</button>
+                <div class="summary-card-actions">
+                    <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
+                    <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'benefits')" title="Regenerate this section">&#x21bb;</button>
+                </div>
             </div>
             <div class="summary-card-body" id="summary-benefits"></div>
         </div>
         <div class="summary-card" data-category="competitors">
             <div class="summary-card-header">
                 <h3>Competitors</h3>
-                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'competitors')" title="Regenerate this section">&#x21bb;</button>
+                <div class="summary-card-actions">
+                    <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
+                    <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'competitors')" title="Regenerate this section">&#x21bb;</button>
+                </div>
             </div>
             <div class="summary-card-body" id="summary-competitors"></div>
         </div>
         <div class="summary-card" data-category="alternatives">
             <div class="summary-card-header">
                 <h3>Churn & Alternatives</h3>
-                <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'alternatives')" title="Regenerate this section">&#x21bb;</button>
+                <div class="summary-card-actions">
+                    <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
+                    <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'alternatives')" title="Regenerate this section">&#x21bb;</button>
+                </div>
             </div>
             <div class="summary-card-body" id="summary-alternatives"></div>
         </div>
@@ -170,6 +225,21 @@
         <div class="section-feedback-content">
             <h4 id="sectionFeedbackTitle">Regenerate Section</h4>
             <textarea id="sectionFeedbackInput" placeholder="Optional: guide what this section focuses on..." rows="3" maxlength="500"></textarea>
+            <div class="section-feedback-settings">
+                <div class="customize-setting">
+                    <label class="customize-label">
+                        Comments to use
+                        <span class="customize-hint">More comments = broader coverage</span>
+                    </label>
+                    <input type="number" id="sectionMaxComments" min="10" max="100" value="50" class="input-number">
+                </div>
+                <div class="customize-setting">
+                    <label class="model-toggle-label">
+                        <input type="checkbox" id="sectionUseAltModel">
+                        <span class="model-toggle-text" id="sectionModelToggleText">Use enhanced model</span>
+                    </label>
+                </div>
+            </div>
             <div class="feedback-actions">
                 <button class="btn btn-primary" id="sectionFeedbackSubmit">Regenerate</button>
                 <button class="btn btn-outline" onclick="closeSectionFeedback()">Cancel</button>
@@ -227,6 +297,7 @@
             listenToScoringProgress(RESEARCH_ID);
         } else {
             checkUnscoredComments(RESEARCH_ID);
+            checkExpandStatus(RESEARCH_ID);
         }
     });
 </script>

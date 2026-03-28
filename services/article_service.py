@@ -40,10 +40,11 @@ class ArticleService:
         self.llm = llm
         self._quote_cache: Dict[str, List[RedditComment]] = {}
 
-    def fetch_article(self, url: str) -> Optional[Tuple[str, str]]:
+    def fetch_article(self, url: str) -> Optional[Tuple[str, str, float]]:
         """
         Download and extract article text using trafilatura.
-        Returns (title, body_text) or None if extraction fails.
+        Returns (title, body_text, created_utc) or None if extraction fails.
+        created_utc is a Unix timestamp from the article's publication date, or 0 if unavailable.
         """
         try:
             import trafilatura
@@ -58,16 +59,24 @@ class ArticleService:
             if not text or len(text) < 100:
                 return None
 
-            # Try to extract title from metadata
+            # Try to extract title and date from metadata
             metadata = trafilatura.extract_metadata(downloaded)
             title = metadata.title if metadata and metadata.title else ""
+            created_utc = 0.0
+            if metadata and metadata.date:
+                try:
+                    from datetime import datetime, timezone
+                    dt = datetime.strptime(metadata.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    created_utc = dt.timestamp()
+                except Exception:
+                    pass
 
             if not title:
                 # Fallback: use first line of text as title
                 first_line = text.split("\n")[0].strip()
                 title = first_line[:120] if first_line else urlparse(url).netloc
 
-            return title, text
+            return title, text, created_utc
         except Exception:
             return None
 
@@ -78,6 +87,7 @@ class ArticleService:
         title: str,
         body: str,
         question: str,
+        created_utc: float = 0,
     ) -> List[RedditComment]:
         """
         Use the LLM to extract relevant quotes from article text.
@@ -117,7 +127,7 @@ class ArticleService:
                     author=author,
                     body=quote.text,
                     score=0,
-                    created_utc=0,
+                    created_utc=created_utc,
                     depth=0,
                     permalink=url,
                     source="web",
@@ -127,7 +137,7 @@ class ArticleService:
         self._quote_cache[thread_id] = comments
         return comments
 
-    def make_thread(self, url: str, title: str, body: str) -> RedditThread:
+    def make_thread(self, url: str, title: str, body: str, created_utc: float = 0) -> RedditThread:
         """Create a RedditThread representing a web article."""
         domain = urlparse(url).netloc.replace("www.", "")
         url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
@@ -142,7 +152,7 @@ class ArticleService:
             url=url,
             permalink=url,
             selftext=body[:2000],
-            created_utc=0,
+            created_utc=created_utc,
             author=domain,
             source="web",
         )

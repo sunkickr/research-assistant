@@ -571,7 +571,12 @@ async function handlePublishResearch(researchId) {
     btn.disabled = true;
     btn.textContent = 'Publishing...';
     try {
-        const resp = await fetch(`/api/research/${researchId}/publish`, { method: 'POST' });
+        const commentCount = parseInt(document.getElementById('publishCommentCount')?.value) || 50;
+        const resp = await fetch(`/api/research/${researchId}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ comment_count: commentCount }),
+        });
         const data = await resp.json();
         if (!resp.ok) {
             alert(data.error || 'Failed to publish');
@@ -585,6 +590,13 @@ async function handlePublishResearch(researchId) {
         btn.disabled = false;
         btn.textContent = 'Publish Research';
     }
+}
+
+function togglePublishConfig(event) {
+    event.stopPropagation();
+    const panel = document.getElementById('publishConfig');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
 // ===== Find More Comments & Articles =====
@@ -1080,7 +1092,7 @@ async function handleGenerateProductSummaries(researchId, withCustom = false) {
 const SECTION_LABELS = {
     general: 'General Information', issues: 'Top Issues',
     feature_requests: 'Feature Requests', benefits: 'Benefits & Strengths',
-    competitors: 'Competitors', alternatives: 'Churn & Alternatives',
+    competitors: 'Competitors', alternatives: 'Churn Analysis',
 };
 
 function toggleSectionVisibility(btn) {

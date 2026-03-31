@@ -230,7 +230,7 @@ The user may provide optional feedback requesting that this section focus on spe
         "feature_requests": "Feature Requests",
         "benefits": "Benefits & Strengths",
         "competitors": "Competitors",
-        "alternatives": "Churn & Alternatives",
+        "alternatives": "Churn Analysis",
     }
 
     @staticmethod

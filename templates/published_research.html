@@ -97,6 +97,9 @@
             background: #f3f4f6; color: #374151;
         }
         .pub-comment-score { font-size: 12px; color: #6b7280; }
+        .pub-comment-thread { font-size: 12px; color: #6b7280; font-style: italic; margin-bottom: 4px; }
+        .pub-comment-thread a { color: #6b7280; text-decoration: none; }
+        .pub-comment-thread a:hover { color: #2563eb; text-decoration: underline; }
         .pub-comment-body { font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
         .pub-comment-link { font-size: 12px; }
         .pub-comment-link a { color: #2563eb; text-decoration: none; }
@@ -114,6 +117,14 @@
             margin-top: 8px; padding: 12px; background: #fff; border: 1px solid #e5e7eb;
             border-radius: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
         }
+
+        /* ===== Table of Contents ===== */
+        .pub-toc { margin-bottom: 36px; }
+        .pub-toc h2 { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+        .pub-toc ol { padding-left: 20px; margin: 0; }
+        .pub-toc li { margin-bottom: 4px; font-size: 14px; }
+        .pub-toc a { color: #2563eb; text-decoration: none; }
+        .pub-toc a:hover { text-decoration: underline; }
 
         /* ===== Footer ===== */
         .pub-footer {
@@ -138,10 +149,24 @@
     <p class="pub-meta">Sources: {{ sources_label }}</p>
 </header>
 
+<nav class="pub-toc">
+    <h2>Table of Contents</h2>
+    <ol>
+    {% if is_product %}
+        {% for section in summary_sections %}
+        <li><a href="#section-{{ loop.index }}">{{ section.label }}</a></li>
+        {% endfor %}
+    {% else %}
+        <li><a href="#section-summary">Summary</a></li>
+    {% endif %}
+        <li><a href="#section-comments">Top Comments ({{ comments | length }})</a></li>
+    </ol>
+</nav>
+
 <div class="pub-summaries">
 {% if is_product %}
     {% for section in summary_sections %}
-    <div class="pub-section">
+    <div class="pub-section" id="section-{{ loop.index }}">
         <h2>{{ section.label }}</h2>
         {{ section.html | safe }}
         {% if section.cited_sources %}
@@ -162,13 +187,13 @@
     </div>
     {% endfor %}
 {% else %}
-    <div class="pub-section">
+    <div class="pub-section" id="section-summary">
         {{ summary_html | safe }}
     </div>
 {% endif %}
 </div>
 
-<div class="pub-comments-header">
+<div class="pub-comments-header" id="section-comments">
     <h2>Top Comments</h2>
     <p>Showing {{ comments | length }} of {{ total_comments }} comments collected</p>
 </div>
@@ -180,6 +205,9 @@
         {% if c.category_label %}<span class="pub-category-badge">{{ c.category_label }}</span>{% endif %}
         <span class="pub-comment-score">{% if c.relevancy_score is not none %}{{ c.relevancy_score }}/10 relevancy{% endif %} &middot; {{ c.author }} &middot; {{ c.date }}</span>
     </div>
+    {% if c.thread_title %}
+    <div class="pub-comment-thread">{% if c.thread_url %}<a href="{{ c.thread_url }}" target="_blank">{{ c.thread_title }}</a>{% else %}{{ c.thread_title }}{% endif %}</div>
+    {% endif %}
     <div class="pub-comment-body">{{ c.body_short }}</div>
     {% if c.permalink %}
     <div class="pub-comment-link"><a href="{{ c.permalink }}" target="_blank">View original &rarr;</a></div>

@@ -607,9 +607,9 @@ def export(research_id):
 PUBLISH_DIR = os.path.join(os.path.dirname(__file__), "published")
 
 PUBLISH_SOURCE_QUOTAS = {
-    "reddit": 0.50,
-    "web": 0.30,
-    "hackernews": 0.10,
+    "reddit": 0.60,
+    "web": 0.15,
+    "hackernews": 0.15,
     "producthunt": 0.10,
 }
 
@@ -619,7 +619,7 @@ PUBLISH_SECTION_ORDER = [
     ("feature_requests", "Feature Requests"),
     ("benefits", "Benefits & Strengths"),
     ("competitors", "Competitors"),
-    ("alternatives", "Churn & Alternatives"),
+    ("alternatives", "Churn Analysis"),
 ]
 
 PUBLISH_SOURCE_LABELS = {
@@ -664,6 +664,18 @@ def _select_publish_comments(comments: list, total: int = 50) -> list:
             if c["id"] not in selected_ids:
                 selected.append(c)
                 selected_ids.add(c["id"])
+
+    # Reserve slots for issues category
+    issues_min = int(total * 0.10)
+    issues_count = sum(1 for c in selected if c.get("category") == "issues")
+    if issues_count < issues_min:
+        for c in sorted(comments, key=_eff, reverse=True):
+            if c["id"] not in selected_ids and c.get("category") == "issues":
+                selected.append(c)
+                selected_ids.add(c["id"])
+                issues_count += 1
+                if issues_count >= issues_min:
+                    break
 
     # Fill remaining slots from best across all sources
     remaining = total - len(selected)
@@ -832,13 +844,17 @@ def publish_research(research_id):
             return jsonify(error="Generate a summary before publishing"), 400
         summaries = None
 
+    # Parse comment count from request body
+    body = request.get_json(silent=True) or {}
+    comment_count = min(max(int(body.get("comment_count", 50)), 25), 200)
+
     # Load comments and threads
     all_comments = storage_svc.get_comments(research_id)
     threads = storage_svc.get_threads(research_id)
     thread_map = {t["id"]: t for t in threads}
 
     # Select top comments with source quotas
-    selected = _select_publish_comments(all_comments, total=50)
+    selected = _select_publish_comments(all_comments, total=comment_count)
 
     # Format comments for template
     comment_ids = {c["id"] for c in selected}
@@ -869,6 +885,7 @@ def publish_research(research_id):
             "relevancy_score": c.get("relevancy_score"),
             "reasoning": c.get("reasoning", ""),
             "thread_title": thread["title"] if thread else None,
+            "thread_url": thread.get("permalink") or thread.get("url") if thread else None,
         })
 
     # Build lookup of ALL comments by ID for citation sourcing

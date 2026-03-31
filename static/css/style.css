@@ -467,6 +467,29 @@ a {
     gap: 10px;
     flex-wrap: wrap;
 }
+.publish-group {
+    display: inline-flex;
+    align-items: stretch;
+}
+.publish-group > .btn:first-child {
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+}
+.publish-group > .btn-icon-sm {
+    border-left: 1px solid rgba(255,255,255,0.3);
+}
+.publish-config {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px 14px;
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    min-width: 180px;
+}
 
 /* ===== Add Thread Section ===== */
 .add-thread-section {

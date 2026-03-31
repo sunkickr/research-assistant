@@ -59,11 +59,24 @@
             <a href="/api/research/{{ research_id }}/export" class="btn btn-outline">
                 Export CSV
             </a>
-            <button class="btn btn-primary" id="publishBtn"
-                    onclick="handlePublishResearch('{{ research_id }}')"
-                    {% if not research.product_summaries_json %}disabled{% endif %}>
-                Publish Research
-            </button>
+            <div class="publish-group" style="position:relative">
+                <button class="btn btn-primary" id="publishBtn"
+                        onclick="handlePublishResearch('{{ research_id }}')"
+                        {% if not research.product_summaries_json %}disabled{% endif %}>
+                    Publish Research
+                </button>
+                <button class="btn btn-primary btn-icon-sm" onclick="togglePublishConfig(event)" title="Publish settings">&#9881;</button>
+                <div id="publishConfig" class="publish-config" style="display:none">
+                    <div class="customize-setting">
+                        <label for="publishCommentCount" class="customize-label">
+                            Comments to include
+                            <span class="customize-hint">Default 50 · Max 200</span>
+                        </label>
+                        <input type="number" id="publishCommentCount" class="customize-number"
+                               value="50" min="25" max="200" step="25">
+                    </div>
+                </div>
+            </div>
             <button class="btn btn-outline" id="rescoreBtn" style="display:none"
                     onclick="handleRescore('{{ research_id }}')">
                 Score Unscored Comments (<span id="unscoredCount">0</span>)
@@ -210,7 +223,7 @@
         </div>
         <div class="summary-card" data-category="alternatives">
             <div class="summary-card-header">
-                <h3>Churn & Alternatives</h3>
+                <h3>Churn Analysis</h3>
                 <div class="summary-card-actions">
                     <button class="btn-card-toggle" onclick="toggleSectionVisibility(this)" title="Hide this section">&#x25B2;</button>
                     <button class="btn-card-regenerate" onclick="openSectionFeedback('{{ research_id }}', 'alternatives')" title="Regenerate this section">&#x21bb;</button>

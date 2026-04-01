@@ -1,15 +1,25 @@
 # Research Assistant
 
-A web app that researches topics by collecting comments and articles from Reddit, Hacker News, Product Hunt and the web, scoring them for relevancy with AI, and generating cited summaries weighted by community sentiment.
+Researching a product or topic means sifting through hundreds of Reddit threads, Hacker News discussions, and web articles — most of it noise. Research Assistant is an AI agent that does this for you. It collects real user opinions from across the web, scores every comment for relevancy, and synthesizes the results into a cited summary.
 
 ![Home](docs/research-home.png)
 
 ![Results](docs/research-results.png)
 
+## How It Works
+
+Research Assistant runs a three-stage agent pipeline:
+
+1. **Collection Agent** — Searches Reddit, Hacker News, Product Hunt, and the web for threads and articles matching your query. Extracts comments and quotes from each source.
+2. **Scoring Agent** — Reads every collected comment and scores it 1–10 for relevancy to your research question using an LLM. Assigns categories in product mode. Filters out noise so only substantive content reaches the summary.
+3. **Summary Agent** — Reads through the top-scored comments and generates a cited summary, weighting findings by both AI relevancy scores and community upvotes. Every claim links back to its source.
+
+You stay in control throughout — star comments, override AI scores, adjust summary focus, and regenerate individual sections with feedback.
+
 ## Two Research Modes
 
-- **General Research** — Enter any question or topic. The app searches across sources, collects and scores comments, and generates a single cited summary.
-- **Product Research** — Enter a product name. The app runs targeted searches across six categories (issues, feature requests, competitors, benefits, alternatives, general info) and generates a structured report with per-category summary cards.
+- **General Research** — Enter any question or topic. The agent pipeline searches across sources, scores comments, and generates a single cited summary.
+- **Product Research** — Enter a product name. The agents run targeted searches across six categories (issues, feature requests, competitors, benefits, alternatives, general info) and generate a structured report with per-category summaries.
 
 ## Setup
 

@@ -4,8 +4,6 @@ Researching a product or topic means sifting through hundreds of Reddit threads,
 
 ![Home](docs/research-home.png)
 
-![Results](docs/research-results.png)
-
 ## How It Works
 
 Research Assistant runs a three-stage agent pipeline:
@@ -15,6 +13,8 @@ Research Assistant runs a three-stage agent pipeline:
 3. **Summary Agent** — Reads through the top-scored comments and generates a cited summary, weighting findings by both AI relevancy scores and community upvotes. Every claim links back to its source.
 
 You stay in control throughout — star comments, override AI scores, adjust summary focus, and regenerate individual sections with feedback.
+
+![Results](docs/research-results.png)
 
 ## Two Research Modes
 

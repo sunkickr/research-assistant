@@ -79,12 +79,13 @@ Open http://localhost:5000.
 | `REDDIT_USER_AGENT` | `ResearchAssistant/1.0` | User agent for Reddit API |
 | `OPENAI_API_KEY` | (required) | OpenAI API key |
 | `PRODUCT_HUNT_API_TOKEN` | (optional) | Product Hunt Developer Token |
-| `LLM_MODEL` | `gpt-4o-mini` | OpenAI model to use |
+| `LLM_MODEL` | `gpt-4o-mini` | OpenAI model for the scoring agent |
+| `ALT_SUMMARY_MODEL` | `gpt-4.1-mini` | Alternate model for the summary agent (togglable in UI) |
 | `PORT` | `5000` | Port to run the app on |
 
 ## Cost
 
-Uses GPT-4o-mini for scoring and summarization. Typical cost: ~$0.02-0.05 per general research query, ~$0.10-0.15 per product research (more searches and 6 summary calls).
+Uses GPT-4o-mini for scoring and summarization by default. Typical cost: ~$0.02-0.05 per general research query, ~$0.10-0.15 per product research (more searches and 6 summary calls). You can use a stronger model like `gpt-4.1` for summaries via `ALT_SUMMARY_MODEL`.
 
 ## Data
 

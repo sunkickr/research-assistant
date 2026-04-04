@@ -219,17 +219,22 @@ User clicks "Generate Summaries" on product results page
 
 ```
 User clicks "Publish Research" on results page (requires summaries)
+   │  Optionally configures comment count (25–200, default 50) via ⚙ gear dropdown
    │
-   └─► POST /api/research/{id}/publish
+   └─► POST /api/research/{id}/publish  { comment_count: 50 }
        ├─► Load research, settings, summaries, all comments, threads
-       ├─► Select top 50 comments with source diversity quotas
-       │   (Reddit 50%, Web 30%, HN 10%, Product Hunt 10%)
+       ├─► Select top N comments with source diversity quotas
+       │   (Reddit 60%, Web 15%, HN 15%, Product Hunt 10%)
+       │   + Issues category quota: at least 10% must be issues (product only)
        │   Sorted by relevancy desc, then date desc
        ├─► For each product summary section (or single general summary):
        │   ├─► Convert markdown to HTML with citation anchors
        │   ├─► Extract cited comment IDs from [#id] markers
        │   └─► Attach cited source details (numbered) for Sources footer
        ├─► Render published_research.html Jinja template (self-contained, inline CSS)
+       │   ├─► Table of contents with anchor links to each section
+       │   ├─► Comment cards with thread title as clickable link
+       │   └─► Expandable comment details (full body, AI reasoning)
        ├─► Write to published/<slug>-research.html (auto-increment on collision)
        └─► Return {filename, path} → button transforms to "View Published" link
 ```

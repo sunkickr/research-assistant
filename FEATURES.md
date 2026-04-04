@@ -363,18 +363,22 @@ This document tracks all features and their functionality. Update this file when
 
 ### 30. Publish Research as Shareable HTML
 - **Description**: Generates a self-contained HTML report that can be shared via GitHub Pages or any static hosting
-- **Location**: `app.py` - `publish_research()`, `serve_published()`, `_md_to_html()`, `_select_publish_comments()`, `_make_publish_filename()`, `templates/published_research.html`, `static/js/app.js` - `handlePublishResearch()`
+- **Location**: `app.py` - `publish_research()`, `serve_published()`, `_md_to_html()`, `_select_publish_comments()`, `_make_publish_filename()`, `templates/published_research.html`, `static/js/app.js` - `handlePublishResearch()`, `togglePublishConfig()`
 - **Details**:
   - "Publish Research" button on both general and product results pages (disabled until summaries exist)
+  - Gear icon (⚙) next to the button opens a settings dropdown to configure comment count (25–200, step 25, default 50)
   - Generates a standalone HTML file with all CSS inlined — no external dependencies
+  - **Table of contents**: Links to each summary section and the comments section; uses anchor IDs for smooth navigation
   - Product research: renders all 6 summary sections in order with per-section numbered Sources footer showing cited comments
   - General research: renders the single summary with citations
-  - Selects top 50 comments with source diversity quotas (Reddit 50%, Web 30%, HN 10%, Product Hunt 10%)
+  - Selects top comments with source diversity quotas (Reddit 60%, Web 15%, HN 15%, Product Hunt 10%)
+  - Issues category quota: at least 10% of selected comments must have `category == "issues"` (product research only); backfills from highest-relevancy issues comments if the source quota step didn't include enough
   - Comments sorted by AI relevancy score descending, then date descending as tiebreaker
-  - Each comment shows relevancy score, author, date, source badge, and truncated body with expandable full text
+  - Each comment shows: source badge, category badge, relevancy score, author, date, thread title (clickable link to original thread/article), truncated body with expandable full text, and permalink
   - Citation numbers in summaries (`[1]`, `[2]`, etc.) match numbered sources listed below each section
   - Files saved to `published/` directory with slug-based naming and auto-increment on collision
   - Button transforms to "View Published" link after successful generation
+  - GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) deploys `published/` as GitHub Pages root on push to main
 
 ### 31. Section Hide/Show Toggle
 - **Description**: Allows users to collapse individual product summary cards to focus on sections of interest

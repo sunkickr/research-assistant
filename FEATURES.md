@@ -397,3 +397,16 @@ This document tracks all features and their functionality. Update this file when
   - Alt model checkbox displays the exact model name (e.g. "Use gpt-4.1-mini") fetched from `/api/models`
   - Both values sent to `POST /api/research/{id}/summarize-product-section` as `max_comments` and `use_alt_model`
   - Backend caps `max_comments` at 100 and routes to the alt summary service when `use_alt_model` is true
+
+### 33. Phoenix Observability
+- **Description**: Opt-in LLM call tracing via Arize Phoenix, providing visibility into prompts, responses, token usage, latency, and errors for all OpenAI calls
+- **Location**: `app.py` (initialization + pipeline parent spans), `services/scoring_service.py`, `services/summary_service.py`, `services/article_service.py` (agent tags)
+- **Details**:
+  - Enabled via `PHOENIX_ENABLED=true` environment variable; zero overhead when disabled
+  - Auto-instruments all OpenAI SDK calls (both `chat.completions.create` and `beta.chat.completions.parse`) via `openinference-instrumentation-openai`
+  - **Agent tags**: Each LLM call is tagged with agent type (`agent:scoring`, `agent:summary`, `agent:collection`) and task type (`task:comment_scoring`, `task:general_summary`, `task:quote_extraction`, etc.) — filterable in Phoenix UI
+  - **Pipeline parent spans**: Pipeline stages (`query-generation`, `thread-scoring`, `comment-scoring`, `summarize`, etc.) are wrapped in OpenTelemetry spans so auto-instrumented OpenAI calls appear as children in a trace hierarchy
+  - `_span()` helper returns a no-op `nullcontext()` when Phoenix is disabled
+  - `using_tags()` imports use `try/except ImportError` fallbacks so the app works without Phoenix installed
+  - All traces appear under the "research-assistant" project in the Phoenix UI at http://localhost:6006
+  - Future providers (Anthropic, Google) can be traced by installing the corresponding `openinference-instrumentation-*` package — no code changes needed

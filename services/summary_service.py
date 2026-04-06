@@ -3,6 +3,14 @@ from typing import List
 from models.data_models import ScoredComment
 from services.llm_provider import LLMProvider
 
+try:
+    from openinference.instrumentation import using_tags
+except ImportError:
+    from contextlib import contextmanager
+    @contextmanager
+    def using_tags(tags):
+        yield
+
 
 def _format_comment_date(created_utc: float) -> str:
     """Format a Unix timestamp as 'Mon YYYY' for LLM prompts, or 'unknown date' if missing."""
@@ -148,12 +156,13 @@ class SummaryService:
         if user_feedback:
             user_prompt += f"\n\n---\nUser feedback on this summary: {user_feedback}"
 
-        return self.llm.complete_text(
-            system_prompt=SUMMARY_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            temperature=0.5,
-            max_tokens=2000,
-        )
+        with using_tags(["agent:summary", "task:general_summary"]):
+            return self.llm.complete_text(
+                system_prompt=SUMMARY_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                temperature=0.5,
+                max_tokens=2000,
+            )
 
     # ===== Product Research Summaries =====
 
@@ -330,12 +339,13 @@ The user may provide optional feedback requesting that this section focus on spe
             user_prompt += f"\n\n---\nUser feedback on this summary: {user_feedback}"
 
         try:
-            return self.llm.complete_text(
-                system_prompt=self.PRODUCT_SECTION_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                temperature=0.5,
-                max_tokens=1500,
-            )
+            with using_tags(["agent:summary", "task:product_section_summary"]):
+                return self.llm.complete_text(
+                    system_prompt=self.PRODUCT_SECTION_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    temperature=0.5,
+                    max_tokens=1500,
+                )
         except Exception:
             return "Summary generation failed for this section."
 

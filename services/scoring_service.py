@@ -4,6 +4,14 @@ from typing import List, Optional, Callable, Tuple
 from models.data_models import RedditThread, RedditComment, ScoredComment
 from services.llm_provider import LLMProvider
 
+try:
+    from openinference.instrumentation import using_tags
+except ImportError:
+    from contextlib import contextmanager
+    @contextmanager
+    def using_tags(tags):
+        yield
+
 
 def _format_comment_date(created_utc: float) -> str:
     """Format a Unix timestamp as 'Mon YYYY' for LLM prompts, or 'unknown date' if missing."""
@@ -219,12 +227,13 @@ class ScoringService:
         Returns (subreddit_names, search_queries).
         """
         try:
-            response: SubredditSuggestions = self.llm.complete(
-                system_prompt=SUBREDDIT_SYSTEM_PROMPT,
-                user_prompt=f"Research question: {question}",
-                response_model=SubredditSuggestions,
-                temperature=0.2,
-            )
+            with using_tags(["agent:collection", "task:subreddit_suggestion"]):
+                response: SubredditSuggestions = self.llm.complete(
+                    system_prompt=SUBREDDIT_SYSTEM_PROMPT,
+                    user_prompt=f"Research question: {question}",
+                    response_model=SubredditSuggestions,
+                    temperature=0.2,
+                )
             # Normalize subreddit names: strip whitespace, leading r/
             names = []
             for name in response.subreddits:
@@ -263,11 +272,12 @@ class ScoringService:
         )
 
         try:
-            response: ThreadBatchScoreResponse = self.llm.complete(
-                system_prompt=THREAD_SCORING_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                response_model=ThreadBatchScoreResponse,
-            )
+            with using_tags(["agent:scoring", "task:thread_scoring"]):
+                response: ThreadBatchScoreResponse = self.llm.complete(
+                    system_prompt=THREAD_SCORING_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    response_model=ThreadBatchScoreResponse,
+                )
             score_map = {s.thread_id: s.relevancy_score for s in response.scores}
         except Exception:
             return []
@@ -314,11 +324,12 @@ class ScoringService:
         )
 
         try:
-            response: BatchScoreResponse = self.llm.complete(
-                system_prompt=SCORING_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                response_model=BatchScoreResponse,
-            )
+            with using_tags(["agent:scoring", "task:comment_scoring"]):
+                response: BatchScoreResponse = self.llm.complete(
+                    system_prompt=SCORING_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    response_model=BatchScoreResponse,
+                )
             score_map = {s.comment_id: s for s in response.scores}
         except Exception:
             score_map = {}
@@ -391,11 +402,12 @@ class ScoringService:
         )
 
         try:
-            response: ProductBatchScoreResponse = self.llm.complete(
-                system_prompt=PRODUCT_SCORING_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                response_model=ProductBatchScoreResponse,
-            )
+            with using_tags(["agent:scoring", "task:product_comment_scoring"]):
+                response: ProductBatchScoreResponse = self.llm.complete(
+                    system_prompt=PRODUCT_SCORING_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    response_model=ProductBatchScoreResponse,
+                )
             score_map = {s.comment_id: s for s in response.scores}
         except Exception:
             score_map = {}

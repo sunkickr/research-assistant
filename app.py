@@ -40,6 +40,30 @@ def fromjson_filter(value):
     except Exception:
         return {}
 
+# Phoenix observability (optional)
+_tracer = None
+if os.environ.get("PHOENIX_ENABLED", "").lower() == "true":
+    from phoenix.otel import register
+    from openinference.instrumentation.openai import OpenAIInstrumentor
+    from opentelemetry import trace as _otel_trace
+    phoenix_endpoint = os.environ.get("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
+    tracer_provider = register(
+        project_name="research-assistant",
+        endpoint=f"{phoenix_endpoint}/v1/traces",
+    )
+    OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+    _tracer = _otel_trace.get_tracer("research-assistant")
+
+
+def _span(name, kind="CHAIN", **attrs):
+    """Create an OpenTelemetry span if Phoenix is enabled, otherwise a no-op context."""
+    if _tracer:
+        attrs["span_name"] = name
+        attrs["openinference.span.kind"] = kind
+        return _tracer.start_as_current_span(name, attributes=attrs)
+    from contextlib import nullcontext
+    return nullcontext()
+
 # Initialize services
 reddit_svc = RedditService(
     config.REDDIT_CLIENT_ID, config.REDDIT_CLIENT_SECRET, config.REDDIT_USER_AGENT
@@ -310,7 +334,8 @@ def run_research_pipeline(
                     "message": "Finding relevant subreddits...",
                     "progress": 3,
                 })
-                suggested, search_queries = scoring_svc.suggest_subreddits(question)
+                with _span("query-generation", research_id=research_id, question=question):
+                    suggested, search_queries = scoring_svc.suggest_subreddits(question)
                 validated = reddit_svc.validate_subreddits(suggested) if suggested else []
 
                 if validated:
@@ -335,7 +360,8 @@ def run_research_pipeline(
                     "message": "Generating search queries...",
                     "progress": 3,
                 })
-                _, search_queries = scoring_svc.suggest_subreddits(question)
+                with _span("query-generation", research_id=research_id, question=question):
+                    _, search_queries = scoring_svc.suggest_subreddits(question)
 
             web_queries = search_queries if search_queries else [question]
 
@@ -435,7 +461,8 @@ def run_research_pipeline(
                 return
 
             # Filter threads by relevancy before collecting comments
-            relevant_threads = scoring_svc.score_threads(question, threads)
+            with _span("thread-scoring", research_id=research_id, question=question, thread_count=len(threads)):
+                relevant_threads = scoring_svc.score_threads(question, threads)
             q.put({
                 "stage": "searching",
                 "message": f"{len(relevant_threads)} of {len(threads)} threads are relevant",
@@ -495,9 +522,10 @@ def run_research_pipeline(
             "progress": 62,
         })
 
-        scored_comments = scoring_svc.score_comments(
-            question, all_comments, progress_callback=_make_scoring_progress_callback(q, 62, 33, research_id=research_id)
-        )
+        with _span("comment-scoring", research_id=research_id, question=question, comment_count=len(all_comments)):
+            scored_comments = scoring_svc.score_comments(
+                question, all_comments, progress_callback=_make_scoring_progress_callback(q, 62, 33, research_id=research_id)
+            )
         storage_svc.save_scored_comments(research_id, scored_comments)
         q.put({"stage": "scoring", "message": "Scoring complete", "progress": 95})
 
@@ -593,7 +621,8 @@ def summarize(research_id):
     scored_fields = {f for f in ScoredComment.__dataclass_fields__}
     comments = [ScoredComment(**{k: v for k, v in c.items() if k in scored_fields}) for c in comments_data]
     threads_data = storage_svc.get_threads(research_id)
-    summary = svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data, max_comments=max_comments)
+    with _span("summarize", research_id=research_id, question=research["question"]):
+        summary = svc.summarize(research["question"], comments, user_feedback=user_feedback, threads=threads_data, max_comments=max_comments)
     storage_svc.save_summary(research_id, summary)
     return jsonify(summary=summary)
 
@@ -1132,7 +1161,8 @@ def run_expand_pipeline(
                     "message": f"Searching Hacker News for more discussions{page_label}...",
                     "progress": base_pct,
                 })
-                _, search_queries = scoring_svc.suggest_subreddits(question)
+                with _span("query-generation", research_id=research_id, question=question):
+                    _, search_queries = scoring_svc.suggest_subreddits(question)
                 web_queries = search_queries if search_queries else [question]
                 for thd in hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES, page=hn_page):
                     if thd.id not in seen_candidate_ids:
@@ -1147,7 +1177,8 @@ def run_expand_pipeline(
                     "message": f"Searching the web for more articles{page_label}...",
                     "progress": base_pct,
                 })
-                _, search_queries = scoring_svc.suggest_subreddits(question)
+                with _span("query-generation", research_id=research_id, question=question):
+                    _, search_queries = scoring_svc.suggest_subreddits(question)
                 web_queries = search_queries if search_queries else [question]
                 article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES, page=web_page)
                 for url in article_urls:
@@ -1207,7 +1238,8 @@ def run_expand_pipeline(
             return
 
         # Score threads for relevancy
-        relevant_threads = scoring_svc.score_threads(question, new_threads)
+        with _span("thread-scoring", research_id=research_id, question=question, thread_count=len(new_threads)):
+            relevant_threads = scoring_svc.score_threads(question, new_threads)
         q.put({
             "stage": "searching",
             "message": f"{len(relevant_threads)} of {len(new_threads)} new threads are relevant",
@@ -1255,7 +1287,8 @@ def run_expand_pipeline(
             return
 
         # Score comments
-        scored = scoring_svc.score_comments(question, all_comments, progress_callback=_make_scoring_progress_callback(q, 65, 30, research_id=research_id))
+        with _span("comment-scoring", research_id=research_id, question=question, comment_count=len(all_comments)):
+            scored = scoring_svc.score_comments(question, all_comments, progress_callback=_make_scoring_progress_callback(q, 65, 30, research_id=research_id))
 
         # Save threads and comments together so they always appear as a pair
         storage_svc.save_threads(research_id, relevant_threads)
@@ -1392,7 +1425,8 @@ def run_product_expand_pipeline(
             return
 
         # Score threads for relevancy
-        relevant_threads = scoring_svc.score_threads(f"Product research about {product_name}", new_threads)
+        with _span("thread-scoring", research_id=research_id, question=product_name, thread_count=len(new_threads)):
+            relevant_threads = scoring_svc.score_threads(f"Product research about {product_name}", new_threads)
         q.put({
             "stage": "searching",
             "message": f"{len(relevant_threads)} of {len(new_threads)} new threads are relevant",
@@ -1432,10 +1466,11 @@ def run_product_expand_pipeline(
             return
 
         # Score comments with category assignment
-        scored = scoring_svc.score_comments_with_category(
-            product_name, all_comments,
-            progress_callback=_make_scoring_progress_callback(q, 65, 30, research_id=research_id),
-        )
+        with _span("comment-scoring", research_id=research_id, question=product_name, comment_count=len(all_comments)):
+            scored = scoring_svc.score_comments_with_category(
+                product_name, all_comments,
+                progress_callback=_make_scoring_progress_callback(q, 65, 30, research_id=research_id),
+            )
 
         # Save threads and comments
         storage_svc.save_threads(research_id, relevant_threads)
@@ -1699,10 +1734,11 @@ def run_add_thread_pipeline(
             "progress": 55,
         })
 
-        scored = scoring_svc.score_comments(
-            question, comments,
-            progress_callback=_make_scoring_progress_callback(q, 55, 40, research_id=research_id),
-        )
+        with _span("comment-scoring", research_id=research_id, question=question, comment_count=len(comments)):
+            scored = scoring_svc.score_comments(
+                question, comments,
+                progress_callback=_make_scoring_progress_callback(q, 55, 40, research_id=research_id),
+            )
         storage_svc.save_scored_comments(research_id, scored)
         storage_svc.recalculate_counts(research_id)
         storage_svc.export_csv(research_id)
@@ -1783,10 +1819,11 @@ def run_rescore_pipeline(research_id, question, unscored_comments, q):
             "message": f"Scoring {len(unscored_comments)} unscored comments...",
             "progress": 10,
         })
-        scored = scoring_svc.score_comments(
-            question, unscored_comments,
-            progress_callback=_make_scoring_progress_callback(q, 10, 85, research_id=research_id),
-        )
+        with _span("comment-scoring", research_id=research_id, question=question, comment_count=len(unscored_comments)):
+            scored = scoring_svc.score_comments(
+                question, unscored_comments,
+                progress_callback=_make_scoring_progress_callback(q, 10, 85, research_id=research_id),
+            )
         storage_svc.save_scored_comments(research_id, scored)
         storage_svc.recalculate_counts(research_id)
         storage_svc.export_csv(research_id)
@@ -2030,9 +2067,10 @@ def run_product_research_pipeline(
             return
 
         # Score threads for relevancy
-        relevant_threads = scoring_svc.score_threads(
-            f"Product research about {product_name}", threads,
-        )
+        with _span("thread-scoring", research_id=research_id, question=product_name, thread_count=len(threads)):
+            relevant_threads = scoring_svc.score_threads(
+                f"Product research about {product_name}", threads,
+            )
         q.put({
             "stage": "searching",
             "message": f"{len(relevant_threads)} of {len(threads)} threads are relevant",
@@ -2088,10 +2126,11 @@ def run_product_research_pipeline(
             "progress": 62,
         })
 
-        scored_comments = scoring_svc.score_comments_with_category(
-            product_name, all_comments,
-            progress_callback=_make_scoring_progress_callback(q, 62, 33, research_id=research_id),
-        )
+        with _span("comment-scoring", research_id=research_id, question=product_name, comment_count=len(all_comments)):
+            scored_comments = scoring_svc.score_comments_with_category(
+                product_name, all_comments,
+                progress_callback=_make_scoring_progress_callback(q, 62, 33, research_id=research_id),
+            )
         storage_svc.save_scored_comments(research_id, scored_comments)
 
         # Stage 4: Finalize
@@ -2133,10 +2172,11 @@ def summarize_product(research_id):
     settings = json.loads(research.get("settings_json") or "{}")
     product_name = settings.get("product_name", research["question"])
 
-    summaries = svc.summarize_product(
-        product_name, comments, threads=threads_data,
-        max_comments=max_comments, user_feedback=feedback,
-    )
+    with _span("summarize-product", research_id=research_id, question=product_name):
+        summaries = svc.summarize_product(
+            product_name, comments, threads=threads_data,
+            max_comments=max_comments, user_feedback=feedback,
+        )
     storage_svc.save_product_summaries(research_id, summaries)
     return jsonify(summaries=summaries)
 
@@ -2166,11 +2206,12 @@ def summarize_product_section(research_id):
     settings = json.loads(research.get("settings_json") or "{}")
     product_name = settings.get("product_name", research["question"])
 
-    summary_text = svc.summarize_product_section(
-        product_name, comments, category,
-        threads=threads_data, user_feedback=feedback,
-        max_comments=max_comments,
-    )
+    with _span("summarize-product-section", research_id=research_id, question=product_name, category=category):
+        summary_text = svc.summarize_product_section(
+            product_name, comments, category,
+            threads=threads_data, user_feedback=feedback,
+            max_comments=max_comments,
+        )
 
     # Merge into existing summaries
     existing = storage_svc.get_product_summaries(research_id)

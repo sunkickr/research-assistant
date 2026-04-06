@@ -37,6 +37,7 @@ Research Assistant is a Python Flask web application that searches Reddit, Hacke
 | Article Extraction | trafilatura | Download and extract article text from web URLs |
 | Product Hunt | requests + GraphQL v2 API | Product post search and comment collection |
 | LLM | OpenAI SDK (GPT-4o-mini) | Subreddit suggestion, thread filtering, comment scoring, category classification, article quote extraction, summarization |
+| Observability | Arize Phoenix + OpenInference | Opt-in LLM call tracing with agent tags and pipeline spans (enabled via `PHOENIX_ENABLED=true`) |
 | Database | SQLite3 (stdlib) | Persistent data storage |
 | Config | python-dotenv | Environment variable management |
 | Validation | Pydantic | LLM structured output schemas |

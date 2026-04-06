@@ -8,6 +8,20 @@ from pydantic import BaseModel, Field
 from models.data_models import RedditComment, RedditThread
 from services.llm_provider import LLMProvider
 
+try:
+    from openinference.instrumentation import using_tags
+except ImportError:
+    from contextlib import contextmanager
+    @contextmanager
+    def using_tags(tags):
+        yield
+
+try:
+    from opentelemetry import trace as _otel_trace
+    _tracer = _otel_trace.get_tracer("research-assistant")
+except ImportError:
+    _tracer = None
+
 
 QUOTE_EXTRACTION_SYSTEM_PROMPT = """You are extracting research-relevant quotes from a web article. Given the article text and a research question, identify 3-8 distinct factual claims, opinions, or first-hand accounts from the article that are relevant to the research question.
 
@@ -105,13 +119,16 @@ class ArticleService:
             f"Article Text:\n{truncated_body}"
         )
 
+        span_ctx = _tracer.start_as_current_span("quote-extraction", attributes={"url": url, "domain": domain}) if _tracer else __import__("contextlib").nullcontext()
         try:
-            response: QuoteExtractionResponse = self.llm.complete(
-                system_prompt=QUOTE_EXTRACTION_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                response_model=QuoteExtractionResponse,
-                temperature=0.1,
-            )
+            with span_ctx:
+                with using_tags(["agent:collection", "task:quote_extraction"]):
+                    response: QuoteExtractionResponse = self.llm.complete(
+                        system_prompt=QUOTE_EXTRACTION_SYSTEM_PROMPT,
+                        user_prompt=user_prompt,
+                        response_model=QuoteExtractionResponse,
+                        temperature=0.1,
+                    )
             quotes = response.quotes
         except Exception:
             quotes = []

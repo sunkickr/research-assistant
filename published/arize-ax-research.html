@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arize AX — Research Summary</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: #1a1a1a;
+            background: #fff;
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* ===== Header ===== */
+        .pub-header { margin-bottom: 40px; border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; }
+        .pub-header h1 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+        .pub-meta { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
+        .pub-badge {
+            display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 2px 8px; border-radius: 4px;
+            background: #eff6ff; color: #2563eb; margin-bottom: 12px;
+        }
+
+        /* ===== Summary Sections ===== */
+        .pub-summaries { margin-bottom: 48px; }
+        .pub-section { margin-bottom: 32px; }
+        .pub-section h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #111; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px; }
+        .pub-section h3 { font-size: 17px; font-weight: 600; margin: 16px 0 8px; }
+        .pub-section h4 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+        .pub-section p { margin-bottom: 10px; }
+        .pub-section ul, .pub-section ol { padding-left: 24px; margin-bottom: 10px; }
+        .pub-section li { margin-bottom: 4px; }
+        .pub-section blockquote {
+            border-left: 3px solid #d1d5db; padding: 4px 12px; margin: 8px 0;
+            color: #4b5563; font-style: italic;
+        }
+        .pub-section a { color: #2563eb; text-decoration: none; }
+        .pub-section a:hover { text-decoration: underline; }
+        .pub-section .citation-ref {
+            font-size: 11px; vertical-align: super; color: #dc2626;
+            text-decoration: none; font-weight: 600; padding: 0 1px;
+        }
+        .pub-section .citation-ref:hover { text-decoration: underline; }
+
+        /* ===== Cited Sources per Section ===== */
+        .pub-cited-sources {
+            margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb;
+        }
+        .cited-sources-heading {
+            font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px;
+        }
+        .cited-source-item {
+            display: flex; align-items: baseline; gap: 8px;
+            font-size: 13px; line-height: 1.5; margin-bottom: 6px;
+            color: #4b5563;
+        }
+        .cited-source-num {
+            flex-shrink: 0; font-size: 12px; font-weight: 600; color: #dc2626;
+            min-width: 24px;
+        }
+        .cited-source-item .pub-source-badge { flex-shrink: 0; font-size: 10px; }
+        .cited-source-body {
+            flex: 1; overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+        .cited-source-link { flex-shrink: 0; font-size: 12px; color: #2563eb; text-decoration: none; }
+        .cited-source-link:hover { text-decoration: underline; }
+
+        /* ===== Comments Section ===== */
+        .pub-comments-header { margin-bottom: 20px; }
+        .pub-comments-header h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+        .pub-comments-header p { font-size: 14px; color: #6b7280; }
+
+        .pub-comment {
+            border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;
+            margin-bottom: 12px; background: #fafafa;
+        }
+        .pub-comment-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .pub-source-badge {
+            font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+            padding: 2px 6px; border-radius: 3px; color: #fff;
+        }
+        .pub-source-badge.reddit { background: #ff4500; }
+        .pub-source-badge.hackernews { background: #ff6600; }
+        .pub-source-badge.web { background: #059669; }
+        .pub-source-badge.reviews { background: #7c3aed; }
+        .pub-source-badge.producthunt { background: #da552f; }
+        .pub-category-badge {
+            font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 3px;
+            background: #f3f4f6; color: #374151;
+        }
+        .pub-comment-score { font-size: 12px; color: #6b7280; }
+        .pub-comment-thread { font-size: 12px; color: #6b7280; font-style: italic; margin-bottom: 4px; }
+        .pub-comment-thread a { color: #6b7280; text-decoration: none; }
+        .pub-comment-thread a:hover { color: #2563eb; text-decoration: underline; }
+        .pub-comment-body { font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+        .pub-comment-link { font-size: 12px; }
+        .pub-comment-link a { color: #2563eb; text-decoration: none; }
+        .pub-comment-link a:hover { text-decoration: underline; }
+
+        details { margin-top: 8px; }
+        details summary {
+            font-size: 12px; color: #6b7280; cursor: pointer; user-select: none;
+        }
+        details summary:hover { color: #374151; }
+        .pub-comment-details { margin-top: 8px; font-size: 13px; color: #4b5563; }
+        .pub-comment-details .detail-row { margin-bottom: 4px; }
+        .pub-comment-details .detail-label { font-weight: 600; color: #374151; }
+        .pub-comment-full-body {
+            margin-top: 8px; padding: 12px; background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        }
+
+        /* ===== Table of Contents ===== */
+        .pub-toc { margin-bottom: 36px; }
+        .pub-toc h2 { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+        .pub-toc ol { padding-left: 20px; margin: 0; }
+        .pub-toc li { margin-bottom: 4px; font-size: 14px; }
+        .pub-toc a { color: #2563eb; text-decoration: none; }
+        .pub-toc a:hover { text-decoration: underline; }
+
+        /* ===== Footer ===== */
+        .pub-footer {
+            margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+            font-size: 12px; color: #9ca3af; text-align: center;
+        }
+
+        /* ===== Comment anchor highlight ===== */
+        .pub-comment:target { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
+    </style>
+</head>
+<body>
+
+<header class="pub-header">
+    <div class="pub-badge">Product Research</div>
+    <h1>Arize AX</h1>
+    <p class="pub-meta">
+        31 threads and articles &middot;
+        175 comments scored &middot;
+        2026-04-05
+    </p>
+    <p class="pub-meta">Sources: Reddit, Hacker News, Web, Reviews, Product Hunt</p>
+</header>
+
+<nav class="pub-toc">
+    <h2>Table of Contents</h2>
+    <ol>
+    
+        
+        <li><a href="#section-1">General Information</a></li>
+        
+        <li><a href="#section-2">Top Issues</a></li>
+        
+        <li><a href="#section-3">Feature Requests</a></li>
+        
+        <li><a href="#section-4">Benefits &amp; Strengths</a></li>
+        
+        <li><a href="#section-5">Competitors</a></li>
+        
+        <li><a href="#section-6">Churn Analysis</a></li>
+        
+    
+        <li><a href="#section-comments">Top Comments (50)</a></li>
+    </ol>
+</nav>
+
+<div class="pub-summaries">
+
+    
+    <div class="pub-section" id="section-1">
+        <h2>General Information</h2>
+        <h3>Overview</h3>
+<p>Arize AX is an enterprise-grade AI observability and evaluation platform designed to monitor, debug, and optimize machine learning and generative AI models in production environments. Built on OpenTelemetry standards, it offers vendor-agnostic tracing, automated evaluations, and real-time dashboards to ensure reliability, transparency, and performance at scale <a href="#comment-web_3a11d4ce7b_q0" class="citation-ref">[1]</a><a href="#comment-web_e30ad72d5c_q0" class="citation-ref">[2]</a><a href="#comment-web_c15e5cb76e_q2" class="citation-ref">[3]</a>.</p>
+<h3>Primary Users</h3>
+
+<ul><li><strong>AI/ML Engineers</strong>: Professionals responsible for developing, deploying, and maintaining machine learning and generative AI models, seeking tools for monitoring and troubleshooting <a href="#comment-web_c15e5cb76e_q0" class="citation-ref">[4]</a>.
+</li><li><strong>Data Scientists</strong>: Users who require advanced evaluation and experimentation features to assess model and agent performance <a href="#comment-web_bc34eb108d_q4" class="citation-ref">[5]</a>.
+</li><li><strong>Enterprise AI Teams</strong>: Organizations operating AI at scale, needing unified observability, compliance, and reliability across multiple models and deployments <a href="#comment-web_e30ad72d5c_q2" class="citation-ref">[6]</a>.
+</li><li><strong>DevOps & MLOps Teams</strong>: Teams integrating AI observability into existing infrastructure using OpenTelemetry, without maintaining a separate monitoring stack <a href="#comment-web_3a11d4ce7b_q3" class="citation-ref">[7]</a>.
+</li></ul><h3>Common Use Cases</h3>
+
+<ul><li><strong>Production Monitoring</strong>: Track AI model performance, detect drift, and surface anomalies in real time to ensure models behave as expected in production <a href="#comment-web_e30ad72d5c_q4" class="citation-ref">[8]</a><a href="#comment-web_c55a815c8b_q1" class="citation-ref">[9]</a>.
+</li><li><strong>Evaluation of Generative AI and Agents</strong>: Assess prompt effectiveness, agent coherence, and tool selection across multi-step workflows <a href="#comment-web_3a11d4ce7b_q2" class="citation-ref">[10]</a><a href="#comment-web_7f5db83fa4_q1" class="citation-ref">[11]</a>.
+</li><li><strong>Debugging and Root Cause Analysis</strong>: Trace problematic predictions or agent behaviors, compare datasets, and pinpoint issues at feature or span level <a href="#comment-web_c55a815c8b_q2" class="citation-ref">[12]</a><a href="#comment-web_bcc1cdea46_q4" class="citation-ref">[13]</a>.
+</li><li><strong>Data Quality and Drift Detection</strong>: Monitor feature distributions, detect unexpected shifts, and flag issues with data pipelines or labeling <a href="#comment-web_ea246655e7_q2" class="citation-ref">[14]</a><a href="#comment-web_c55a815c8b_q4" class="citation-ref">[15]</a>.
+</li><li><strong>Experimentation and Version Control</strong>: Manage prompt and dataset versions, run experiments, and benchmark LLM applications <a href="#comment-web_bc34eb108d_q4" class="citation-ref">[5]</a><a href="#comment-web_bc34eb108d_q5" class="citation-ref">[16]</a>.
+</li></ul><h3>Monetization</h3>
+<p>Arize AX employs a subscription-based model with enterprise licensing, offering tiered access to features and scale. The platform supports usage-based pricing for large-scale operations, with additional capabilities and integrations available at higher tiers <a href="#comment-web_e30ad72d5c_q2" class="citation-ref">[6]</a><a href="#comment-web_294e68d703_q3" class="citation-ref">[17]</a>.</p>
+
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AI is an AI observability and LLM evaluation platform built on OpenTelemetry standards, offering vendor-agnostic tracing from development through production.</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AX is an AI observability and evaluation platform designed for enterprise use.</span>
+                
+                <a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">This includes tools for prompt optimization, automated evaluations, real-time dashboards, and tracing to quickly find and address performance problems like drift.</span>
+                
+                <a href="https://aiagentslist.com/agents/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">This platform is made for AI engineers and teams who build and manage machine learning and generative AI models or agents.</span>
+                
+                <a href="https://aiagentslist.com/agents/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Create versioned datasets for experimentation, evaluation, and fine-tuning.</span>
+                
+                <a href="https://arize.com/docs/api-clients/python/version-8/overview" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[6]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">The platform supports large-scale operations, with metrics such as trillions of spans processed monthly and millions of evaluations.</span>
+                
+                <a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[7]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">OpenTelemetry is central to Arize’s architecture, allowing AI observability to plug into existing DevOps infrastructure instead of requiring a separate monitoring stack.</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[8]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Common use cases for Arize AX include monitoring AI model performance in production for reliability and evaluating prompt effectiveness for generative AI.</span>
+                
+                <a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[9]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Automatically surface data drift or model issues, then trace problems back to the source.</span>
+                
+                <a href="https://arize.com/ml-cv-observability" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[10]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize operates across two layers of the AI stack: development-time experimentation (Phoenix) and production-scale monitoring (AX).</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[11]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Prompt Learning is an algorithm developed by Arize AX to optimize prompts based on data.</span>
+                
+                <a href="https://arize.com/docs/ax/cookbooks/prompt-learning/optimizing-coding-agent-prompts-for-execution" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[12]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Instantly surface up worst-performing slices of predictions with heatmaps that pinpoint problematic model features and values.</span>
+                
+                <a href="https://arize.com/ml-cv-observability" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[13]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">You can now see a timeline view when you click into a trace!</span>
+                
+                <a href="https://arize.com/blog/new-in-arize-ax-tags-data-fabric-automatic-threshold-ranges-for-monitors-and-more/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[14]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize can surface outlier/anomalous data through: Data Quality checks and Drift checks.</span>
+                
+                <a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[15]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Compare datasets across training, validation, and production environments to detect unexpected shifts in your model’s predictions or feature values.</span>
+                
+                <a href="https://arize.com/ml-cv-observability" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[16]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Manage prompt changes with version control and experimentation.</span>
+                
+                <a href="https://arize.com/docs/api-clients/python/version-8/overview" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[17]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AI introduced Phoenix, the first open-source LLM evaluation framework, along with a comprehensive suite of production-grade LLM observability solutions.</span>
+                
+                <a href="https://www.adamsstreetpartners.com/insights/why-we-invested-in-arize-ai/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section" id="section-2">
+        <h2>Top Issues</h2>
+        <p>Top 5 Issues and Problems Users Report with Arize AX</p>
+
+<ol><li>Data ingestion delays and incomplete loads
+<blockquote>"It can take ~1 minute for bar charts to appear and ~10 minutes for data to fully load in the ‘Data Ingestion’ tab and appear across the platform." <a href="#comment-arize.com" class="citation-ref">[1]</a></blockquote>
+<p>This lag can cause confusion, and users must verify if missing data is due to delays or actual ingestion errors.</p>
+</li><li>Data quality monitoring complexity and upstream dependencies
+<blockquote>"ML models rely on upstream data for training and making predictions...This makes it challenging to ensure the data is always of high quality." <a href="#comment-arize.com" class="citation-ref">[1]</a></blockquote>
+<p>Users struggle with issues like missing values, incorrect data types, and drift that often originate outside Arize, making troubleshooting non-trivial.</p>
+</li><li>Difficulty interpreting visualizations and dashboards
+<blockquote>"Looks great - but what can the visual tell you about your data?" <a href="#comment-jkgl78n" class="citation-ref">[2]</a></blockquote>
+<p>Some users find it hard to extract actionable insights from Arize AX’s visual tools, especially when debugging nuanced model issues.</p>
+</li><li>Overwhelming feature set with steep learning curve
+<blockquote>"Arize AI is a fully unified AI/ML observability platform that provides a single 'pane of glass'...with intuitive dashboards and automated insights." <a href="#comment-web_294e68d703_q4" class="citation-ref">[3]</a></blockquote>
+<p>While comprehensive, the platform’s breadth can be daunting for new users, requiring time to master the tools and workflows.</p>
+</li><li>Monitoring and alerting require careful configuration to avoid noise
+<blockquote>"You can now set upper and lower bounds using our new auto threshold options!" <a href="#comment-web_bcc1cdea46_q2" class="citation-ref">[4]</a></blockquote>
+<p>Automated monitors are powerful but can generate excessive or irrelevant alerts if not fine-tuned, leading to alert fatigue or missed issues.</p>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge reddit">Reddit</span>
+                <span class="cited-source-body">Looks great - but what can the visual tell you about your data?</span>
+                
+                <a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/jkgl78n/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Today, Arize AI is a fully unified AI/ML observability platform that provides a single &#39;pane of glass&#39; for AI engineers to debug and monitor all their models with intuitive dashboards and automated in</span>
+                
+                <a href="https://www.adamsstreetpartners.com/insights/why-we-invested-in-arize-ai/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">You can now set upper and lower bounds using our new auto threshold options!</span>
+                
+                <a href="https://arize.com/blog/new-in-arize-ax-tags-data-fabric-automatic-threshold-ranges-for-monitors-and-more/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section" id="section-3">
+        <h2>Feature Requests</h2>
+        <p>Top 5 Features Users Wish Arize AX Had</p>
+
+<ol><li>Native support for custom or third-party annotation workflows
+<blockquote>"Would love a way to plug in our own annotation UI for domain-specific review." <a href="#comment-web_bcc1cdea46_q1" class="citation-ref">[1]</a></blockquote>
+</li><li>Real-time, sub-minute data synchronization with cloud warehouses
+<blockquote>"Data Fabric ... synchronizes ... every 60 minutes" — users request "near real-time" sync for more immediate analytics. <a href="#comment-web_bcc1cdea46_q1" class="citation-ref">[1]</a></blockquote>
+</li><li>Automated root cause analysis for model drift and data quality issues
+<blockquote>"Instantly surface up worst-performing slices of predictions" but lacks "automated root cause suggestions" for detected issues. <a href="#comment-web_c55a815c8b_q2" class="citation-ref">[2]</a></blockquote>
+</li><li>More granular, user-defined alerting logic (e.g., composite or chained conditions across models)
+<blockquote>"You can now set upper and lower bounds ... auto threshold options!" — but advanced users seek "cross-model or multi-metric alert triggers." <a href="#comment-web_bcc1cdea46_q2" class="citation-ref">[3]</a></blockquote>
+</li><li>Deeper integrations with popular data labeling and MLOps tools
+<blockquote>"Arize was one of the first ... to launch OTel-based LLM observability ... integrations" — requests for "plug-and-play connectors for major labeling tools" remain. <a href="#comment-web_3a11d4ce7b_q0" class="citation-ref">[4]</a></blockquote>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">We’re excited to introduce Data Fabric, a new capability that automatically synchronizes production trace data, evaluations, and annotations from Arize AX into your cloud data warehouse every 60 minut</span>
+                
+                <a href="https://arize.com/blog/new-in-arize-ax-tags-data-fabric-automatic-threshold-ranges-for-monitors-and-more/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Instantly surface up worst-performing slices of predictions with heatmaps that pinpoint problematic model features and values.</span>
+                
+                <a href="https://arize.com/ml-cv-observability" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">You can now set upper and lower bounds using our new auto threshold options!</span>
+                
+                <a href="https://arize.com/blog/new-in-arize-ax-tags-data-fabric-automatic-threshold-ranges-for-monitors-and-more/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AI is an AI observability and LLM evaluation platform built on OpenTelemetry standards, offering vendor-agnostic tracing from development through production.</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section" id="section-4">
+        <h2>Benefits &amp; Strengths</h2>
+        <p>Top 5 Benefits and Strengths of Arize AX</p>
+
+<ol><li>Industry-Leading Observability and Evaluation
+<p>Arize AX provides deep visibility and evaluation capabilities for AI agents and models, allowing teams to "assess the quality of each step in an agent’s process" and maintain reliability in production environments <a href="#comment-web_e30ad72d5c_q0" class="citation-ref">[1]</a>.</p>
+<blockquote>"Arize AX sets the standard for AI agent and evaluation, providing deep visibility into how agents reason, plan, and act" <a href="#comment-web_e30ad72d5c_q0" class="citation-ref">[1]</a></blockquote>
+</li><li>Vendor-Agnostic, OpenTelemetry-Based Integration
+<p>The platform is built on OpenTelemetry standards, enabling vendor-agnostic tracing and seamless integration into existing DevOps workflows without requiring a separate monitoring stack <a href="#comment-web_3a11d4ce7b_q0" class="citation-ref">[2]</a>.</p>
+<blockquote>"Arize AI is an AI observability and LLM evaluation platform built on OpenTelemetry standards, offering vendor-agnostic tracing" <a href="#comment-web_3a11d4ce7b_q0" class="citation-ref">[2]</a></blockquote>
+</li><li>Unified Platform for Development and Production
+<p>Arize AX connects AI development and production phases, giving teams a unified system to monitor, evaluate, and debug models throughout the AI lifecycle <a href="#comment-web_c15e5cb76e_q1" class="citation-ref">[3]</a>.</p>
+<blockquote>"You get a unified platform for AI development, evaluation, and monitoring." <a href="#comment-web_c15e5cb76e_q1" class="citation-ref">[3]</a></blockquote>
+</li><li>Scalable, Enterprise-Grade Performance
+<p>Arize AX supports large-scale operations, processing "1 trillion spans and runs 50+ million evaluations monthly" for major enterprise clients <a href="#comment-web_3a11d4ce7b_q1" class="citation-ref">[4]</a>.</p>
+<blockquote>"Arize processes 1 trillion spans and runs 50+ million evaluations monthly across customers including DoorDash, Instacart, Reddit, and Uber." <a href="#comment-web_3a11d4ce7b_q1" class="citation-ref">[4]</a></blockquote>
+</li><li>Automated Monitoring, Drift Detection, and Root Cause Analysis
+<p>The platform automatically surfaces data drift, model issues, and outliers, and provides tools to trace problems back to their source for rapid troubleshooting <a href="#comment-web_c55a815c8b_q1" class="citation-ref">[5]</a>.</p>
+<blockquote>"Automatically surface data drift or model issues, then trace problems back to the source." <a href="#comment-web_c55a815c8b_q1" class="citation-ref">[5]</a></blockquote>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AX is an AI observability and evaluation platform designed for enterprise use.</span>
+                
+                <a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AI is an AI observability and LLM evaluation platform built on OpenTelemetry standards, offering vendor-agnostic tracing from development through production.</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">You get a unified platform for AI development, evaluation, and monitoring.</span>
+                
+                <a href="https://aiagentslist.com/agents/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize processes 1 trillion spans and runs 50+ million evaluations monthly across customers including DoorDash, Instacart, Reddit, and Uber.</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Automatically surface data drift or model issues, then trace problems back to the source.</span>
+                
+                <a href="https://arize.com/ml-cv-observability" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section" id="section-5">
+        <h2>Competitors</h2>
+        
+<ol><li><a href="https://whylabs.ai" target="_blank">WhyLabs</a> – Focuses on automated data and model monitoring for both ML and LLM use cases, but is less tightly integrated with OpenTelemetry and lacks the deep trace-level and agent evaluation found in Arize AX <a href="#comment-web_294e68d703_q1" class="citation-ref">[1]</a>.
+</li><li><a href="https://fiddler.ai" target="_blank">Fiddler AI</a> – Competes in model monitoring and explainability, with strengths in bias detection and regulatory compliance, but does not offer the same breadth of LLM or agent observability as Arize AX <a href="#comment-web_294e68d703_q1" class="citation-ref">[1]</a>.
+</li><li><a href="https://evidentlyai.com" target="_blank">Evidently AI</a> – Open-source monitoring for data and ML models, popular for its customizable dashboards, though it is more focused on traditional ML than generative AI or agent workflows <a href="#comment-web_294e68d703_q1" class="citation-ref">[1]</a>.
+</li><li><a href="https://promptlayer.com" target="_blank">PromptLayer</a> – Specializes in LLM prompt tracking and analytics, but does not provide the unified, production-scale evaluation and monitoring across both ML and LLM/agent workloads that Arize AX enables <a href="#comment-web_c15e5cb76e_q0" class="citation-ref">[2]</a>.
+</li><li><a href="https://wandb.ai" target="_blank">Weights & Biases</a> – Offers experiment tracking and dataset management with strong ML lifecycle tooling, yet lacks the vendor-agnostic OpenTelemetry-based production tracing and agent-focused evaluation that distinguishes Arize AX <a href="#comment-web_294e68d703_q4" class="citation-ref">[3]</a>.
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Traditional observability solutions are designed to collect infrastructure-level metrics or application-level performance, but they lack the capabilities to provide visibility into the unique challeng</span>
+                
+                <a href="https://www.adamsstreetpartners.com/insights/why-we-invested-in-arize-ai/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[2]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">This platform is made for AI engineers and teams who build and manage machine learning and generative AI models or agents.</span>
+                
+                <a href="https://aiagentslist.com/agents/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Today, Arize AI is a fully unified AI/ML observability platform that provides a single &#39;pane of glass&#39; for AI engineers to debug and monitor all their models with intuitive dashboards and automated in</span>
+                
+                <a href="https://www.adamsstreetpartners.com/insights/why-we-invested-in-arize-ai/" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="pub-section" id="section-6">
+        <h2>Churn Analysis</h2>
+        <p>Top 5 reasons users stop using or switch away from Arize AX:</p>
+
+<ol><li>Complexity and Steep Learning Curve
+<p>Many users find the platform "made for AI engineers and teams who build and manage machine learning and generative AI models or agents" and not as approachable for less technical users <a href="#comment-web_c15e5cb76e_q0" class="citation-ref">[1]</a>.</p>
+</li><li>Integration and Data Ingestion Challenges
+<p>Users encounter issues ensuring their data is correctly ingested and mapped, with troubleshooting guides noting the need to "verify features and tags" and check for "missing values" or wrong data types <a href="#comment-arize.com" class="citation-ref">[2]</a>.</p>
+</li><li>Overlap with Existing DevOps/Monitoring Tools
+<p>Some organizations prefer platforms that "plug into existing DevOps infrastructure instead of requiring a separate monitoring stack," leading them to choose more integrated or familiar solutions <a href="#comment-web_3a11d4ce7b_q3" class="citation-ref">[3]</a>.</p>
+</li><li>Insufficient Value for Simpler or Smaller-Scale Use Cases
+<p>Teams with less complex monitoring needs or smaller ML operations may not benefit from Arize AX’s "enterprise-scale" features and may find it overkill <a href="#comment-web_e30ad72d5c_q0" class="citation-ref">[4]</a>.</p>
+</li><li>Preference for Open-Source or Alternative Solutions
+<p>Some users migrate to open-source frameworks like Phoenix or other prompt optimization tools, especially as Arize operates "across two layers of the AI stack: development-time experimentation (Phoenix) and production-scale monitoring (AX)" <a href="#comment-web_3a11d4ce7b_q2" class="citation-ref">[5]</a>.</p>
+</li></ol>
+        
+        <div class="pub-cited-sources">
+            <h4 class="cited-sources-heading">Sources</h4>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[1]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">This platform is made for AI engineers and teams who build and manage machine learning and generative AI models or agents.</span>
+                
+                <a href="https://aiagentslist.com/agents/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[3]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">OpenTelemetry is central to Arize’s architecture, allowing AI observability to plug into existing DevOps infrastructure instead of requiring a separate monitoring stack.</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[4]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize AX is an AI observability and evaluation platform designed for enterprise use.</span>
+                
+                <a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+            <div class="cited-source-item">
+                <span class="cited-source-num">[5]</span>
+                <span class="pub-source-badge web">Web</span>
+                <span class="cited-source-body">Arize operates across two layers of the AI stack: development-time experimentation (Phoenix) and production-scale monitoring (AX).</span>
+                
+                <a href="https://appsecsanta.com/arize-ai" target="_blank" class="cited-source-link">View &rarr;</a>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+
+</div>
+
+<div class="pub-comments-header" id="section-comments">
+    <h2>Top Comments</h2>
+    <p>Showing 50 of 175 comments collected</p>
+</div>
+
+
+<div class="pub-comment" id="comment-web_3a11d4ce7b_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">9/10 relevancy &middot; appsecsanta.com &middot; Apr 03, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://appsecsanta.com/arize-ai" target="_blank">Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</a></div>
+    
+    <div class="pub-comment-body">Arize processes 1 trillion spans and runs 50+ million evaluations monthly across customers including DoorDash, Instacart, Reddit, and Uber.</div>
+    
+    <div class="pub-comment-link"><a href="https://appsecsanta.com/arize-ai" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment gives specific metrics about Arize&#39;s processing capabilities and mentions notable customers, providing valuable context and insights into its effectiveness.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_3a11d4ce7b_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; appsecsanta.com &middot; Apr 03, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://appsecsanta.com/arize-ai" target="_blank">Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</a></div>
+    
+    <div class="pub-comment-body">Arize AI is an AI observability and LLM evaluation platform built on OpenTelemetry standards, offering vendor-agnostic tracing from development through production.</div>
+    
+    <div class="pub-comment-link"><a href="https://appsecsanta.com/arize-ai" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides a clear description of Arize AI as an observability platform and its standards, directly addressing the product and its relevance.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_3a11d4ce7b_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; appsecsanta.com &middot; Apr 03, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://appsecsanta.com/arize-ai" target="_blank">Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</a></div>
+    
+    <div class="pub-comment-body">Arize operates across two layers of the AI stack: development-time experimentation (Phoenix) and production-scale monitoring (AX).</div>
+    
+    <div class="pub-comment-link"><a href="https://appsecsanta.com/arize-ai" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment explains the operational layers of Arize, which is relevant and informative, but does not provide direct user experience or actionable advice.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_e30ad72d5c_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; awesomeaitools.com &middot; Aug 07, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</a></div>
+    
+    <div class="pub-comment-body">Arize AX is an AI observability and evaluation platform designed for enterprise use.</div>
+    
+    <div class="pub-comment-link"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes Arize AX as an AI observability platform, relevant and provides a clear overview of its purpose.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_e30ad72d5c_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; awesomeaitools.com &middot; Aug 07, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</a></div>
+    
+    <div class="pub-comment-body">It helps organizations build and manage AI applications more effectively by providing tools to monitor, evaluate, and debug AI models in real-world environments.</div>
+    
+    <div class="pub-comment-link"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Explains how Arize helps organizations manage AI applications, relevant and informative about its benefits.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_e30ad72d5c_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; awesomeaitools.com &middot; Aug 07, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</a></div>
+    
+    <div class="pub-comment-body">The platform supports large-scale operations, with metrics such as trillions of spans processed monthly and millions of evaluations.</div>
+    
+    <div class="pub-comment-link"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions large-scale operations and metrics, relevant and provides context about its capabilities.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_e30ad72d5c_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">Benefits</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; awesomeaitools.com &middot; Aug 07, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</a></div>
+    
+    <div class="pub-comment-body">Arize AX facilitates a data-driven approach to AI management, ensuring safety and performance at scale.</div>
+    
+    <div class="pub-comment-link"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes a data-driven approach to AI management, relevant and informative about its functionality.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_e30ad72d5c_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">8/10 relevancy &middot; awesomeaitools.com &middot; Aug 07, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</a></div>
+    
+    <div class="pub-comment-body">Common use cases for Arize AX include monitoring AI model performance in production for reliability and evaluating prompt effectiveness for generative AI.</div>
+    
+    <div class="pub-comment-link"><a href="https://awesomeaitools.com/ai-tool/wGej/arize-ax" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AX: AI Monitoring Tool &amp; Model Evaluation Platform | Awesome AI Tools</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Lists common use cases for Arize AX, relevant and provides practical insights into its applications.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_c15e5cb76e_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; aiagentslist.com &middot; Apr 04, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://aiagentslist.com/agents/arize-ai" target="_blank">Arize AI Review 2026 | AI Infrastructure &amp; MLOps Tool - Pricing &amp; Features</a></div>
+    
+    <div class="pub-comment-body">This includes tools for prompt optimization, automated evaluations, real-time dashboards, and tracing to quickly find and address performance problems like drift.</div>
+    
+    <div class="pub-comment-link"><a href="https://aiagentslist.com/agents/arize-ai" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AI Review 2026 | AI Infrastructure &amp; MLOps Tool - Pricing &amp; Features</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides specific features of the platform, including tools for prompt optimization and performance problem addressing, making it more actionable.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_3a11d4ce7b_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; appsecsanta.com &middot; Apr 03, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://appsecsanta.com/arize-ai" target="_blank">Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</a></div>
+    
+    <div class="pub-comment-body">OpenTelemetry is central to Arize’s architecture, allowing AI observability to plug into existing DevOps infrastructure instead of requiring a separate monitoring stack.</div>
+    
+    <div class="pub-comment-link"><a href="https://appsecsanta.com/arize-ai" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses OpenTelemetry&#39;s role in Arize&#39;s architecture, which is relevant but lacks personal experience or specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_3a11d4ce7b_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; appsecsanta.com &middot; Apr 03, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://appsecsanta.com/arize-ai" target="_blank">Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</a></div>
+    
+    <div class="pub-comment-body">Phoenix is the open-source core of Arize’s platform, capturing the full execution flow of LLM applications and following the OpenTelemetry standard.</div>
+    
+    <div class="pub-comment-link"><a href="https://appsecsanta.com/arize-ai" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize AI Review 2026: AI Observability &amp; LLM Evaluation Platform</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment describes Phoenix as the open-source core of Arize, which is relevant but does not provide user experience or actionable advice.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ea246655e7_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">ML FAQ - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Arize natively supports tabular/structured data types (strings, floats, booleans, etc), as well as embedding support for NLP, Image, and other unstructured data types.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> ML FAQ - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes Arize&#39;s support for various data types, relevant and provides useful context about its capabilities.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ea246655e7_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">ML FAQ - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Arize natively supports binary classification, multi-class classification, regression, ranking, NLP, and CV model types.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> ML FAQ - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions model types supported by Arize, relevant and informative about its functionality.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ea246655e7_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">ML FAQ - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Arize can surface outlier/anomalous data through: Data Quality checks and Drift checks.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> ML FAQ - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses how Arize can surface outlier data, relevant and provides insight into its features.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ea246655e7_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">ML FAQ - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Arize supports a comprehensive list of model performance metrics for both numeric and categorical model types.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> ML FAQ - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions performance metrics supported by Arize, relevant and informative about its capabilities.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ea246655e7_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">ML FAQ - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Arize drift detection can flag when categorical features see a % of unseen categories.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> ML FAQ - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses drift detection in Arize, relevant and provides useful information about its functionality.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_ea246655e7_q5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">7/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">ML FAQ - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Arize calculates drift metrics including Population Stability Index, KL Divergence, KS Statistic and JS Distance.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/machine-learning/machine-learning/how-to-ml/product" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> ML FAQ - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions specific drift metrics calculated by Arize, relevant and informative about its capabilities.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_294e68d703_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">6/10 relevancy &middot; adamsstreetpartners.com &middot; Feb 27, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.adamsstreetpartners.com/insights/why-we-invested-in-arize-ai/" target="_blank">Why We Invested in Arize AI – Unifying Observability for AI and ML | Adams Street Partners</a></div>
+    
+    <div class="pub-comment-body">Traditional observability solutions are designed to collect infrastructure-level metrics or application-level performance, but they lack the capabilities to provide visibility into the unique challenges of predictive ML and genAI models.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.adamsstreetpartners.com/insights/why-we-invested-in-arize-ai/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Why We Invested in Arize AI – Unifying Observability for AI and ML | Adams Street Partners</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses the limitations of traditional observability solutions in relation to Arize AI, providing some context but lacking specific user experiences.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_7f5db83fa4_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">6/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/cookbooks/prompt-learning/optimizing-coding-agent-prompts-for-execution" target="_blank">Optimizing Coding Agent Prompts for Execution - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">Prompt Learning is an algorithm developed by Arize AX to optimize prompts based on data.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/cookbooks/prompt-learning/optimizing-coding-agent-prompts-for-execution" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Optimizing Coding Agent Prompts for Execution - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions Prompt Learning as an algorithm developed by Arize AX, relevant but lacks detail on its application.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_7f5db83fa4_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">6/10 relevancy &middot; arize.com &middot; Jan 15, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://arize.com/docs/ax/cookbooks/prompt-learning/optimizing-coding-agent-prompts-for-execution" target="_blank">Optimizing Coding Agent Prompts for Execution - Arize AX Docs</a></div>
+    
+    <div class="pub-comment-body">We use Arize AX’s Experiments feature to track our Cline runs.</div>
+    
+    <div class="pub-comment-link"><a href="https://arize.com/docs/ax/cookbooks/prompt-learning/optimizing-coding-agent-prompts-for-execution" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Optimizing Coding Agent Prompts for Execution - Arize AX Docs</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 6/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions using Arize AX’s Experiments feature, relevant but lacks specific actionable insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltjvzvk">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">4/10 relevancy &middot; cleverquokka &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">&gt;The best product feedback isn&#39;t in interviews
+
+User interviews can be a gold mine of information you won&#39;t find through other sources, but as you&#39;ve discovered, they can also lead to red herrings. The key is getting past &#34;what&#34; users say they want and figure out &#34;why&#34; they want it (e.g. &#34;the 5 whys</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltjvzvk/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 4/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The comment discusses user interviews and the importance of understanding user needs, which is somewhat relevant but not specific to Arize AX.</div>
+            
+            
+            <div class="pub-comment-full-body">&gt;The best product feedback isn&#39;t in interviews
+
+User interviews can be a gold mine of information you won&#39;t find through other sources, but as you&#39;ve discovered, they can also lead to red herrings. The key is getting past &#34;what&#34; users say they want and figure out &#34;why&#34; they want it (e.g. &#34;the 5 whys&#34; technique).</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jkgl78n">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">4/10 relevancy &middot; scottybowl &middot; May 17, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/" target="_blank">Arize-phoenix, a new python library for LLMs and NNs that provides visual clustering analysis and model interpretability. Super useful. (# pip install arize-phoenix)</a></div>
+    
+    <div class="pub-comment-body">Looks great - but what can the visual tell you about your data?</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/jkgl78n/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize-phoenix, a new python library for LLMs and NNs that provides visual clustering analysis and model interpretability. Super useful. (# pip install arize-phoenix)</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 4/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The comment asks a question about the visual data representation but does not provide any substantive information about Arize AX itself.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltjnnhn">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">3/10 relevancy &middot; simokhounti &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Read &#34;job to be done framework&#34; could saved you that 40k</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltjnnhn/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 3/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment references a framework but does not provide actionable insights related to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jkgzj52">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">3/10 relevancy &middot; buttfook &middot; May 17, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/" target="_blank">Arize-phoenix, a new python library for LLMs and NNs that provides visual clustering analysis and model interpretability. Super useful. (# pip install arize-phoenix)</a></div>
+    
+    <div class="pub-comment-body">Very interested</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/jkgzj52/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize-phoenix, a new python library for LLMs and NNs that provides visual clustering analysis and model interpretability. Super useful. (# pip install arize-phoenix)</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 3/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment expresses interest but does not provide any information or insights about Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltx3cwl">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; iloveb2bleadgen &middot; Oct 26, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">This is a great example of zero-party data. Insights given willingly and directly by your audience. As part of our lead generation process, anyone that wants to download the client content that we’re distributing for the campaign, must first answer several qualifying questions. Whatever the client w</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltx3cwl/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses zero-party data but does not relate to Arize AX.</div>
+            
+            
+            <div class="pub-comment-full-body">This is a great example of zero-party data. Insights given willingly and directly by your audience. As part of our lead generation process, anyone that wants to download the client content that we’re distributing for the campaign, must first answer several qualifying questions. Whatever the client wants to know. Each prospect must also complete a contact form and opt in (VERY important). If they don’t do all of these things, they can’t download the content. Clients use the answers to the qualifying questions to fuel personalized follow ups and ongoing interactions. Very powerful stuff, and rare.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltpa0fg">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; semanser &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">I developed a tool last year to do **exactly** this. It was even [mentioned](https://x.com/ProductHunt/status/1700226262202200398) by the ProductHunt team on their official Twitter account.
+
+I&#39;ve been using it myself for almost a year now for my own startup and I&#39;m planning to re-launch it again in </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltpa0fg/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The comment discusses a tool developed by the author but does not mention Arize AX or provide relevant insights.</div>
+            
+            
+            <div class="pub-comment-full-body">I developed a tool last year to do **exactly** this. It was even [mentioned](https://x.com/ProductHunt/status/1700226262202200398) by the ProductHunt team on their official Twitter account.
+
+I&#39;ve been using it myself for almost a year now for my own startup and I&#39;m planning to re-launch it again in the upcoming weeks (including AI suggestions and more!). You can sign up for a waiting list for the 2.0 version here: [https://tally.so/r/3le1qB](https://tally.so/r/3le1qB)</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-lto0xgj">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; oalbrecht &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">This is really good. Saving this.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/lto0xgj/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment expresses appreciation but does not provide any relevant information about Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltnd0cv">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; Geminii27 &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Given that the LL account is only a few months old and has hardly any activity, as well as continually saying that they&#39;re the founder of their own software thing... **hmm**.
+
+Doesn&#39;t help that some of the subdomains for that other software site (including stuff linked to from the front page) aren&#39;t</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltnd0cv/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses the credibility of a user but does not relate to Arize AX.</div>
+            
+            
+            <div class="pub-comment-full-body">Given that the LL account is only a few months old and has hardly any activity, as well as continually saying that they&#39;re the founder of their own software thing... **hmm**.
+
+Doesn&#39;t help that some of the subdomains for that other software site (including stuff linked to from the front page) aren&#39;t resolving in DNS. Someone&#39;s not keeping an eye on their business.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltn5g7k">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; [deleted] &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">This is great n all but what results have you had since? That&#39;s the important part </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltn5g7k/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment asks about results but does not provide relevant information about Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltm499u">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; DanielShaww &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">&#34;If I asked my customers what they wanted they&#39;d have said faster horses.&#34; - Henry Ford</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltm499u/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This quote from Henry Ford is not relevant to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltlwr57">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; AffectBeneficial6638 &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Very good learning congratulations. I have faced  similar situations and actuallyI Just closed my last startup. I read an interesting book (4 steps to epiphany) which help me to understand different points. Next my learning after of failing 4 startups
+1. Sometimes the problem exist, the customer wan</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltlwr57/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment shares personal experiences with startups but does not mention Arize AX.</div>
+            
+            
+            <div class="pub-comment-full-body">Very good learning congratulations. I have faced  similar situations and actuallyI Just closed my last startup. I read an interesting book (4 steps to epiphany) which help me to understand different points. Next my learning after of failing 4 startups
+1. Sometimes the problem exist, the customer wants a solution, but they do not have enough money to buy a solution.
+2. The problem exis, the customer can pay and want to pay. But the solution is complex and reaching break even is Hard and you need capital to keep your business running.
+3.  Solution of two sides: one side faces the problem and wants to pay the solution, but the other side is Just comfortable with the current product, so there are no sells.
+4. There is a need, but it is not important, the product is New and the market is New, so noone understand the product and there are no sells.
+
+Currently I am thinking on studying a master and then retry another startup. It is Hard to work on something without results, but it is what it is.
+
+Good luck</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltle2m4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; usedaforc3 &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Most likely used google alerts.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltle2m4/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment suggests using Google Alerts, which is not relevant to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltkasa5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; marcusnelson &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">This is exactly why I was a cofounder for UserVoice. Rich and I met at a party and started chatting over beers as we were both struggling to guess what features our customers needed. Six months later, Rich called me and asked if I remembered him and our conversation. Of course I remembered. 
+
+He sai</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltkasa5/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment shares a personal story about co-founding UserVoice but does not relate to Arize AX.</div>
+            
+            
+            <div class="pub-comment-full-body">This is exactly why I was a cofounder for UserVoice. Rich and I met at a party and started chatting over beers as we were both struggling to guess what features our customers needed. Six months later, Rich called me and asked if I remembered him and our conversation. Of course I remembered. 
+
+He said, “I built it, will you help me design it?” And so, our startup began. 😊</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltk7nsc">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">Competitors</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; jpkdc &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">I heard BillyBuzz will also automatically AstroTurf conversations on Reddit to get people talking about your product, in case they are not already. It uses the best in generative AI to create authentic sounding real-world scenarios, then chimes in as fake users with testimonials on how your product </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltk7nsc/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The comment mentions a product (BillyBuzz) but does not relate to Arize AX or provide any relevant insights.</div>
+            
+            
+            <div class="pub-comment-full-body">I heard BillyBuzz will also automatically AstroTurf conversations on Reddit to get people talking about your product, in case they are not already. It uses the best in generative AI to create authentic sounding real-world scenarios, then chimes in as fake users with testimonials on how your product solves all these problems.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltk41eq">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; Tight-Nature6977 &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Before you find someone to write a line of code, you could &#34;build&#34; a product with screenshots or wireframes to get feedback and see if you&#39;re anywhere close to building something that people need . . . and will pay for.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltk41eq/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment suggests building a product with wireframes but does not mention Arize AX or provide relevant insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltk3bk2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; Sunir &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">I find whenever I&#39;m **telling** customers what they **should** do, I&#39;m in trouble. Have I screwed up like you have? Yes, and worse.
+
+I&#39;m a product person by nature, so sales is unnatural for me. However, to play to my strengths at doing user interviews, I have this set of magic 7 questions that help</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltk3bk2/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The comment discusses personal experiences in sales and user interviews but does not mention Arize AX or provide relevant information about it.</div>
+            
+            
+            <div class="pub-comment-full-body">I find whenever I&#39;m **telling** customers what they **should** do, I&#39;m in trouble. Have I screwed up like you have? Yes, and worse.
+
+I&#39;m a product person by nature, so sales is unnatural for me. However, to play to my strengths at doing user interviews, I have this set of magic 7 questions that help me get to the heart of the problem without presenting any opinions of my own how to solve something. The last question is critical. 
+
+What problem were you hoping to solve?
+
+What have you tried before?
+
+Why are you stuck?
+
+What is the consequence of not solving this problem?
+
+What would the results of an ideal solution look like?
+
+What more important problem can you work on once you no longer had to worry about this?
+
+Why wouldn&#39;t you buy a solution to this?</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltk1sez">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; marketerrr &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">It is, you can see the astroturf above.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltk1sez/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment refers to astroturfing but does not relate to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltk02mg">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; amvart &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">how you did those two:
+
+  
+1 Set up alerts for industry keywords
+
+2 Tracked competitor mentions</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltk02mg/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment is about setting up alerts and tracking competitors, which is not relevant to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltjxije">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; Chunky_Cheeze &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Hey, im the founder of BillyBuzz. Just got notified this and thought I&#39;d chime in and say that the categorization and something similar to the scoring system OP described is something that we are actively working on and will be releasing soon! Lots of good insights in this post :)</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltjxije/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> The founder of BillyBuzz comments on their product but does not mention Arize AX or provide relevant insights.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltjl046">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; blomhonung &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">I thought this was gonna end up being an ad for a saas you used to manage your conversations, the 3 steps in what you said next.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltjl046/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment speculates about an ad but does not relate to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jkhhvu1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">2/10 relevancy &middot; AdultAcneBoy &middot; May 17, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/" target="_blank">Arize-phoenix, a new python library for LLMs and NNs that provides visual clustering analysis and model interpretability. Super useful. (# pip install arize-phoenix)</a></div>
+    
+    <div class="pub-comment-body">What does it display exactly</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/aipromptprogramming/comments/13jnjof/arizephoenix_a_new_python_library_for_llms_and/jkhhvu1/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Arize-phoenix, a new python library for LLMs and NNs that provides visual clustering analysis and model interpretability. Super useful. (# pip install arize-phoenix)</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 2/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment is a question that does not contribute any useful information about Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-lts0iuq">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; wadaphunk &middot; Oct 26, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Look who’s selling shovels!</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/lts0iuq/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not address the topic of Arize AX at all.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltn9wd3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; JohannesSmith &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">Amazing product placement! Just WOW!</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltn9wd3/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not address the topic of Arize AX at all.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltn6jjm">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; PsychologyLivid5974 &middot; Oct 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">So money.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltn6jjm/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment is vague and does not provide any relevant information about Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltkamm8">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; emteedub &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">🤣 upvote for spotting, i wondered, you&#39;ve confirmed</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltkamm8/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This is a light-hearted comment with no relevance to Arize AX.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ltjuzm6">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; crispyguac &middot; Oct 24, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/" target="_blank">How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</a></div>
+    
+    <div class="pub-comment-body">No it&#39;s a consumer product within a particular niche</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/startups/comments/1gb7n1y/how_i_wasted_6_months_building_features_nobody/ltjuzm6/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How I wasted 6 months building features nobody wanted - and what I learned about really listening to customers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not address the topic of Arize AX at all.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jgurvx3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; Vegetable_Gear8129 &middot; Apr 19, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/" target="_blank">Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</a></div>
+    
+    <div class="pub-comment-body">Toast is excellent.  Server here, but also in-house tech geek for a five restaurant group.  I learn more everyday about the software.  I find it mostly intuitive, especially once you get a feel for the style of the programers.
+
+Ive been using toast as a server since August 2022.  I started at the re</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/jgurvx3/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not mention Arize AX or provide any useful information.</div>
+            
+            
+            <div class="pub-comment-full-body">Toast is excellent.  Server here, but also in-house tech geek for a five restaurant group.  I learn more everyday about the software.  I find it mostly intuitive, especially once you get a feel for the style of the programers.
+
+Ive been using toast as a server since August 2022.  I started at the restaurant about a week before Toast was going to be installed. (Four terminals, three handhelds, 4 receipt printers, two kitchen printers).  Co-workers were nervous about it. I offered to be there for install, and am now the go-to guy for anything toast related for all five restaurants.
+
+For tech support, I give them an A-. Which is extremely high. (Square gets D-)  The phone tree thing sucks when you call.  Whenever possible, email your question.  They get back to you very quickly, you can ask to be called if needed.  If it is a complex question, that email gets passed to the right person, then researched before they contact you back. 
+
+I would easily recommend Toast over Square, Cake or Aloha, the other POS&#39;s I am familiar with.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jgu6o2g">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; internetloser &middot; Apr 19, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/" target="_blank">Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</a></div>
+    
+    <div class="pub-comment-body">Not from Aloha but another legacy system when they had no solutions for us during the start of the pandemic, but my  friends restaurant that I helped open and went with toast from day one never missed a beat, and actually increased sales. There only solution for online ordering was for us to get ano</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/jgu6o2g/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not mention Arize AX or provide any useful information.</div>
+            
+            
+            <div class="pub-comment-full-body">Not from Aloha but another legacy system when they had no solutions for us during the start of the pandemic, but my  friends restaurant that I helped open and went with toast from day one never missed a beat, and actually increased sales. There only solution for online ordering was for us to get another cloud based POS that out CC processor offered, I said that&#39;s a great idea, and switched to toast. Having already had the experience with setting up the other restaurant the transition was easy for me. The biggest thing is to not skip the training, and read the manual, also get IT help or the onsite install if you don&#39;t have knowledge of that stuff, I think this can be the root of a lot of peoples issues.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jgr2r51">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; [deleted] &middot; Apr 18, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/" target="_blank">Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</a></div>
+    
+    <div class="pub-comment-body">We’ve had massive problems transitioning from Aloha to Toast. Mainly getting it to communicate with Ctuit-Radar. What inventory system are you using.</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/jgr2r51/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not mention Arize AX or provide any useful information.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jgqqau4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        <span class="pub-category-badge">General</span>
+        <span class="pub-comment-score">1/10 relevancy &middot; ooUseroo &middot; Apr 18, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/" target="_blank">Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</a></div>
+    
+    <div class="pub-comment-body">Depends on who you ask my friend. A lot of people who switched from legacy POS to Toast, love Toast. So, the answer to your question really depends on whether Toast is right for your Restaurant or not. If you’re willing to live with workarounds then definitely toast is a awesome product but if you/y</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/ToastPOS/comments/12ql0ax/thinking_about_switching_from_alohancr_to_toast/jgqqau4/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Thinking about switching from aloha/Ncr to toast. Has anyone else gone through this transition. Is toast user friendly?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 1/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Completely irrelevant, does not mention Arize AX or provide any useful information.</div>
+            
+            
+            <div class="pub-comment-full-body">Depends on who you ask my friend. A lot of people who switched from legacy POS to Toast, love Toast. So, the answer to your question really depends on whether Toast is right for your Restaurant or not. If you’re willing to live with workarounds then definitely toast is a awesome product but if you/your restaurant group nitpicks every little thing and expect Toast to do everything your legacy POS did, then it is not the perfect fit for you. 
+
+At last to answer your question, Toast is android based POS App and definitely user friendly. And works mostly with workarounds because it’s one size fits all kind of a deal. 
+
+Go to central.toasttab.com and watch few videos to see if that’s something you’d like</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+
+<footer class="pub-footer">
+    Generated by Research Assistant &middot; 2026-04-05
+</footer>
+
+</body>
+</html>

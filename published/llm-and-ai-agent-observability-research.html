@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM and AI Agent Observability — Research Summary</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: #1a1a1a;
+            background: #fff;
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* ===== Header ===== */
+        .pub-header { margin-bottom: 40px; border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; }
+        .pub-header h1 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+        .pub-meta { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
+        .pub-badge {
+            display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 2px 8px; border-radius: 4px;
+            background: #eff6ff; color: #2563eb; margin-bottom: 12px;
+        }
+
+        /* ===== Summary Sections ===== */
+        .pub-summaries { margin-bottom: 48px; }
+        .pub-section { margin-bottom: 32px; }
+        .pub-section h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #111; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px; }
+        .pub-section h3 { font-size: 17px; font-weight: 600; margin: 16px 0 8px; }
+        .pub-section h4 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+        .pub-section p { margin-bottom: 10px; }
+        .pub-section ul, .pub-section ol { padding-left: 24px; margin-bottom: 10px; }
+        .pub-section li { margin-bottom: 4px; }
+        .pub-section blockquote {
+            border-left: 3px solid #d1d5db; padding: 4px 12px; margin: 8px 0;
+            color: #4b5563; font-style: italic;
+        }
+        .pub-section a { color: #2563eb; text-decoration: none; }
+        .pub-section a:hover { text-decoration: underline; }
+        .pub-section .citation-ref {
+            font-size: 11px; vertical-align: super; color: #dc2626;
+            text-decoration: none; font-weight: 600; padding: 0 1px;
+        }
+        .pub-section .citation-ref:hover { text-decoration: underline; }
+
+        /* ===== Cited Sources per Section ===== */
+        .pub-cited-sources {
+            margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb;
+        }
+        .cited-sources-heading {
+            font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px;
+        }
+        .cited-source-item {
+            display: flex; align-items: baseline; gap: 8px;
+            font-size: 13px; line-height: 1.5; margin-bottom: 6px;
+            color: #4b5563;
+        }
+        .cited-source-num {
+            flex-shrink: 0; font-size: 12px; font-weight: 600; color: #dc2626;
+            min-width: 24px;
+        }
+        .cited-source-item .pub-source-badge { flex-shrink: 0; font-size: 10px; }
+        .cited-source-body {
+            flex: 1; overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+        .cited-source-link { flex-shrink: 0; font-size: 12px; color: #2563eb; text-decoration: none; }
+        .cited-source-link:hover { text-decoration: underline; }
+
+        /* ===== Comments Section ===== */
+        .pub-comments-header { margin-bottom: 20px; }
+        .pub-comments-header h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+        .pub-comments-header p { font-size: 14px; color: #6b7280; }
+
+        .pub-comment {
+            border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;
+            margin-bottom: 12px; background: #fafafa;
+        }
+        .pub-comment-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .pub-source-badge {
+            font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+            padding: 2px 6px; border-radius: 3px; color: #fff;
+        }
+        .pub-source-badge.reddit { background: #ff4500; }
+        .pub-source-badge.hackernews { background: #ff6600; }
+        .pub-source-badge.web { background: #059669; }
+        .pub-source-badge.reviews { background: #7c3aed; }
+        .pub-source-badge.producthunt { background: #da552f; }
+        .pub-category-badge {
+            font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 3px;
+            background: #f3f4f6; color: #374151;
+        }
+        .pub-comment-score { font-size: 12px; color: #6b7280; }
+        .pub-comment-thread { font-size: 12px; color: #6b7280; font-style: italic; margin-bottom: 4px; }
+        .pub-comment-thread a { color: #6b7280; text-decoration: none; }
+        .pub-comment-thread a:hover { color: #2563eb; text-decoration: underline; }
+        .pub-comment-body { font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+        .pub-comment-link { font-size: 12px; }
+        .pub-comment-link a { color: #2563eb; text-decoration: none; }
+        .pub-comment-link a:hover { text-decoration: underline; }
+
+        details { margin-top: 8px; }
+        details summary {
+            font-size: 12px; color: #6b7280; cursor: pointer; user-select: none;
+        }
+        details summary:hover { color: #374151; }
+        .pub-comment-details { margin-top: 8px; font-size: 13px; color: #4b5563; }
+        .pub-comment-details .detail-row { margin-bottom: 4px; }
+        .pub-comment-details .detail-label { font-weight: 600; color: #374151; }
+        .pub-comment-full-body {
+            margin-top: 8px; padding: 12px; background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        }
+
+        /* ===== Table of Contents ===== */
+        .pub-toc { margin-bottom: 36px; }
+        .pub-toc h2 { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+        .pub-toc ol { padding-left: 20px; margin: 0; }
+        .pub-toc li { margin-bottom: 4px; font-size: 14px; }
+        .pub-toc a { color: #2563eb; text-decoration: none; }
+        .pub-toc a:hover { text-decoration: underline; }
+
+        /* ===== Footer ===== */
+        .pub-footer {
+            margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+            font-size: 12px; color: #9ca3af; text-align: center;
+        }
+
+        /* ===== Comment anchor highlight ===== */
+        .pub-comment:target { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
+    </style>
+</head>
+<body>
+
+<header class="pub-header">
+    <div class="pub-badge">General Research</div>
+    <h1>LLM and AI Agent Observability</h1>
+    <p class="pub-meta">
+        88 threads and articles &middot;
+        858 comments scored &middot;
+        2026-04-03
+    </p>
+    <p class="pub-meta">Sources: Reddit, Hacker News, Web</p>
+</header>
+
+<nav class="pub-toc">
+    <h2>Table of Contents</h2>
+    <ol>
+    
+        <li><a href="#section-summary">Summary</a></li>
+    
+        <li><a href="#section-comments">Top Comments (50)</a></li>
+    </ol>
+</nav>
+
+<div class="pub-summaries">
+
+    <div class="pub-section" id="section-summary">
+        <h3>Key Takeaways</h3>
+
+<ul><li>Effective LLM and AI agent observability requires specialized monitoring, tracing, and evaluation beyond traditional software metrics, focusing on output quality, hallucinations, and prompt drift <a href="#comment-web_974ef7f49a_q0" class="citation-ref">[1]</a><a href="#comment-web_04758f124e_q3" class="citation-ref">[2]</a><a href="#comment-web_3199ef9087_q2" class="citation-ref">[3]</a>.
+</li><li>Leading open-source and commercial tools for LLM observability in 2026 include Confident AI, Langfuse, and OpenLLMetry, each offering features like trace visualization, real-time evaluation, and prompt management <a href="#comment-web_c9476101d9_q0" class="citation-ref">[4]</a><a href="#comment-l4wrmxp" class="citation-ref">[5]</a><a href="#comment-tomerf2" class="citation-ref">[6]</a>.
+</li><li>Real-world users request better support for prompt/version management, fine-grained evaluation metrics, and easier integration with existing observability stacks <a href="#comment-kix4ddd" class="citation-ref">[7]</a><a href="#comment-l4wu8kt" class="citation-ref">[8]</a><a href="#comment-l4wrmxp" class="citation-ref">[5]</a>.
+</li><li>Users highlight the need for automated detection of hallucinations and output errors, as manual review is impractical at production scale <a href="#comment-web_04758f124e_q3" class="citation-ref">[2]</a><a href="#comment-web_974ef7f49a_q3" class="citation-ref">[9]</a><a href="#comment-mdwpvpv" class="citation-ref">[10]</a>.
+</li><li>Feature requests include improved feedback loops, automated tagging of problematic outputs, and deeper integration with agent workflows for debugging and cost analysis <a href="#comment-l4wu8kt" class="citation-ref">[8]</a><a href="#comment-web_25db521f8f_q4" class="citation-ref">[11]</a>.
+</li></ul><h3>Issues and Feature Requests from Real Users</h3>
+<h4>Most Requested Features and Common Issues</h4>
+<p><strong>1. Prompt and Version Management</strong></p>
+
+<ul><li>Users struggle with prompt management, versioning, and tracking what works for each model:
+<blockquote>"I lose good versions all the time, or one that works better for one specific model... I often think about the need to version, test, tag, and rate prompts..." <a href="#comment-kix4ddd" class="citation-ref">[7]</a></blockquote>
+</li><li>Feature requests center on easier prompt versioning, tagging, and A/B testing capabilities.
+<p><strong>2. Real-Time Monitoring and Traceability</strong></p>
+</li><li>Monitoring every LLM call, visualizing agent traces, and surfacing interim steps are seen as invaluable for debugging and evaluation:
+<blockquote>"We can see an entire chat session in the UI, deep dive into Agentic & Rag traces... See any manual human feedback or automated evaluations on each response..." <a href="#comment-l4wu8kt" class="citation-ref">[8]</a></blockquote>
+</li><li>Users want better tools for visualizing tool calls, handoffs, and decision branches in agent workflows <a href="#comment-web_25db521f8f_q0" class="citation-ref">[12]</a>.
+<p><strong>3. Output Quality Evaluation and Hallucination Detection</strong></p>
+</li><li>There is strong demand for automated evaluation of LLM outputs, including scoring, drift detection, and hallucination alerts:
+<blockquote>"They score outputs, alert on quality degradation, detect drift across prompts and use cases, and feed production insights back into the development cycle." <a href="#comment-web_c9476101d9_q3" class="citation-ref">[13]</a></blockquote>
+</li><li>Users note that traditional observability (e.g., error logs, latency) is insufficient for LLMs, as "an LLM endpoint returning a 200 status code with a hallucinated response is indistinguishable from one returning an accurate and useful answer" <a href="#comment-web_04758f124e_q5" class="citation-ref">[14]</a>.
+<p><strong>4. Integration with Existing Observability Tools</strong></p>
+</li><li>Real-world users request that LLM observability integrate with their existing stacks (e.g., Datadog, OpenTelemetry):
+<blockquote>"Why should it be different when the app you’re building happens to be using LLMs?... OpenLLMetry-JS... provides traces and metrics for LLM JS/TS applications and can be connected to any of the 15+ tools that already support OpenTelemetry." <a href="#comment-tomerf2" class="citation-ref">[6]</a></blockquote>
+</li><li>This allows teams to leverage familiar dashboards and alerting infrastructure.
+<p><strong>5. Automated Feedback Loops and Dataset Curation</strong></p>
+</li><li>Users want observability systems to automatically curate evaluation datasets from production traces, tag problematic outputs, and support feedback into model or prompt iteration:
+<blockquote>"Production traces automatically curate into eval datasets — filtered, tagged, and ready for your next regression cycle." <a href="#comment-web_25db521f8f_q4" class="citation-ref">[11]</a></blockquote>
+<p><strong>6. Cost and Performance Analysis</strong></p>
+</li><li>There is a need to correlate output quality with cost and performance metrics, to optimize both reliability and spend:
+<blockquote>"We can directly see the cost impacts of a new prompt, and the cost of specific APIs and sub components." <a href="#comment-l4wu8kt" class="citation-ref">[8]</a></blockquote>
+</li></ul><h4>Tool-Specific Feedback</h4>
+
+<ul><li><strong>Langfuse</strong> is praised for being free, open source, and easy to deploy, with strong prompt management and monitoring features:
+<blockquote>"I'm big on recommending it... Does what most cash grab LLMOps SaaS platforms do, and better, and it's FOSS." <a href="#comment-l4wrmxp" class="citation-ref">[5]</a></blockquote>
+</li><li><strong>Confident AI</strong> is cited as providing comprehensive evaluation with 50+ metrics, automated drift detection, and actionable alerts <a href="#comment-web_c9476101d9_q0" class="citation-ref">[4]</a><a href="#comment-web_c9476101d9_q3" class="citation-ref">[13]</a>.
+</li><li><strong>OpenLLMetry</strong> is valued for its compatibility with standard observability tools and support for multiple languages (Python, Node.js) <a href="#comment-tomerf2" class="citation-ref">[6]</a>.
+</li></ul><h4>Observed Gaps and Pain Points</h4>
+
+<ul><li>Manual review and validation of LLM outputs does not scale, especially for hallucination detection <a href="#comment-web_04758f124e_q3" class="citation-ref">[2]</a><a href="#comment-mdwpvpv" class="citation-ref">[10]</a>.
+</li><li>Traditional observability tools do not address the unique challenges of LLMs, such as silent failures and quality drift <a href="#comment-web_04758f124e_q5" class="citation-ref">[14]</a><a href="#comment-web_3199ef9087_q2" class="citation-ref">[3]</a>.
+</li><li>Users want more actionable insights, not just raw traces or logs.
+</li></ul><h3>Conclusion</h3>
+<p>Real users of LLM and AI agent observability tools most frequently request better prompt/version management, automated output evaluation (especially for hallucination detection), and seamless integration with existing observability platforms. They highlight the need for deeper traceability, feedback loops, and cost analysis—features that go beyond standard monitoring. Open-source tools like Langfuse and OpenLLMetry are well received for their ease of use and integration, while commercial solutions like Confident AI are noted for advanced evaluation metrics. The consensus is that high-quality, automated observability is critical for reliable LLM deployment, and users are looking for tools that bridge the gap between monitoring and actionable quality evaluation.</p>
+
+    </div>
+
+</div>
+
+<div class="pub-comments-header" id="section-comments">
+    <h2>Top Comments</h2>
+    <p>Showing 50 of 858 comments collected</p>
+</div>
+
+
+<div class="pub-comment" id="comment-obbg8yt">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; DataCamp &middot; Mar 19, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/learnmachinelearning/comments/1ry00uq/from_prompt_engineer_very_basic_coding_to_aillm/" target="_blank">From Prompt Engineer (very basic coding) to AI/LLM Engineer — looking for a realistic learning path</a></div>
+    
+    <div class="pub-comment-body">First, get your Python solid enough to build real services. Not just syntax, but writing small APIs, handling requests, structuring code, async basics. Build a simple FastAPI app and actually deploy it.
+
+At the same time, pick up SQL + databases. Nothing fancy, just being comfortable querying, stori</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/learnmachinelearning/comments/1ry00uq/from_prompt_engineer_very_basic_coding_to_aillm/obbg8yt/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> From Prompt Engineer (very basic coding) to AI/LLM Engineer — looking for a realistic learning path</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses the research question with specific, actionable advice on building AI services and observability.</div>
+            
+            
+            <div class="pub-comment-full-body">First, get your Python solid enough to build real services. Not just syntax, but writing small APIs, handling requests, structuring code, async basics. Build a simple FastAPI app and actually deploy it.
+
+At the same time, pick up SQL + databases. Nothing fancy, just being comfortable querying, storing data, and connecting it to your app.
+
+Then move into building a proper RAG system end-to-end yourself. Not just prompting, but ingestion → chunking → embeddings → vector DB → retrieval → reranking → serving via an API. You’re already close here, just need to own the full pipeline.
+
+After that, focus on evaluation and production thinking. Things like test sets, tracking outputs, catching regressions, basic monitoring. This is what really separates “prompt work” from engineering.
+
+Docker and deployment can come alongside this, not before.
+
+For projects, something like:
+
+* a production-style RAG app with evaluation (e.g. customer support assistant with test cases)
+* a small LLM service with FastAPI + logging + monitoring
+* comparing retrieval strategies or reranking approaches
+
+Big thing we’d stress: don’t over-study. You already have context, so just keep building slightly more “complete” systems each time.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-o4w2aw1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; National-Nail-6502 &middot; Feb 11, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/" target="_blank">We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</a></div>
+    
+    <div class="pub-comment-body">Not exactly — summaries tell you what the AI said.
+
+We’re focused on proving what it actually did and why, in a way you can verify later.
+
+So instead of just logs or traces, we’re recording:
+– inputs + context
+– tool calls/actions taken
+– outputs + decisions
+– approvals (human vs agent)
+– and genera</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/o4w2aw1/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Details the focus on proving AI actions and context, providing a clear approach to observability with specific elements to record.</div>
+            
+            
+            <div class="pub-comment-full-body">Not exactly — summaries tell you what the AI said.
+
+We’re focused on proving what it actually did and why, in a way you can verify later.
+
+So instead of just logs or traces, we’re recording:
+– inputs + context
+– tool calls/actions taken
+– outputs + decisions
+– approvals (human vs agent)
+– and generating an exportable evidence pack from that run
+
+Idea is: if something goes wrong later (client dispute, audit, regulator, internal review), you can reconstruct and prove what happened rather than just reading logs and hoping they’re trusted.
+
+Still early — mostly validating with people shipping real systems.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-o4w1tfb">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; National-Nail-6502 &middot; Feb 11, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/" target="_blank">We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</a></div>
+    
+    <div class="pub-comment-body">Fair push — and yeah we actually do have a live working demo + docs now.
+
+Was trying not to spam links while still validating whether people even care about the problem first.
+
+If you’re curious from a real infra perspective:
+
+We’re recording inputs, outputs, tool calls, approvals, and generating ex</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/o4w1tfb/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes a working demo and documentation for recording AI actions, directly addressing observability with actionable insights.</div>
+            
+            
+            <div class="pub-comment-full-body">Fair push — and yeah we actually do have a live working demo + docs now.
+
+Was trying not to spam links while still validating whether people even care about the problem first.
+
+If you’re curious from a real infra perspective:
+
+We’re recording inputs, outputs, tool calls, approvals, and generating exportable evidence packs you can hand to clients/auditors if something goes wrong later.
+
+Early beta but functional.
+
+Happy to share the demo/docs if you want to take a proper look and tear it apart.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nqjkxcj">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">10/10 relevancy &middot; _juliettech &middot; Nov 24, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1cvwohz/d_are_llm_observability_tools_really_used_in/" target="_blank">[D] Are LLM observability tools really used in startups and companies?</a></div>
+    
+    <div class="pub-comment-body">Hey u/Michakrak ! For full transparency, I lead DevRel at Helicone (helicone.ai). I share this, because our prompt management feature actually does exactly that. 
+
+You have prompt versioning, and you can experiment with prompts in your dashboard&#39;s sandbox, then pick the one you want to host and unde</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1cvwohz/d_are_llm_observability_tools_really_used_in/nqjkxcj/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] Are LLM observability tools really used in startups and companies?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 10/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses the question about handling different prompting formats and provides specific details about a tool&#39;s features.</div>
+            
+            
+            <div class="pub-comment-full-body">Hey u/Michakrak ! For full transparency, I lead DevRel at Helicone (helicone.ai). I share this, because our prompt management feature actually does exactly that. 
+
+You have prompt versioning, and you can experiment with prompts in your dashboard&#39;s sandbox, then pick the one you want to host and under which environment, and pass the \`promptID\` alongside your request so you always use the one you&#39;ve defined in your dashboard. Great for teams running different prompt versions across environments.
+
+We&#39;re also fully open sourced and have an embedded observability tool built in by default  so you can trace requests/responses from each prompt and compare!   
+  
+Hope it&#39;s helpful!</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-ocwq5am">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; GenePoolPartyDJ &middot; Mar 28, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1s5jpgz/r_controlled_experiment_giving_an_llm_agent/" target="_blank">[R] Controlled experiment: giving an LLM agent access to CS papers during automated hyperparameter search improves results by 3.2%</a></div>
+    
+    <div class="pub-comment-body">Enterly new techniques beyond the space of hyperparameters? What does that even mean </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1s5jpgz/r_controlled_experiment_giving_an_llm_agent/ocwq5am/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [R] Controlled experiment: giving an LLM agent access to CS papers during automated hyperparameter search improves results by 3.2%</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses the topic of observability in AI agents with a relevant question, indicating a deeper understanding of the subject.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-o4w0rqt">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; National-Nail-6502 &middot; Feb 11, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/" target="_blank">We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</a></div>
+    
+    <div class="pub-comment-body">Fair take — and honestly that’s the first reaction most people have.
+
+Traditional audit/compliance logging works well for system events, infra changes, and access trails.
+Where we kept hitting friction was proving AI decision context externally — not just that something ran, but:
+
+– what inputs were</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/o4w0rqt/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides specific insights into traditional audit/compliance logging and the challenges of AI decision context, directly relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">Fair take — and honestly that’s the first reaction most people have.
+
+Traditional audit/compliance logging works well for system events, infra changes, and access trails.
+Where we kept hitting friction was proving AI decision context externally — not just that something ran, but:
+
+– what inputs were used
+– what the model returned
+– what tools/actions were triggered
+– what the system was allowed to do at that moment
+– and being able to export that as a defensible record
+
+Most existing logging stacks are great for internal observability, but not really designed for packaging verifiable evidence you can hand to a client, regulator, or legal team.
+
+Still early though — part of why I’m sharing here is to sanity-check whether this becomes a real gap as agent usage moves closer to production.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_974ef7f49a_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; honeycomb.io &middot; Oct 28, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.honeycomb.io/resources/getting-started/what-is-llm-observability" target="_blank">What Is LLM Observability and Monitoring?</a></div>
+    
+    <div class="pub-comment-body">LLM observability is the discipline of monitoring, tracing, and analyzing every stage of using an LLM in production to understand not just if something is wrong, but why, where, and how to fix or improve it.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.honeycomb.io/resources/getting-started/what-is-llm-observability" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> What Is LLM Observability and Monitoring?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides a clear definition of LLM observability and its importance, directly addressing the research question.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nljdfb6">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; daedalus_structure &middot; Oct 26, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1ogo5by/our_sredevops_tools_monitor_system_health_but_how/" target="_blank">Our SRE/DevOps tools monitor system health, but how do we monitor AI &#39;cognitive health&#39;?</a></div>
+    
+    <div class="pub-comment-body">You can&#39;t. 
+
+It&#39;s a non-deterministic black box where past results aren&#39;t in any way indicative of the next result, and it exposes no metrics or observability of any kind. 
+
+The best you can do is monitor it and track deviations or issues which could affect safety. 
+
+This has all been adopted in alp</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1ogo5by/our_sredevops_tools_monitor_system_health_but_how/nljdfb6/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Our SRE/DevOps tools monitor system health, but how do we monitor AI &#39;cognitive health&#39;?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly addresses the challenges of LLM observability with specific insights.</div>
+            
+            
+            <div class="pub-comment-full-body">You can&#39;t. 
+
+It&#39;s a non-deterministic black box where past results aren&#39;t in any way indicative of the next result, and it exposes no metrics or observability of any kind. 
+
+The best you can do is monitor it and track deviations or issues which could affect safety. 
+
+This has all been adopted in alpha as capital rushes to replace workers.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_45401402">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; armank-dev &middot; Sep 28, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=45398467" target="_blank">LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</a></div>
+    
+    <div class="pub-comment-body">I really like the idea of building on top of OTel in this space because it gives you a lot more than just &amp;quot;LLM Observability&amp;quot;. More specifically, it&amp;#x27;s a lot easier to get observability on your entire agent (rather than just LLM calls).&lt;p&gt;I&amp;#x27;m working on a tool to track semantic fa</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=45401402" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses building on OTel for observability in LLMs, providing specific details about a tool being developed.</div>
+            
+            
+            <div class="pub-comment-full-body">I really like the idea of building on top of OTel in this space because it gives you a lot more than just &amp;quot;LLM Observability&amp;quot;. More specifically, it&amp;#x27;s a lot easier to get observability on your entire agent (rather than just LLM calls).&lt;p&gt;I&amp;#x27;m working on a tool to track semantic failures (e.g. hallucination, calling the wrong tools, etc.). We purposefully chose to build on top of Vercel&amp;#x27;s AI SDK because of its OTel integration. It takes literally 10 lines of code to start collecting all of the LLM-related spans and run analyses on them.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_40194248">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; kakaly0403 &middot; Apr 29, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=40167461" target="_blank">Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</a></div>
+    
+    <div class="pub-comment-body">Langtrace core maintainer here. We capture input&amp;#x2F;output&amp;#x2F;total tokens for both streaming and non streaming across various LLM providers. For streaming we calculate using tiktoken library as OpenAI does not show that with their outputs. Cost is calculated on the client side as it may keep ch</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=40194248" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides specific information about Langtrace, an observability tool for LLMs, detailing how it captures input/output and token usage across various LLM providers. It directly addresses the topic of LLM observability.</div>
+            
+            
+            <div class="pub-comment-full-body">Langtrace core maintainer here. We capture input&amp;#x2F;output&amp;#x2F;total tokens for both streaming and non streaming across various LLM providers. For streaming we calculate using tiktoken library as OpenAI does not show that with their outputs. Cost is calculated on the client side as it may keep changing. But all you need is the cost table for the llm vendor and you can get the cost for token usage</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_40193167">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; kakaly0403 &middot; Apr 29, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=40167461" target="_blank">Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</a></div>
+    
+    <div class="pub-comment-body">Shameless plug. We are building exactly this. Fully open source and open telemetry standard tracing with a visualization client that’s optimized for LLM application observability. Check it out here&lt;p&gt;- &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.co</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=40193167" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Directly states they are building an open-source observability tool for LLMs, providing a concrete project link and relevance.</div>
+            
+            
+            <div class="pub-comment-full-body">Shameless plug. We are building exactly this. Fully open source and open telemetry standard tracing with a visualization client that’s optimized for LLM application observability. Check it out here&lt;p&gt;- &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&lt;/a&gt;
+- &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;langtrace.ai&amp;#x2F;&#34; rel=&#34;nofollow&#34;&gt;https:&amp;#x2F;&amp;#x2F;langtrace.ai&amp;#x2F;&lt;/a&gt;</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_40159163">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; kakaly0403 &middot; Apr 25, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=40159162" target="_blank">Show HN: Langtrace – OpenTelemetry-Based Client &amp; SDK for LLM App Observability</a></div>
+    
+    <div class="pub-comment-body">Hey HN,&lt;p&gt;Ola and Karthik here. We are working on Langtrace (&lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&lt;/a&gt;), an open source, open telemetry based SDK and monitoring&amp;#x2F;evaluations client for LLM based applica</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=40159163" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: Langtrace – OpenTelemetry-Based Client &amp; SDK for LLM App Observability</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment describes Langtrace, an open-source SDK for LLM applications, detailing its functionality and relevance to observability, making it highly relevant.</div>
+            
+            
+            <div class="pub-comment-full-body">Hey HN,&lt;p&gt;Ola and Karthik here. We are working on Langtrace (&lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&lt;/a&gt;), an open source, open telemetry based SDK and monitoring&amp;#x2F;evaluations client for LLM based applications. The SDK generates OTEL standard spans and traces for popular LLMs like OpenAI, Anthropic and Cohere, popular frameworks like Langchain and LlamaIndex and vectorDBs like ChromaDB and Pinecone.&lt;p&gt;The LLM monitoring&amp;#x2F;evaluations space has seen a number of products off late, both open source and closed source ones. However, a couple of things we have observed are: lack of standard spans and traces that creates vendor lock-in, different tools are optimized for solving different pain points - Evaluations, Prompt management, Datasets, etc.&lt;p&gt;We believe that adopting OpenTelemetry (OTEL) standard tracing not only allows teams to use the SDK without having to switch their observability client, but will also enable developers to develop tooling for any custom needs, such as capturing datasets, prompts, evaluations etc.&lt;p&gt;A note on what we have built so far:&lt;p&gt;[1] We have a Python and a TypeScript SDK and we have broken down the support for the LLM layer into 3 groups, LLMs, Frameworks and VectorDBs. Our SDKs are open telemetry compatible, can be installed and used independently and we also provide an option to pass custom exporters to export the traces and spans to any observability tool of your choice.&lt;p&gt;[2] An observability client that is hyper optimized for solving the unique pain points and challenges that come with LLM based apps like Evaluations, prompt iteration, datasets etc. We are SOC2 compliant and the client can also be self hosted if you have strict data privacy and protection requirements.&lt;p&gt;[3] Both the SDK and the client are fully open source. We are leaning on the community to try it out and provide us with feedback. A note about OpenTelemetry semantic conventions for LLMs - we would like to converge on standard names for trace attributes that follow the OTEL rules and are looking for feedback from experts here - &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&amp;#x2F;discussions&amp;#x2F;71&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&amp;#x2F;discussions&amp;#x2F;71&lt;/a&gt;&lt;p&gt;We recognize that this project is early and there is a lot of room for improvement. We would love to hear your thoughts and feedback. Thanks!&lt;p&gt;Links:&lt;p&gt;[1] &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;langtrace.ai&amp;#x2F;&#34; rel=&#34;nofollow&#34;&gt;https:&amp;#x2F;&amp;#x2F;langtrace.ai&amp;#x2F;&lt;/a&gt;
+[2] &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;Scale3-Labs&amp;#x2F;langtrace&lt;/a&gt;
+[3] &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;docs.langtrace.ai&amp;#x2F;introduction&#34; rel=&#34;nofollow&#34;&gt;https:&amp;#x2F;&amp;#x2F;docs.langtrace.ai&amp;#x2F;introduction&lt;/a&gt;
+[4] &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;langtrace.ai&amp;#x2F;blog&amp;#x2F;why-you-need-opentelemetry-based-observability-for-your-ai-apps&#34; rel=&#34;nofollow&#34;&gt;https:&amp;#x2F;&amp;#x2F;langtrace.ai&amp;#x2F;blog&amp;#x2F;why-you-need-opentelemetry-based-o...&lt;/a&gt;</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l0r7ojs">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">9/10 relevancy &middot; danielhanchen &middot; Apr 22, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1cad7kk/d_llama3_may_have_just_killed_proprietary_ai/" target="_blank">[D] Llama-3 may have just killed proprietary AI models</a></div>
+    
+    <div class="pub-comment-body">On the topic of Llama-3, if anyone wants to experiment with Llama-3 8b in a free Colab, [Unsloth](https://github.com/unslothai/unsloth) makes finetuning 2x faster and use 63% less VRAM. Inference is also 2x faster. [https://colab.research.google.com/drive/135ced7oHytdxu3N2DNe1Z0kqjyYIkDXp?usp=sharin</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1cad7kk/d_llama3_may_have_just_killed_proprietary_ai/l0r7ojs/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] Llama-3 may have just killed proprietary AI models</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 9/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides specific information about Llama-3 and tools for fine-tuning, which is directly relevant to observability in LLMs.</div>
+            
+            
+            <div class="pub-comment-full-body">On the topic of Llama-3, if anyone wants to experiment with Llama-3 8b in a free Colab, [Unsloth](https://github.com/unslothai/unsloth) makes finetuning 2x faster and use 63% less VRAM. Inference is also 2x faster. [https://colab.research.google.com/drive/135ced7oHytdxu3N2DNe1Z0kqjyYIkDXp?usp=sharing](https://colab.research.google.com/drive/135ced7oHytdxu3N2DNe1Z0kqjyYIkDXp?usp=sharing)
+
+For 30 hours for free per week, I also made a Kaggle notebook: [https://www.kaggle.com/code/danielhanchen/kaggle-llama-3-8b-unsloth-notebook](https://www.kaggle.com/code/danielhanchen/kaggle-llama-3-8b-unsloth-notebook)
+
+Also Llama-3 70b can fit comfortably in a 48GB card with 7.6K context lengths bsz=1, and 80GB cards can fit 48K context lengths (6x longer than Flash Attention 2 + HF)</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_04758f124e_q0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; techaheadcorp.com &middot; Apr 02, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.techaheadcorp.com/blog/llm-observability-key-metrics-tools/" target="_blank">How to Build LLM Observability Into Enterprise AI Systems: Architecture, Metrics &amp; Tools | TechAhead</a></div>
+    
+    <div class="pub-comment-body">Without observability, most LLM systems remain stuck in pilot mode, unable to transition into reliable production systems.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.techaheadcorp.com/blog/llm-observability-key-metrics-tools/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How to Build LLM Observability Into Enterprise AI Systems: Architecture, Metrics &amp; Tools | TechAhead</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment highlights the critical role of observability in transitioning LLM systems to reliable production, directly addressing the topic.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_04758f124e_q3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; techaheadcorp.com &middot; Apr 02, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.techaheadcorp.com/blog/llm-observability-key-metrics-tools/" target="_blank">How to Build LLM Observability Into Enterprise AI Systems: Architecture, Metrics &amp; Tools | TechAhead</a></div>
+    
+    <div class="pub-comment-body">Observability introduces the evaluation layer required to detect and correct these failures before they scale.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.techaheadcorp.com/blog/llm-observability-key-metrics-tools/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How to Build LLM Observability Into Enterprise AI Systems: Architecture, Metrics &amp; Tools | TechAhead</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> It emphasizes the need for observability to detect and correct failures, providing a useful perspective on the topic.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-obccwyx">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; Select_Flatworm8668 &middot; Mar 19, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/learnmachinelearning/comments/1ry00uq/from_prompt_engineer_very_basic_coding_to_aillm/" target="_blank">From Prompt Engineer (very basic coding) to AI/LLM Engineer — looking for a realistic learning path</a></div>
+    
+    <div class="pub-comment-body">This is exactly the kind of structured advice I was hoping for. Thank you. </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/learnmachinelearning/comments/1ry00uq/from_prompt_engineer_very_basic_coding_to_aillm/obccwyx/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> From Prompt Engineer (very basic coding) to AI/LLM Engineer — looking for a realistic learning path</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Expresses appreciation for structured advice, relevant to the topic of observability in AI.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-o4w37n0">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; National-Nail-6502 &middot; Feb 11, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/" target="_blank">We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</a></div>
+    
+    <div class="pub-comment-body">
+definitely not vibe-coded  — been in infra/dev/devops world for about 11 years and this came out of seeing the same “what actually happened?” problem pop up once AI started touching real systems
+
+it’s still early and a bit rough which is why I’m posting here instead of doing some polished launch po</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1r2d0nr/we_built_a_way_to_generate_verifiable_evidence/o4w37n0/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> We built a way to generate verifiable evidence for every AI action — looking for serious beta testers</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Shares personal experience with AI in infrastructure, discussing the need for understanding what happened in AI systems, relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">
+definitely not vibe-coded  — been in infra/dev/devops world for about 11 years and this came out of seeing the same “what actually happened?” problem pop up once AI started touching real systems
+
+it’s still early and a bit rough which is why I’m posting here instead of doing some polished launch post. just trying to get feedback from people actually shipping things before it hardens into something real
+
+if it solves a real problem it’ll stick. if it doesn’t, it dies. that’s basically the experiment</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nmy4xg7">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; drc1728 &middot; Nov 03, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1ohf70t/debugging_llm_apps_in_production_was_harder_than/" target="_blank">Debugging LLM apps in production was harder than expected</a></div>
+    
+    <div class="pub-comment-body">Exactly! What you’re doing is taking observability from passive monitoring to active control. Versioning everything and gating deployments on key metrics turns regressions into a non-event. Layering in model/prompt/gateway/dataset tagging lets you cohort traffic, measure retrieval quality, context u</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1ohf70t/debugging_llm_apps_in_production_was_harder_than/nmy4xg7/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Debugging LLM apps in production was harder than expected</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses active control in observability and the importance of versioning and tagging, relevant to the topic.</div>
+            
+            
+            <div class="pub-comment-full-body">Exactly! What you’re doing is taking observability from passive monitoring to active control. Versioning everything and gating deployments on key metrics turns regressions into a non-event. Layering in model/prompt/gateway/dataset tagging lets you cohort traffic, measure retrieval quality, context usage, and reranker performance, and catch drift before it reaches production.
+
+Golden sets and offline pairwise evaluations (Ragas + groundedness checks) are critical for edge cases. Shipping behind feature flags with 5–10% traffic and auto-rollback on p95 latency, cost, or success ensures safe rollout. Chaos-testing tools and enforcing JSON schemas with retries/backoffs adds resilience.
+
+Propagating Langfuse trace IDs through OTel into app and gateway logs means every trace joins cleanly in Grafana/Datadog. CoAgent then tracks retrieval drift and agent outcomes over time. Using Kong/FastAPI for auth and DreamFactory for quick REST layers over legacy SQL gives stable agent contracts.
+
+The takeaway: observability becomes policy-driven, actionable, and production-ready, no guesswork, just measurable reliability.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nmov7a6">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; Lords3 &middot; Nov 02, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1ohf70t/debugging_llm_apps_in_production_was_harder_than/" target="_blank">Debugging LLM apps in production was harder than expected</a></div>
+    
+    <div class="pub-comment-body">Make traces actionable: version everything and gate deploys on a handful of metrics so regressions can’t slip through.
+
+Your layered setup is solid; the next wins come from policy and cohorts. Tag every run with model, prompt version, gateway route, and dataset version. Track retrieval hit rate, rer</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1ohf70t/debugging_llm_apps_in_production_was_harder_than/nmov7a6/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Debugging LLM apps in production was harder than expected</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Offers actionable advice on making traces actionable and tracking metrics, relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">Make traces actionable: version everything and gate deploys on a handful of metrics so regressions can’t slip through.
+
+Your layered setup is solid; the next wins come from policy and cohorts. Tag every run with model, prompt version, gateway route, and dataset version. Track retrieval hit rate, reranker score, and context tokens used vs limit. Keep a golden set with edge cases; run offline evals each commit and pairwise judges (Ragas + a simple groundedness check). Ship new prompts/models behind a flag to 5-10% traffic and auto-rollback if p95 latency, cost per task, or task success dips. Wire OTel and propagate the Langfuse trace ID into app and gateway logs so you can join in Grafana/Datadog. Chaos-test tools: malformed JSON, timeouts, stale cache; enforce JSON schema, add retry/backoff, and provider fallback.
+
+CoAgent is nice for tracking retrieval quality drift and agent outcomes over weeks. We’ve paired Kong and FastAPI for tool auth/endpoints, and DreamFactory when we needed an instant, secure REST layer over a crusty SQL Server so agents had stable contracts and consistent logs.
+
+Turn observability into explicit policies, canaries, and rollbacks, and production stops being guesswork.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nmmkjjv">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; drc1728 &middot; Nov 02, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1ohf70t/debugging_llm_apps_in_production_was_harder_than/" target="_blank">Debugging LLM apps in production was harder than expected</a></div>
+    
+    <div class="pub-comment-body">This is a great breakdown of a real-world LLM observability setup. What stands out is how critical it is to trace everything beyond standard API metrics: which documents were retrieved, the actual prompts after preprocessing, token usage, and latency per step. Without that, debugging RAG pipelines a</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1ohf70t/debugging_llm_apps_in_production_was_harder_than/nmmkjjv/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Debugging LLM apps in production was harder than expected</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a relevant breakdown of LLM observability setup and emphasizes the importance of tracing metrics.</div>
+            
+            
+            <div class="pub-comment-full-body">This is a great breakdown of a real-world LLM observability setup. What stands out is how critical it is to trace everything beyond standard API metrics: which documents were retrieved, the actual prompts after preprocessing, token usage, and latency per step. Without that, debugging RAG pipelines and agent chains is basically guesswork.
+
+Using Langfuse with the u/observe() decorator is a smart move, it gives end-to-end visibility into your request flow while keeping data local, and combining it with a gateway like Anannas AI for multi-provider failover separates model-level metrics from app-level traces. The fact that it quickly highlighted embedding cache issues and prompt truncation shows how much value detailed traces add over just latency/error dashboards.
+
+For teams building or debugging production LLM apps, this kind of layered observability is essential. You could also complement it with CoAgent ([https://coa.dev](https://coa.dev)) to track embeddings, retrieval quality, and agent outputs over time, giving a more unified view across experiments and production pipelines.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_974ef7f49a_q1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; honeycomb.io &middot; Oct 28, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.honeycomb.io/resources/getting-started/what-is-llm-observability" target="_blank">What Is LLM Observability and Monitoring?</a></div>
+    
+    <div class="pub-comment-body">An effective LLM observability setup includes telemetry data—such as latency, token usage, prompt variations, output errors, validation or parsing failures, and drift.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.honeycomb.io/resources/getting-started/what-is-llm-observability" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> What Is LLM Observability and Monitoring?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> It outlines key components of an effective observability setup, providing valuable insights into the topic.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_974ef7f49a_q2">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; honeycomb.io &middot; Oct 28, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.honeycomb.io/resources/getting-started/what-is-llm-observability" target="_blank">What Is LLM Observability and Monitoring?</a></div>
+    
+    <div class="pub-comment-body">Together, these layers of information help teams debug issues, optimize prompts, and continuously improve quality under unpredictable conditions in production.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.honeycomb.io/resources/getting-started/what-is-llm-observability" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> What Is LLM Observability and Monitoring?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses how observability helps in debugging and optimizing LLMs, which is relevant and useful.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nlk5i3r">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; vladlearns &middot; Oct 26, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/devops/comments/1ogo5by/our_sredevops_tools_monitor_system_health_but_how/" target="_blank">Our SRE/DevOps tools monitor system health, but how do we monitor AI &#39;cognitive health&#39;?</a></div>
+    
+    <div class="pub-comment-body">I had my main task doing continuous regression testing on reasoning qa
+
+You create a static, as good as you can, set of benchmark prompts - let’s call it the golden set. This set is the most critical reasoning tasks your agent performs- logic, sums, multi-steps, etc
+
+You run this set against your pr</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/devops/comments/1ogo5by/our_sredevops_tools_monitor_system_health_but_how/nlk5i3r/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Our SRE/DevOps tools monitor system health, but how do we monitor AI &#39;cognitive health&#39;?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a specific method for testing AI agents, relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">I had my main task doing continuous regression testing on reasoning qa
+
+You create a static, as good as you can, set of benchmark prompts - let’s call it the golden set. This set is the most critical reasoning tasks your agent performs- logic, sums, multi-steps, etc
+
+You run this set against your prod model/new candidate/on every new deployment - choose what you can afford. Then you need a way to grade the results. I’ve done it using a &#34;judge&#34;,  latest gpts are good enough for it, to rate the agent&#39;s answer on a scale of 1-5
+
+Then take the vector embeddings of the answers to your golden set prompts. You then measure the cosine distance between the new answers and the original, known good answers
+
+Then I made 2 widgets: 
+
+1. time-series graph “gs accuracy (p95, p50)&#34; - if this line starts to trend down, you have brain rot
+
+2. again, time-series &#34;semantic drift score&#34;. If this starts to spike, it means the meaning and style of answers are changing, even if they are still factually ok - I’d have a human at this point checking what’s happening
+
+——
+
+  
+Then I had 1 more red team dashboard for safety decay
+
+Basically, throw all the bad prompts at it “leak PII”, bypass guardrail”, “say something toxic”, if the guardrail breach rate isn’t flatlined at 0, you’ve got a jailbreak. I’d also check refusal rate, in my case, even dropping from 100 to 98% was already bad
+
+——
+
+1 more task fidelity dashboard to check if it is not getting lazy - there were cases like that, that’s why it got here. The product was, let’s say, complex
+
+I’d highly recommend logging its reasoning traces, step counts, tool calls, json validations - just chose critical stuff for YOURSELF
+
+If avg reasoning steps suddenly fall from 8 -&gt; 3, you know that it is skipping thoughts - this was a common thing
+
+\+ format compliance is a nice to check
+
+Then on post I had feedback dashboard as a final slo - what people actually think -very simple, thumbs up/down on every reply for satisfaction and feedback volume. I wanted to add classifier, but simply didn’t have time
+
+Just a tip from exp - no feedback at all = is a really fck bad thing (means people stopped trusting it)
+
+We had a 7-day rolling satisfaction line
+
+Yeap, I think, that’s it. Hope, this helps you somehow</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_45486138">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; debadyutirc &middot; Oct 05, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=45398467" target="_blank">LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</a></div>
+    
+    <div class="pub-comment-body">This is awesome. Love seeing more teams investing early in observability and evals instead of treating them as an afterthought.&lt;p&gt;Your setup (LLM-assessed complexity, semantic success metrics, tool-level telemetry) hits what a lot of orgs miss, tying evaluation and observability together. Most teams</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=45486138" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Highlights the importance of tying evaluation and observability together, providing useful context and perspective.</div>
+            
+            
+            <div class="pub-comment-full-body">This is awesome. Love seeing more teams investing early in observability and evals instead of treating them as an afterthought.&lt;p&gt;Your setup (LLM-assessed complexity, semantic success metrics, tool-level telemetry) hits what a lot of orgs miss, tying evaluation and observability together. Most teams stop at traces and latency, but without semantic evals, you can’t really explain or improve behavior.&lt;p&gt;We’ve seen the same pattern across production agent systems: once you layer in LLM-as-judge evals, distributed tracing, and data quality signals, debugging turns from “black box” to “explainable system.” That’s when scaling becomes viable.&lt;p&gt;Would love to hear how you’re handling drift or regression detection across those metrics. With CoAgent, we’ve been exploring automated L2–L4 eval loops (semantic, behavioral, business-value levels) and it’s been eye-opening.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nhpr55a">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; patient-palanquin &middot; Oct 04, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/" target="_blank">The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</a></div>
+    
+    <div class="pub-comment-body">It&#39;s hard, but you have to enforce a culture of &#34;your PR, your responsibility&#34;. You cannot accept &#34;copilot put it there&#34; as an excuse, that&#39;s like saying &#34;idk, it was the first autocomplete option&#34;. Copilot is a just tool like your IDE, but at the end of the day, you are responsible for every line i</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/nhpr55a/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the importance of responsibility in code reviews when using AI tools, relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">It&#39;s hard, but you have to enforce a culture of &#34;your PR, your responsibility&#34;. You cannot accept &#34;copilot put it there&#34; as an excuse, that&#39;s like saying &#34;idk, it was the first autocomplete option&#34;. Copilot is a just tool like your IDE, but at the end of the day, you are responsible for every line in your PR.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_45402673">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; jonnylaw &middot; Sep 28, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=45398467" target="_blank">LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</a></div>
+    
+    <div class="pub-comment-body">Attaching to the app is impractical to catch regressions in production. LLMs are probabilistic - this means you can have a regression without even changing the code &amp;#x2F; making a new deployment.&lt;p&gt;A metric to alert on could be task-completion rate using LLM as a judge or synthetic tests which are </div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=45402673" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Suggests metrics for alerting on task-completion rates, providing actionable insights related to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">Attaching to the app is impractical to catch regressions in production. LLMs are probabilistic - this means you can have a regression without even changing the code &amp;#x2F; making a new deployment.&lt;p&gt;A metric to alert on could be task-completion rate using LLM as a judge or synthetic tests which are run on a schedule. Then the other metrics you mentioned are useful for debugging the problem.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_45400037">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; olliem36 &middot; Sep 27, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=45398467" target="_blank">LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</a></div>
+    
+    <div class="pub-comment-body">We&amp;#x27;ve built a multi-agent system, designed to run complex tasks and workflows with just a single prompt. Prompts are written by non-technical people, can be 10+ pages long...&lt;p&gt;We&amp;#x27;ve invested heavily in observability having quickly found that observability + evals are the cornerstone to a </div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=45400037" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> LLM Observability in the Wild – Why OpenTelemetry Should Be the Standard</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes a multi-agent system and emphasizes the importance of observability, providing specific metrics used.</div>
+            
+            
+            <div class="pub-comment-full-body">We&amp;#x27;ve built a multi-agent system, designed to run complex tasks and workflows with just a single prompt. Prompts are written by non-technical people, can be 10+ pages long...&lt;p&gt;We&amp;#x27;ve invested heavily in observability having quickly found that observability + evals are the cornerstone to a successful agent.&lt;p&gt;For example, a few things measure:&lt;p&gt;1. Task complexity (assessed by another LLM)
+2. Success metrics given the task(s) (Agin by other LLMS)
+3. Speed of agent runs &amp;amp; tools
+4. Errors of tools, inc time outs.
+5. How much summarizaiton and chunking occurs between agents and tool results
+6. tokens used, cost
+7. reasoning, model selected by our dynamic routing..&lt;p&gt;Thank god its been relatively cheap to build this in house.. our metrics dashboard is essentially a vibe coded react admin site.. but proves absolutely invaluable!&lt;p&gt;All of this happed after a heavy investment in agent orchestration, context management... it&amp;#x27;s been quite a ride!</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-mn81uh6">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; Low-Opening25 &middot; Apr 15, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/LLMDevs/comments/1jzqhis/so_your_llm_app_works_but_is_it_reliable/" target="_blank">So, your LLM app works... But is it reliable?</a></div>
+    
+    <div class="pub-comment-body">this. it’s trivial to make LLMs do anything correctly 75% of the time, it truly is low effort. the problems begin when you want to build something that is reliable 99.99999% of the time, like you would expect from basically any other technical solution, this is where real complexity curve begins and</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/LLMDevs/comments/1jzqhis/so_your_llm_app_works_but_is_it_reliable/mn81uh6/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> So, your LLM app works... But is it reliable?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the challenges of building reliable LLMs, relevant to observability and performance.</div>
+            
+            
+            <div class="pub-comment-full-body">this. it’s trivial to make LLMs do anything correctly 75% of the time, it truly is low effort. the problems begin when you want to build something that is reliable 99.99999% of the time, like you would expect from basically any other technical solution, this is where real complexity curve begins and picks up very steeply.
+
+unfortunately this is something 99.99999% LLM “developers” and especially vibe coders completely fails to understand.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-mdx3ix8">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; [deleted] &middot; Feb 21, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1iu9ryi/r_detecting_llm_hallucinations_using_information/" target="_blank">[R] Detecting LLM Hallucinations using Information Theory</a></div>
+    
+    <div class="pub-comment-body">It&#39;s not. I can put a bunch of BS in my training data and the log prob of these BS will be sky high.
+
+These models essentially approximate a conditional density of the next word given the words it has seen so far, using that probability to say whether it&#39;s hallucination or not is just bad research. </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1iu9ryi/r_detecting_llm_hallucinations_using_information/mdx3ix8/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [R] Detecting LLM Hallucinations using Information Theory</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Critiques the use of log probabilities for detecting hallucinations, providing a relevant perspective on observability.</div>
+            
+            
+            <div class="pub-comment-full-body">It&#39;s not. I can put a bunch of BS in my training data and the log prob of these BS will be sky high.
+
+These models essentially approximate a conditional density of the next word given the words it has seen so far, using that probability to say whether it&#39;s hallucination or not is just bad research. At best it tells you that specific sequence is either rare in the world (which can sometimes correlate to wrong information for popular stuff) or the uncertainty of density approximation around that point is high, and we should have more samples, i.e. collect more data.
+
+And nothing in the post even mentions information theory or related to it at all, so why put it there?</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l7iwfku">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; willccbb &middot; Jun 07, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/learnmachinelearning/comments/1da66jo/your_best_llms_learning_roadmap/" target="_blank">Your best LLMs learning roadmap</a></div>
+    
+    <div class="pub-comment-body">Maxime&#39;s LLM course ([https://github.com/mlabonne/llm-course](https://github.com/mlabonne/llm-course?tab=readme-ov-file)) is really great, probably the best all-in-one course out there! 
+
+If people are looking for a slightly broader set of topics, I put together this guide with links to a bunch of b</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/learnmachinelearning/comments/1da66jo/your_best_llms_learning_roadmap/l7iwfku/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Your best LLMs learning roadmap</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment not only mentions a course but also provides a broader set of resources, making it highly relevant to the research question.</div>
+            
+            
+            <div class="pub-comment-full-body">Maxime&#39;s LLM course ([https://github.com/mlabonne/llm-course](https://github.com/mlabonne/llm-course?tab=readme-ov-file)) is really great, probably the best all-in-one course out there! 
+
+If people are looking for a slightly broader set of topics, I put together this guide with links to a bunch of blog posts/videos/other resources that I&#39;ve found helpful: [https://genai-handbook.github.io/](https://genai-handbook.github.io/)</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l4wu8kt">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; ZestyData &middot; May 20, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1cvwohz/d_are_llm_observability_tools_really_used_in/" target="_blank">[D] Are LLM observability tools really used in startups and companies?</a></div>
+    
+    <div class="pub-comment-body">Beginning to feel like this thread is product market research lmao
+
+But...
+
+Monitoring every LLM call is invaluable. We can see an entire chat session in the UI, deep dive into Agentic &amp; Rag traces to see how their interim steps go. Good for debugging. See any manual human feedback or automated eval</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1cvwohz/d_are_llm_observability_tools_really_used_in/l4wu8kt/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] Are LLM observability tools really used in startups and companies?</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides valuable insights into the importance of monitoring LLM calls and mentions specific aspects of observability that are useful for debugging and evaluation.</div>
+            
+            
+            <div class="pub-comment-full-body">Beginning to feel like this thread is product market research lmao
+
+But...
+
+Monitoring every LLM call is invaluable. We can see an entire chat session in the UI, deep dive into Agentic &amp; Rag traces to see how their interim steps go. Good for debugging. See any manual human feedback or automated evaluations on each response. Great for downstream fine-tuning or even generally evaluating our systems.
+We can directly see the cost impacts of a new prompt, and the cost of specific APIs and sub components.
+
+We can A/B test prompts, deploy to stage/prod when ready. And generally we get through so many variations it&#39;s great to have a git-esque permanent log.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_40198515">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; patcher99 &middot; Apr 29, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=40167461" target="_blank">Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</a></div>
+    
+    <div class="pub-comment-body">We do Otel metrics for the main things needed in dashboarding
+1. Requests (Counter)
+2. Tokens (Counter) (Seperate metric for Prompt Tokens, Completion and Total Tokens)
+3. Cost (Histogram)&lt;p&gt;I did attach a Grafana dashboard too (Works for Grafana Cloud, Ill get something for OSS this week)
+&lt;a href=&#34;</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=40198515" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Lists specific metrics being tracked for observability, including a Grafana dashboard, which is actionable and relevant.</div>
+            
+            
+            <div class="pub-comment-full-body">We do Otel metrics for the main things needed in dashboarding
+1. Requests (Counter)
+2. Tokens (Counter) (Seperate metric for Prompt Tokens, Completion and Total Tokens)
+3. Cost (Histogram)&lt;p&gt;I did attach a Grafana dashboard too (Works for Grafana Cloud, Ill get something for OSS this week)
+&lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;docs.openlit.io&amp;#x2F;latest&amp;#x2F;connections&amp;#x2F;grafanacloud&#34; rel=&#34;nofollow&#34;&gt;https:&amp;#x2F;&amp;#x2F;docs.openlit.io&amp;#x2F;latest&amp;#x2F;connections&amp;#x2F;grafanacloud&lt;/a&gt;&lt;p&gt;Since Otel doesn&amp;#x27;t yet support Synchronous gauge + Users wanted a trace of the LLM RAG application, We opted to Traces which is quite standard now in LLM Observability tool.&lt;p&gt;Lemme know if you had something more in mind, Love getting feedback from amazing folks like you!</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_40194058">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; patcher99 &middot; Apr 29, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=40167461" target="_blank">Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</a></div>
+    
+    <div class="pub-comment-body">Yup, The Dashboard is entirely powered by OTEL traces and yeah, you can see full prompts and responses including cost and request metadata.&lt;p&gt;The UI is pretty easy to run, Its one single image.&lt;p&gt;Lemme know if you need any help on instrumentation, If you have a PR, Lemme know, Ill try to assist on t</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=40194058" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes the dashboard&#39;s capabilities in detail, including prompts and responses, which is highly relevant.</div>
+            
+            
+            <div class="pub-comment-full-body">Yup, The Dashboard is entirely powered by OTEL traces and yeah, you can see full prompts and responses including cost and request metadata.&lt;p&gt;The UI is pretty easy to run, Its one single image.&lt;p&gt;Lemme know if you need any help on instrumentation, If you have a PR, Lemme know, Ill try to assist on this</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_40191671">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; jackmpcollins &middot; Apr 28, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=40167461" target="_blank">Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</a></div>
+    
+    <div class="pub-comment-body">Does the dashboard&amp;#x2F;UI support traces? I would love a tool in which to view opentelemetry traces, that can neatly display full prompt and response for the spans that represent LLM queries. I&amp;#x27;m planning to add opentelemetry instrumentation to magentic [1] and looking for a UI that is easy to</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=40191671" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: OpenLIT – Open-Source LLM Observability with OpenTelemetry</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Expresses a desire for a tool to view OpenTelemetry traces, indicating a specific need in observability.</div>
+            
+            
+            <div class="pub-comment-full-body">Does the dashboard&amp;#x2F;UI support traces? I would love a tool in which to view opentelemetry traces, that can neatly display full prompt and response for the spans that represent LLM queries. I&amp;#x27;m planning to add opentelemetry instrumentation to magentic [1] and looking for a UI that is easy to run locally that makes it easy to see what an agent is doing (via OTEL traces). I have more of my thoughts on the github issue: &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;jackmpcollins&amp;#x2F;magentic&amp;#x2F;issues&amp;#x2F;136&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;jackmpcollins&amp;#x2F;magentic&amp;#x2F;issues&amp;#x2F;136&lt;/a&gt;&lt;p&gt;[1] &lt;a href=&#34;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;jackmpcollins&amp;#x2F;magentic&#34;&gt;https:&amp;#x2F;&amp;#x2F;github.com&amp;#x2F;jackmpcollins&amp;#x2F;magentic&lt;/a&gt;</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l0t1d0m">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; substituted_pinions &middot; Apr 22, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1cad7kk/d_llama3_may_have_just_killed_proprietary_ai/" target="_blank">[D] Llama-3 may have just killed proprietary AI models</a></div>
+    
+    <div class="pub-comment-body">Great answer from Matt White on LinkedIn:
+“open source licenses are maintained here by OSI. https://opensource.org/license . The Llama 3 community license references an AUP, has a trigger clause that requires the negotiation of a new license, and contains usage restrictions which violates the princi</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1cad7kk/d_llama3_may_have_just_killed_proprietary_ai/l0t1d0m/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] Llama-3 may have just killed proprietary AI models</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a relevant perspective on open source licenses in the context of LLMs, actionable information.</div>
+            
+            
+            <div class="pub-comment-full-body">Great answer from Matt White on LinkedIn:
+“open source licenses are maintained here by OSI. https://opensource.org/license . The Llama 3 community license references an AUP, has a trigger clause that requires the negotiation of a new license, and contains usage restrictions which violates the principle of openness, being able to use software for any purpose free of restrictions. “</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l0se0ss">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; Munzu &middot; Apr 22, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1cad7kk/d_llama3_may_have_just_killed_proprietary_ai/" target="_blank">[D] Llama-3 may have just killed proprietary AI models</a></div>
+    
+    <div class="pub-comment-body">&gt;Also Llama-3 70b can fit comfortably in a 48GB card with 7.6K context lengths bsz=1, and 80GB cards can fit 48K context lengths (6x longer than Flash Attention 2 + HF)
+
+I assume that&#39;s inference (not training) and 4-bit quantization, is that correct?</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1cad7kk/d_llama3_may_have_just_killed_proprietary_ai/l0se0ss/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] Llama-3 may have just killed proprietary AI models</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses Llama-3&#39;s capabilities in terms of hardware requirements and context lengths, which is relevant to observability in LLMs.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-kxzvmmm">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; lifeandUncertainity &middot; Apr 04, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1bvi4au/d_llms_are_harming_ai_research/" target="_blank">[D] LLMs are harming AI research</a></div>
+    
+    <div class="pub-comment-body">https://github.com/msurtsukov/neural-ode - go through this one if you want to understand the technical details of neural ode. About neural ode and flows - the original neural ode paper by Chen mentions continuous normalizing flows - you can represent the transformation of variables as an ode. Then a</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1bvi4au/d_llms_are_harming_ai_research/kxzvmmm/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] LLMs are harming AI research</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a link to a GitHub repository and discusses technical details of neural ODEs, which is relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">https://github.com/msurtsukov/neural-ode - go through this one if you want to understand the technical details of neural ode. About neural ode and flows - the original neural ode paper by Chen mentions continuous normalizing flows - you can represent the transformation of variables as an ode. Then a paper called FFJORD was published which is I think the best paper on neural odes and flows. About combining it with diffusion, I think there&#39;s a paper called DPM - High order differential equations solver for diffusion. I am not very knowledgeable about the technicality of diffusion but I think it uses a stochastic differential equations for the noise scheduling part (I may be wrong). I think the paper - score based generative modelling with stochastic differential equations may help you. Since you asked, I will also point to a paper called Universal Differential Equations for scientific machine learning.
+Heres what I feel like the problem with neural odes are - neural odes are treated a lot like stand alone models. We know they are cool but we really don&#39;t know where they are the best. My bet is on SciML or RL.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-hn_39374460">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge hackernews">Hacker News</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; marcklingen &middot; Feb 14, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://news.ycombinator.com/item?id=39371297" target="_blank">Show HN: You don&#39;t need to adopt new tools for LLM observability</a></div>
+    
+    <div class="pub-comment-body">Fully agree - even as a founder of an ‘LLM observability company’. Observability does not need to be reinvented to get detailed traces&amp;#x2F;metrics&amp;#x2F;logs of the LLM part of an application.&lt;p&gt;LLM Observability usually means: prompts and completions, which model was used, errors and exceptions (ra</div>
+    
+    <div class="pub-comment-link"><a href="https://news.ycombinator.com/item?id=39374460" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Show HN: You don&#39;t need to adopt new tools for LLM observability</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Provides a detailed description of what LLM observability typically includes, offering valuable insights.</div>
+            
+            
+            <div class="pub-comment-full-body">Fully agree - even as a founder of an ‘LLM observability company’. Observability does not need to be reinvented to get detailed traces&amp;#x2F;metrics&amp;#x2F;logs of the LLM part of an application.&lt;p&gt;LLM Observability usually means: prompts and completions, which model was used, errors and exceptions (rate limits, network errors), as well as metrics (latency, output speed, time to first token when streaming, USD&amp;#x2F;token and cost breakdowns). All of this is well suited to be captured in the existing observability stack. OpenLLMetry makes this really easy and interoperable - chapeau.&lt;p&gt;In my view, observability is not the core value that solutions like Baserun, Athina, LangSmith, Parea, Arize, Langfuse (my project) and many others solve for.
+Developing a useful LLM application requires iterative workflows and tinkering. That&amp;#x27;s what these solutions help with and augment.&lt;p&gt;There are specific problems to building an LLM application such as managing&amp;#x2F;versioning of prompts, running evaluations, blending multiple different evaluation sources, collecting datasets to test&amp;#x2F;benchmark an application, helping with fine-tuning models on high-quality production completions, debugging root causes of quality&amp;#x2F;latency&amp;#x2F;cost issues, ...&lt;p&gt;Most solutions either replicate logs (LLM I&amp;#x2F;O) or traces at first, as they are a necessary starting point to then build solutions for the other workflow problems. As the observability piece gets more standardized over time, I can see how integrating with the standard makes a ton of sense. Always happy to chat about this.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jk8vg8b">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">8/10 relevancy &middot; adventuringraw &middot; May 15, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/13i8uis/d_at_some_point_does_it_make_more_sense_for_an/" target="_blank">[D] - At some point, does it make more sense for an LLM&#39;s long-term memory to be handled via training a model vs attempting to improve the size of the context window or improve recurrence techniques? GPT has amazing &#34;memory&#34; of factual data, but all of it was achieved via backpropagation.</a></div>
+    
+    <div class="pub-comment-body">One of the biggest differences between biological brains and ANNs is that training with backprop requires a global update step, vs biological brains seemingly can rely on much more local update rules. If only affected networks need to do the work of updating activation dynamics, you can afford to do</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/13i8uis/d_at_some_point_does_it_make_more_sense_for_an/jk8vg8b/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] - At some point, does it make more sense for an LLM&#39;s long-term memory to be handled via training a model vs attempting to improve the size of the context window or improve recurrence techniques? GPT has amazing &#34;memory&#34; of factual data, but all of it was achieved via backpropagation.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 8/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the differences between biological brains and ANNs in the context of LLMs, providing relevant insights into training methods, which is useful for understanding observability.</div>
+            
+            
+            <div class="pub-comment-full-body">One of the biggest differences between biological brains and ANNs is that training with backprop requires a global update step, vs biological brains seemingly can rely on much more local update rules. If only affected networks need to do the work of updating activation dynamics, you can afford to do it online. I have a hard time imagining anything at the scale of an LLM working affordably with online training without a pretty big paradigm shift of some kind. Using humans as a comparison example only works if the underlying systems have much in common.
+
+That said, people thinking stuff like this are probably one of things that&#39;ll create that paradigm shift, so ultimately I think you&#39;re right, that context window increases won&#39;t be the final key or anything.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_04758f124e_q4">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; techaheadcorp.com &middot; Apr 02, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.techaheadcorp.com/blog/llm-observability-key-metrics-tools/" target="_blank">How to Build LLM Observability Into Enterprise AI Systems: Architecture, Metrics &amp; Tools | TechAhead</a></div>
+    
+    <div class="pub-comment-body">The enterprises winning with AI are not the ones with the best models. They are the ones who can see and improve what their models are actually doing.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.techaheadcorp.com/blog/llm-observability-key-metrics-tools/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How to Build LLM Observability Into Enterprise AI Systems: Architecture, Metrics &amp; Tools | TechAhead</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses the importance of visibility into model performance, which is relevant to observability.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-web_e6cd99a539_q5">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge web">Web</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; freecodecamp.org &middot; Mar 13, 2026</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://www.freecodecamp.org/news/build-end-to-end-llm-observability-in-fastapi-with-opentelemetry/" target="_blank">How to Build End-to-End LLM Observability in FastAPI with OpenTelemetry</a></div>
+    
+    <div class="pub-comment-body">When implemented correctly, observability allows teams to answer why the model generated a particular response.</div>
+    
+    <div class="pub-comment-link"><a href="https://www.freecodecamp.org/news/build-end-to-end-llm-observability-in-fastapi-with-opentelemetry/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> How to Build End-to-End LLM Observability in FastAPI with OpenTelemetry</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment discusses the importance of observability in understanding model responses, which is relevant to the research question.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nhqq4tc">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; Kraigius &middot; Oct 04, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/" target="_blank">The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</a></div>
+    
+    <div class="pub-comment-body">I had a coworker whom we suspected heavily used copilot.
+
+However, he never admitted to it.
+
+Just like in your experience, my coworker was never able to justify or explain &#34;his&#34; approaches or the choices &#34;he&#34; made.
+
+&#34;His&#34; code never passed our quality check, the code was nonsensical from a senior de</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/nhqq4tc/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes issues with a coworker&#39;s code quality potentially due to AI use, relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">I had a coworker whom we suspected heavily used copilot.
+
+However, he never admitted to it.
+
+Just like in your experience, my coworker was never able to justify or explain &#34;his&#34; approaches or the choices &#34;he&#34; made.
+
+&#34;His&#34; code never passed our quality check, the code was nonsensical from a senior dev. The quality of the code was intern level.
+
+It was a constant drain on the team.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nhpoagr">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; One_Economist_3761 &middot; Oct 04, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/" target="_blank">The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</a></div>
+    
+    <div class="pub-comment-body">Recently had a “chief architect” generate “full coverage” unit tests using CoPilot for an area of our code. 
+
+On closer inspection there were asserts on things that were not changed in the code path, multiple duplicate asserts. Construction of substituted services that were not needed for the test, </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/nhpoagr/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Describes a specific experience with AI-generated tests, highlighting issues that relate to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">Recently had a “chief architect” generate “full coverage” unit tests using CoPilot for an area of our code. 
+
+On closer inspection there were asserts on things that were not changed in the code path, multiple duplicate asserts. Construction of substituted services that were not needed for the test, and a multiple of  garbage code that compiled, ran successfully and tests that passed. The  coverage report showed full coverage, yet the tests were doing just busy work and not actually testing anything useful. 
+
+This is the kind of thing that looks good on management reports but will come back to bite you.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nhp71ed">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; VulgarExigencies &middot; Oct 04, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/" target="_blank">The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</a></div>
+    
+    <div class="pub-comment-body">I had AI generate me a tool to better sort data for a game I play. The code is genuinely the worst I’ve ever seen, littered with global variables everywhere, and I’m refactoring it manually (which has been a nightmare) because it just can’t add the extra features I want it to add now.
+
+On the other </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/nhp71ed/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Shares a personal experience with AI-generated code, relevant to the discussion of observability.</div>
+            
+            
+            <div class="pub-comment-full-body">I had AI generate me a tool to better sort data for a game I play. The code is genuinely the worst I’ve ever seen, littered with global variables everywhere, and I’m refactoring it manually (which has been a nightmare) because it just can’t add the extra features I want it to add now.
+
+On the other hand, I wouldn’t have started working on this at all if AI wasn’t there to generate the initial POC.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-nhovru1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; vplatt &middot; Oct 04, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/" target="_blank">The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</a></div>
+    
+    <div class="pub-comment-body">That&#39;s a fairly condescending question.  &#34;You guys&#34;...?  Like, what are you doing here if you aren&#39;t interested in individual experiences reflecting current trends?
+
+The reality is that AI is being so thoroughly crammed down everyone&#39;s throat as this supposed silver bullet and it&#39;s causing a lot of </div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/programming/comments/1nxobte/the_phantom_author_in_our_codebases_why/nhovru1/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> The &#34;Phantom Author&#34; in our codebases: Why AI-generated code is a ticking time bomb for quality.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Highlights governance issues with AI in coding, relevant to observability.</div>
+            
+            
+            <div class="pub-comment-full-body">That&#39;s a fairly condescending question.  &#34;You guys&#34;...?  Like, what are you doing here if you aren&#39;t interested in individual experiences reflecting current trends?
+
+The reality is that AI is being so thoroughly crammed down everyone&#39;s throat as this supposed silver bullet and it&#39;s causing a lot of problems.  Practically zero governance is being exercised on code bases affected by AI and we&#39;re all going to pay a huge price down the road because of it.  
+
+How about you?  Aren&#39;t you being affected by it?</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-mdwpvpv">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; megatronus8010 &middot; Feb 21, 2025</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1iu9ryi/r_detecting_llm_hallucinations_using_information/" target="_blank">[R] Detecting LLM Hallucinations using Information Theory</a></div>
+    
+    <div class="pub-comment-body">I&#39;m curious whether this approach actually makes sense. If we set a low top‑p value for LLM generation, the output will have high sequence log‑probabilities because the model is forced to choose only from its most likely tokens. However, high confidence doesn&#39;t guarantee factual accuracy—the model c</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1iu9ryi/r_detecting_llm_hallucinations_using_information/mdwpvpv/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [R] Detecting LLM Hallucinations using Information Theory</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Raises a relevant point about LLM confidence and hallucination, providing context for observability but lacks actionable advice.</div>
+            
+            
+            <div class="pub-comment-full-body">I&#39;m curious whether this approach actually makes sense. If we set a low top‑p value for LLM generation, the output will have high sequence log‑probabilities because the model is forced to choose only from its most likely tokens. However, high confidence doesn&#39;t guarantee factual accuracy—the model can still hallucinate even when it appears very sure of its response.
+
+In practice, the model can be super “confident” about a response that’s factually off because its confidence is based purely on learned statistical patterns, not on any external verification of facts.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-l7i515w">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; Sea_Explanation_2518 &middot; Jun 07, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/learnmachinelearning/comments/1da66jo/your_best_llms_learning_roadmap/" target="_blank">Your best LLMs learning roadmap</a></div>
+    
+    <div class="pub-comment-body">LLM course  [https://github.com/mlabonne/llm-course?tab=readme-ov-file](https://github.com/mlabonne/llm-course?tab=readme-ov-file)
+
+by maxime labonne is good i think he has given articles for every knowledge level i think.
+
+# 
+
+#</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/learnmachinelearning/comments/1da66jo/your_best_llms_learning_roadmap/l7i515w/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> Your best LLMs learning roadmap</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> This comment provides a link to a course that could be relevant for learning about LLMs, which contributes to the topic of observability.</div>
+            
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-kxzt27h">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; visarga &middot; Apr 04, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1bvi4au/d_llms_are_harming_ai_research/" target="_blank">[D] LLMs are harming AI research</a></div>
+    
+    <div class="pub-comment-body">On the other hand Reinforcement Learning and Evolutionary Methods combine well with LLMs, they got the exploration part down. They can do multiple rollouts for MCTS planning, act as critic in RL (such as RLAIF), act as policy, act as selection filter or mutation operator in EM. There is synergy betw</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1bvi4au/d_llms_are_harming_ai_research/kxzt27h/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] LLMs are harming AI research</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the synergy between reinforcement learning and LLMs, which is relevant to observability in AI agents.</div>
+            
+            
+            <div class="pub-comment-full-body">On the other hand Reinforcement Learning and Evolutionary Methods combine well with LLMs, they got the exploration part down. They can do multiple rollouts for MCTS planning, act as critic in RL (such as RLAIF), act as policy, act as selection filter or mutation operator in EM. There is synergy between these old search methods and LLMs because LLMs can help reducing the search space while RL/EM can supplant the missing capabilities to LLMs. We already are past next-token-prediction models when we train with RLHF, even if it is just a simplified form of RL, it updates the model for a long term goal not for next token.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-kxznnx3">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; visarga &middot; Apr 04, 2024</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/1bvi4au/d_llms_are_harming_ai_research/" target="_blank">[D] LLMs are harming AI research</a></div>
+    
+    <div class="pub-comment-body">In my opinion what is missing has nothing to do with the transformer, which is good as it is. The feeling that we are on a plateau is caused by the fact that we need to transition to real time data and learning.
+
+The real problem is data, more precisely on-policy data, not human text. Learning can h</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/1bvi4au/d_llms_are_harming_ai_research/kxznnx3/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] LLMs are harming AI research</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Discusses the need for real-time data and learning, which is relevant to observability in LLMs.</div>
+            
+            
+            <div class="pub-comment-full-body">In my opinion what is missing has nothing to do with the transformer, which is good as it is. The feeling that we are on a plateau is caused by the fact that we need to transition to real time data and learning.
+
+The real problem is data, more precisely on-policy data, not human text. Learning can happen from two sources - past data, which is the old off-policy human based training set, and present data, which is mostly neglected, but should be created with RL or evolutionary methods.
+
+Until LLMs learn from the environment they can&#39;t surpass humans, but the models are ok. In fact models don&#39;t really matter, transformer, mamba, jamba, rwkv - they all perform more or less the same. Models learning from their own mistakes is the missing ingredient. Environment as the ultimate open-ended teacher.
+
+We as humans learned everything from the environment, there is nothing we know that doesn&#39;t come from outside. And most of what we learned we encoded in language. Hence the two sources of learning - language and environment, past and present experiences.
+
+We are hearing lot of talk recently about LLM agents, the field is going in that direction. It&#39;s also the same direction with synthetic training examples generation. For once AI needs to start exploring and stop exploiting (relying on) the human text so much. This is where we should focus research.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+<div class="pub-comment" id="comment-jk8ufu1">
+    <div class="pub-comment-meta">
+        <span class="pub-source-badge reddit">Reddit</span>
+        
+        <span class="pub-comment-score">7/10 relevancy &middot; [deleted] &middot; May 15, 2023</span>
+    </div>
+    
+    <div class="pub-comment-thread"><a href="https://reddit.com/r/MachineLearning/comments/13i8uis/d_at_some_point_does_it_make_more_sense_for_an/" target="_blank">[D] - At some point, does it make more sense for an LLM&#39;s long-term memory to be handled via training a model vs attempting to improve the size of the context window or improve recurrence techniques? GPT has amazing &#34;memory&#34; of factual data, but all of it was achieved via backpropagation.</a></div>
+    
+    <div class="pub-comment-body">It’s an interesting problem, one that we’re currently exploring at work too. The intersection of additional context length vs. fine-tuning vs. contextual retrieval (ie. vector DBs or Text2SQL) is yet to be formalized.
+
+There’s an analogy with the human brain here, where our memory is both embedded i</div>
+    
+    <div class="pub-comment-link"><a href="https://reddit.com/r/MachineLearning/comments/13i8uis/d_at_some_point_does_it_make_more_sense_for_an/jk8ufu1/" target="_blank">View original &rarr;</a></div>
+    
+    
+    <details>
+        <summary>More details</summary>
+        <div class="pub-comment-details">
+            
+            <div class="detail-row"><span class="detail-label">Thread:</span> [D] - At some point, does it make more sense for an LLM&#39;s long-term memory to be handled via training a model vs attempting to improve the size of the context window or improve recurrence techniques? GPT has amazing &#34;memory&#34; of factual data, but all of it was achieved via backpropagation.</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">Relevancy:</span> 7/10</div>
+            
+            
+            <div class="detail-row"><span class="detail-label">AI reasoning:</span> Mentions exploring the intersection of context length, fine-tuning, and retrieval, which is relevant to observability in LLMs.</div>
+            
+            
+            <div class="pub-comment-full-body">It’s an interesting problem, one that we’re currently exploring at work too. The intersection of additional context length vs. fine-tuning vs. contextual retrieval (ie. vector DBs or Text2SQL) is yet to be formalized.
+
+There’s an analogy with the human brain here, where our memory is both embedded in our neural network, but we also use real-time memory (which we promptly forget). 
+
+Recall the last time you threw a baseball — do you remember exactly how it felt, and the outcome of the throw? Probably not. But you remember perfectly well -how- to throw a baseball. 
+
+Similarly, I don’t think we want to retrain LLMs on irrelevant small sample pieces of data when we can keep them in a connected DB, but we should have large-scale retraining occur every so often, such that the net can learn any major new trends or forms of reasoning.</div>
+            
+        </div>
+    </details>
+    
+</div>
+
+
+<footer class="pub-footer">
+    Generated by Research Assistant &middot; 2026-04-03
+</footer>
+
+</body>
+</html>

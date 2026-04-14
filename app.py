@@ -194,14 +194,15 @@ def _comments_for_sse(scored_comments):
 
 def _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, article_svc):
     """Dispatch comment collection based on thread source."""
+    title = thread.title or ""
     if thread.source == "hackernews":
-        return hn_svc.collect_comments(thread.id, max_comments=max_comments)
+        return hn_svc.collect_comments(thread.id, max_comments=max_comments, thread_title=title)
     elif thread.source in ("web", "reviews"):
         return article_svc.get_cached_quotes(thread.id)
     elif thread.source == "producthunt":
-        return ph_svc.collect_comments(thread.id, max_comments=max_comments)
+        return ph_svc.collect_comments(thread.id, max_comments=max_comments, thread_title=title)
     else:
-        return reddit_svc.collect_comments(thread.id, max_comments=max_comments)
+        return reddit_svc.collect_comments(thread.id, max_comments=max_comments, thread_title=title)
 
 
 def _make_scoring_progress_callback(q, base_pct, range_pct, research_id=None):
@@ -1669,7 +1670,7 @@ def run_add_thread_pipeline(
                 "progress": 30,
                 "thread_title": thread.title[:60],
             })
-            comments = hn_svc.collect_comments(thread_id, max_comments=max_comments)
+            comments = hn_svc.collect_comments(thread_id, max_comments=max_comments, thread_title=thread.title)
 
         elif source == "web":
             # Fetch and extract web article
@@ -1711,7 +1712,7 @@ def run_add_thread_pipeline(
                 "progress": 30,
                 "thread_title": thread.title[:60],
             })
-            comments = reddit_svc.collect_comments(thread_id, max_comments=max_comments)
+            comments = reddit_svc.collect_comments(thread_id, max_comments=max_comments, thread_title=thread.title)
 
         if not comments:
             storage_svc.recalculate_counts(research_id)

@@ -65,7 +65,7 @@ class RedditService:
             )
 
     def collect_comments(
-        self, thread_id: str, max_comments: int = 100
+        self, thread_id: str, max_comments: int = 100, thread_title: str = ""
     ) -> List[RedditComment]:
         """
         Collect comments from a single thread.
@@ -75,6 +75,7 @@ class RedditService:
         """
         submission = self.reddit.submission(id=thread_id)
         submission.comments.replace_more(limit=0)
+        title = thread_title or submission.title or ""
         comments = []
         for comment in submission.comments.list():
             if (
@@ -82,6 +83,7 @@ class RedditService:
                 and comment.body
                 and comment.body not in ("[deleted]", "[removed]")
             ):
+                context = _build_reddit_context(comment, title)
                 comments.append(
                     RedditComment(
                         id=comment.id,
@@ -94,7 +96,42 @@ class RedditService:
                         created_utc=comment.created_utc,
                         depth=comment.depth,
                         permalink=f"https://reddit.com{comment.permalink}",
+                        context=context,
                     )
                 )
         comments.sort(key=lambda c: c.score, reverse=True)
         return comments[:max_comments]
+
+
+_CONTEXT_PARENT_MAX = 200
+
+
+def _build_reddit_context(comment, thread_title: str) -> str:
+    """Build concise context: thread title + parent comment snippet for replies."""
+    title_part = f"Thread: {thread_title[:120]}" if thread_title else ""
+
+    if comment.is_root:
+        return title_part
+
+    # For replies, try to get parent comment text (zero-cost dict lookup after .list())
+    parent_author = ""
+    parent_body = ""
+    try:
+        parent = comment.parent()
+        if hasattr(parent, "author") and parent.author:
+            parent_author = str(parent.author)
+        if (
+            hasattr(parent, "body")
+            and parent.body
+            and parent.body not in ("[deleted]", "[removed]")
+        ):
+            parent_body = parent.body.strip()[:_CONTEXT_PARENT_MAX]
+    except Exception:
+        pass
+
+    parts = [title_part] if title_part else []
+    if parent_author and parent_body:
+        parts.append(f"Replying to @{parent_author}: {parent_body}")
+    elif parent_body:
+        parts.append(f"Replying to: {parent_body}")
+    return " | ".join(parts)

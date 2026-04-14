@@ -148,6 +148,7 @@ class ArticleService:
                     depth=0,
                     permalink=url,
                     source="web",
+                    context=f"Article: {title[:120]}" if title else "",
                 )
             )
 

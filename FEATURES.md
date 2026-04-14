@@ -47,7 +47,7 @@ This document tracks all features and their functionality. Update this file when
 ## Comment Collection & Scoring Features
 
 ### 5. Reddit Comment Collection
-- **Description**: Collects comments from each relevant thread
+- **Description**: Collects comments from each relevant thread with conversation context
 - **Location**: `services/reddit_service.py` - `collect_comments()`
 - **Details**:
   - Collects up to configurable max per thread (25–200, default 100)
@@ -55,14 +55,22 @@ This document tracks all features and their functionality. Update this file when
   - Uses `replace_more(limit=0)` to skip expanding collapsed sub-threads (performance optimization)
   - Hard cap of 750 total comments across all threads (keeps highest-scored if exceeded)
   - Collects: author, body text, score (upvotes), date, depth in thread, permalink
+  - **Comment context**: Each comment gets a concise `context` field populated during collection:
+    - Top-level comments (depth=0): `"Thread: {title}"`
+    - Reply comments (depth>0): `"Thread: {title} | Replying to @{parent_author}: {parent_snippet}"`
+    - Parent lookup uses PRAW's in-memory `_comments_by_id` dict (zero API cost after `comments.list()`)
+    - Parent snippet capped at 200 chars, thread title at 120 chars
+    - Gracefully handles deleted parents and collapsed chains (falls back to thread-only context)
+  - Context is also populated for HN comments (parent text threaded through recursion), web article quotes (`"Article: {title}"`), and Product Hunt comments (parent body for replies)
 
 ### 6. AI Comment Relevancy Scoring
-- **Description**: Uses GPT-4o-mini to score each comment's relevancy to the research question on a 1–10 scale
+- **Description**: Uses GPT-4o-mini to score each comment's relevancy to the research question on a 1–10 scale, with thread and parent context
 - **Location**: `services/scoring_service.py` - `score_comments()`
 - **Details**:
   - Batches 20 comments per LLM call for cost efficiency
   - Uses OpenAI structured outputs (Pydantic models) for reliable parsing
   - Returns a score (1–10) and brief reasoning for each comment
+  - **Comment context in prompts**: When a comment has context (thread title, parent comment snippet), it appears as a `Context:` line between the comment header and body, helping the LLM understand what a reply is responding to (e.g., knowing "this product" refers to Databricks)
   - Scoring criteria: 1–2 irrelevant, 3–4 tangential, 5–6 mentions topic but little actionable value, 7–8 relevant and useful, 9 directly addresses with specific information, 10 reserved for comments that completely answer the question with concrete actionable advice
   - Score 10 is intentionally rare — the prompt includes few-shot examples calibrating the LLM to only assign 10 to comments a researcher would call out as "exactly what I was looking for"
   - Named-entity floor rule: if the question asks about a specific product/company/tool, any comment that explicitly names and discusses it scores at least 5; first-hand user experience with it ("we use it", "I tried it") scores at least 7 — prevents niche products from being under-scored due to lack of Reddit coverage
@@ -79,6 +87,7 @@ This document tracks all features and their functionality. Update this file when
   - Splits comments into community (Reddit + HN) and web pools; reserves 20% of slots for web quotes to prevent upvote-weighted sorting from excluding them
   - Community pool weighted by `relevancy_score * max(upvotes, 1)`; web pool by relevancy only
   - Sends top N comments (default 50, configurable 25–200 via Customize panel) to GPT-4o-mini for summarization
+  - **Comment context in prompts**: Each comment includes its `Context:` line (thread title, parent comment) so the LLM understands reply chains and what "this product" or "I agree" refers to
   - Summary includes: Key Takeaways, thematic sections directly answering the question, Conclusion
   - LLM embeds `[#comment_id]` citation markers inline throughout the summary text
   - **Numbered citations**: `renderSummary()` resolves `[#id]` markers into numbered superscript links `[1]`, `[2]` etc. (in appearance order), each linking to the original source

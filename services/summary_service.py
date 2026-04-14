@@ -19,6 +19,17 @@ def _format_comment_date(created_utc: float) -> str:
     dt = datetime.fromtimestamp(created_utc, tz=timezone.utc)
     return dt.strftime("%b %Y")
 
+
+def _format_comment_for_summary(c: ScoredComment, _format_relevancy) -> str:
+    """Format a comment for the summary prompt, including context when available."""
+    context = getattr(c, "context", "") or ""
+    context_line = f"\nContext: {context}" if context else ""
+    return (
+        f"[ID: {c.id} | Source: {c.source} | Date: {_format_comment_date(c.created_utc)} | "
+        f"Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]"
+        f"{context_line}\n{c.body[:600]}"
+    )
+
 SUMMARY_SYSTEM_PROMPT = """You are a research summarizer. You will receive a research question and a collection of comments and article excerpts from various sources (Reddit, Hacker News, web articles). Each item has an ID, source, relevancy score, and upvote count.
 
 Structure your response exactly as follows:
@@ -125,7 +136,7 @@ class SummaryService:
             return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
 
         comments_text = "\n\n".join(
-            f"[ID: {c.id} | Source: {c.source} | Date: {_format_comment_date(c.created_utc)} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
+            _format_comment_for_summary(c, _format_relevancy)
             for c in top_comments
         )
 
@@ -322,7 +333,7 @@ The user may provide optional feedback requesting that this section focus on spe
             return f"{c.relevancy_score}/10" if c.relevancy_score is not None else "unscored"
 
         comments_text = "\n\n".join(
-            f"[ID: {c.id} | Source: {c.source} | Date: {_format_comment_date(c.created_utc)} | Relevancy: {_format_relevancy(c)} | Upvotes: {c.score}]\n{c.body[:600]}"
+            _format_comment_for_summary(c, _format_relevancy)
             for c in input_comments
         )
 

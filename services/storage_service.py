@@ -86,6 +86,7 @@ class StorageService:
                 "ALTER TABLE comments ADD COLUMN category TEXT",
                 "ALTER TABLE researches ADD COLUMN research_type TEXT DEFAULT 'general'",
                 "ALTER TABLE researches ADD COLUMN product_summaries_json TEXT",
+                "ALTER TABLE comments ADD COLUMN context TEXT DEFAULT ''",
             ]:
                 try:
                     conn.execute(stmt)
@@ -135,14 +136,14 @@ class StorageService:
             for c in comments:
                 conn.execute(
                     """INSERT INTO comments
-                    (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning, source, category)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, research_id, thread_id, author, body, score, created_utc, depth, permalink, relevancy_score, reasoning, source, category, context)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id, research_id) DO UPDATE SET
                         thread_id=excluded.thread_id, author=excluded.author, body=excluded.body,
                         score=excluded.score, created_utc=excluded.created_utc, depth=excluded.depth,
                         permalink=excluded.permalink, relevancy_score=excluded.relevancy_score,
                         reasoning=excluded.reasoning, source=excluded.source,
-                        category=excluded.category""",
+                        category=excluded.category, context=excluded.context""",
                     (
                         c.id,
                         research_id,
@@ -157,6 +158,7 @@ class StorageService:
                         c.reasoning,
                         c.source,
                         c.category,
+                        c.context,
                     ),
                 )
 
@@ -167,7 +169,7 @@ class StorageService:
                 id=c.id, thread_id=c.thread_id, author=c.author, body=c.body,
                 score=c.score, created_utc=c.created_utc, depth=c.depth,
                 permalink=c.permalink, relevancy_score=None, reasoning=None,
-                source=c.source,
+                source=c.source, context=getattr(c, "context", ""),
             )
             for c in comments
         ]
@@ -185,7 +187,7 @@ class StorageService:
         """Return unscored comments as RedditComment objects for re-scoring."""
         with self._get_conn() as conn:
             rows = conn.execute(
-                "SELECT id, thread_id, author, body, score, created_utc, depth, permalink, source "
+                "SELECT id, thread_id, author, body, score, created_utc, depth, permalink, source, context "
                 "FROM comments WHERE research_id=? AND relevancy_score IS NULL",
                 (research_id,),
             ).fetchall()
@@ -194,6 +196,7 @@ class StorageService:
                     id=r["id"], thread_id=r["thread_id"], author=r["author"],
                     body=r["body"], score=r["score"], created_utc=r["created_utc"],
                     depth=r["depth"], permalink=r["permalink"], source=r["source"] or "reddit",
+                    context=r["context"] or "",
                 )
                 for r in rows
             ]

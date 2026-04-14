@@ -471,6 +471,7 @@ comments
 ├── reasoning TEXT                   -- AI explanation; "Not scored — API timeout or error" if NULL
 ├── source TEXT DEFAULT 'reddit'     -- "reddit" | "hackernews" | "web" | "reviews" | "producthunt"
 ├── category TEXT                    -- LLM-assigned category (issues, feature_requests, general, etc.)
+├── context TEXT DEFAULT ''          -- Thread title + parent comment snippet for scoring/summary context
 └── PRIMARY KEY (id, research_id)
 ```
 

@@ -109,7 +109,7 @@ class ProductHuntService:
         return threads
 
     def collect_comments(
-        self, thread_id: str, max_comments: int = 100
+        self, thread_id: str, max_comments: int = 100, thread_title: str = ""
     ) -> List[RedditComment]:
         """
         Fetch comments for a Product Hunt post.
@@ -158,14 +158,19 @@ class ProductHuntService:
 
         for edge in edges:
             node = edge.get("node", {})
-            comment = self._node_to_comment(node, thread_id, depth=0)
+            comment = self._node_to_comment(node, thread_id, depth=0, thread_title=thread_title)
             if comment:
                 comments.append(comment)
 
-            # Flatten replies
+            # Flatten replies — pass parent comment body/author for context
+            parent_body = (node.get("body") or "").strip()[:200]
+            parent_author = (node.get("user") or {}).get("username", "")
             for reply_edge in (node.get("replies") or {}).get("edges", []):
                 reply_node = reply_edge.get("node", {})
-                reply = self._node_to_comment(reply_node, thread_id, depth=1)
+                reply = self._node_to_comment(
+                    reply_node, thread_id, depth=1, thread_title=thread_title,
+                    parent_text=parent_body, parent_author=parent_author,
+                )
                 if reply:
                     comments.append(reply)
 
@@ -173,7 +178,8 @@ class ProductHuntService:
         return comments[:max_comments]
 
     def _node_to_comment(
-        self, node: dict, thread_id: str, depth: int
+        self, node: dict, thread_id: str, depth: int,
+        thread_title: str = "", parent_text: str = "", parent_author: str = "",
     ) -> Optional[RedditComment]:
         """Convert a GraphQL comment node to a RedditComment."""
         body = node.get("body", "").strip()
@@ -192,6 +198,17 @@ class ProductHuntService:
             except Exception:
                 pass
 
+        # Build context
+        parts = []
+        if thread_title:
+            parts.append(f"Thread: {thread_title[:120]}")
+        if depth > 0 and parent_text:
+            if parent_author:
+                parts.append(f"Replying to @{parent_author}: {parent_text}")
+            else:
+                parts.append(f"Replying to: {parent_text}")
+        context = " | ".join(parts)
+
         slug = thread_id.replace("ph_", "", 1)
         return RedditComment(
             id=f"ph_c{comment_id}",
@@ -203,4 +220,5 @@ class ProductHuntService:
             depth=depth,
             permalink=f"https://www.producthunt.com/posts/{slug}",
             source="producthunt",
+            context=context,
         )

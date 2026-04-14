@@ -21,6 +21,16 @@ def _format_comment_date(created_utc: float) -> str:
     return dt.strftime("%b %Y")
 
 
+def _format_comment_for_scoring(c) -> str:
+    """Format a comment for the scoring prompt, including context when available."""
+    context = getattr(c, "context", "") or ""
+    context_line = f"\nContext: {context}" if context else ""
+    return (
+        f"[Comment ID: {c.id}] (score: {c.score}, date: {_format_comment_date(c.created_utc)})"
+        f"{context_line}\n{c.body[:500]}"
+    )
+
+
 # ===== Subreddit Suggestion =====
 
 class SubredditSuggestions(BaseModel):
@@ -313,8 +323,7 @@ class ScoringService:
     ) -> List[ScoredComment]:
         """Score a single batch of comments via the LLM."""
         comments_text = "\n\n".join(
-            f"[Comment ID: {c.id}] (score: {c.score}, date: {_format_comment_date(c.created_utc)})\n{c.body[:500]}"
-            for c in batch
+            _format_comment_for_scoring(c) for c in batch
         )
         today = datetime.now(timezone.utc).strftime("%B %d, %Y")
         user_prompt = (
@@ -352,6 +361,7 @@ class ScoringService:
                     if score_data
                     else "Not scored — API timeout or error",
                     source=comment.source,
+                    context=getattr(comment, "context", ""),
                 )
             )
         return results
@@ -388,10 +398,12 @@ class ScoringService:
         def _format_comment(c: RedditComment) -> str:
             source_label = getattr(c, "source", "reddit") or "reddit"
             date_str = _format_comment_date(c.created_utc)
+            context = getattr(c, "context", "") or ""
+            context_line = f"\nContext: {context}" if context else ""
             # Only show upvote score for community sources where it's meaningful
             if source_label in ("web", "reviews", "producthunt"):
-                return f"[Comment ID: {c.id}] (source: {source_label}, date: {date_str})\n{c.body[:500]}"
-            return f"[Comment ID: {c.id}] (source: {source_label}, score: {c.score}, date: {date_str})\n{c.body[:500]}"
+                return f"[Comment ID: {c.id}] (source: {source_label}, date: {date_str}){context_line}\n{c.body[:500]}"
+            return f"[Comment ID: {c.id}] (source: {source_label}, score: {c.score}, date: {date_str}){context_line}\n{c.body[:500]}"
 
         comments_text = "\n\n".join(_format_comment(c) for c in batch)
         today = datetime.now(timezone.utc).strftime("%B %d, %Y")
@@ -434,6 +446,7 @@ class ScoringService:
                     else "Not scored — API timeout or error",
                     source=comment.source,
                     category=category,
+                    context=getattr(comment, "context", ""),
                 )
             )
         return results

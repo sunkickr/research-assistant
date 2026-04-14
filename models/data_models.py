@@ -34,6 +34,7 @@ class RedditComment:
     depth: int
     permalink: str
     source: str = "reddit"
+    context: str = ""
 
 
 @dataclass
@@ -52,11 +53,12 @@ class ScoredComment:
     starred: int = 0
     source: str = "reddit"
     category: Optional[str] = None
+    context: str = ""
 
     CSV_FIELDS: ClassVar[list[str]] = [
         "id", "thread_id", "author", "body", "score", "relevancy_score",
         "user_relevancy_score", "reasoning", "permalink", "depth", "created_utc",
-        "starred", "source", "category",
+        "starred", "source", "category", "context",
     ]
 
 

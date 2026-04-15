@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 import uuid
 import threading
 import queue
@@ -205,6 +206,23 @@ def _collect_comments_for_thread(thread, max_comments, reddit_svc, hn_svc, artic
         return reddit_svc.collect_comments(thread.id, max_comments=max_comments, thread_title=title)
 
 
+_TIME_FILTER_SECONDS = {
+    "hour": 3600,
+    "day": 86400,
+    "week": 604800,
+    "month": 2592000,
+    "year": 31536000,
+}
+
+
+def _filter_by_time_range(threads, time_filter):
+    """Drop threads whose created_utc falls outside the requested time range."""
+    if time_filter == "all" or time_filter not in _TIME_FILTER_SECONDS:
+        return threads
+    cutoff = time.time() - _TIME_FILTER_SECONDS[time_filter]
+    return [t for t in threads if t.created_utc == 0 or t.created_utc >= cutoff]
+
+
 def _make_scoring_progress_callback(q, base_pct, range_pct, research_id=None):
     """Return a scoring progress callback that emits SSE events and saves each batch."""
     def on_batch(batch_num, total_batches, batch_results):
@@ -392,7 +410,7 @@ def run_research_pipeline(
                     "message": f"Found {len(threads)} Reddit threads — searching the web for more...",
                     "progress": 14,
                 })
-                web_threads = web_search_svc.search_reddit_threads(web_queries, max_results=15, subreddits=validated or None, max_total=max_threads)
+                web_threads = web_search_svc.search_reddit_threads(web_queries, max_results=15, subreddits=validated or None, max_total=max_threads, time_filter=time_filter)
                 web_added = 0
                 for wt in web_threads:
                     if wt.id not in seen_ids:
@@ -407,7 +425,7 @@ def run_research_pipeline(
                     "message": "Searching Hacker News...",
                     "progress": 16,
                 })
-                hn_stories = hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES)
+                hn_stories = hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES, time_filter=time_filter)
                 hn_added = 0
                 for story in hn_stories:
                     if story.id not in seen_ids:
@@ -427,7 +445,7 @@ def run_research_pipeline(
                     "message": "Searching the web for articles...",
                     "progress": 18,
                 })
-                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES)
+                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES, time_filter=time_filter)
                 web_articles_added = 0
                 for url in article_urls:
                     result = article_svc.fetch_article(url)
@@ -451,6 +469,8 @@ def run_research_pipeline(
                 "message": f"Found {len(threads)} threads/articles total — filtering for relevancy...",
                 "progress": 20,
             })
+
+            threads = _filter_by_time_range(threads, time_filter)
 
             if not threads:
                 storage_svc.update_research_status(research_id, "complete", 0, 0)
@@ -1165,7 +1185,7 @@ def run_expand_pipeline(
                 with _span("query-generation", research_id=research_id, question=question):
                     _, search_queries = scoring_svc.suggest_subreddits(question)
                 web_queries = search_queries if search_queries else [question]
-                for thd in hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES, page=hn_page):
+                for thd in hn_svc.search_stories(web_queries, max_results=config.HN_MAX_STORIES, page=hn_page, time_filter=time_filter):
                     if thd.id not in seen_candidate_ids:
                         candidates.append(thd)
                         seen_candidate_ids.add(thd.id)
@@ -1181,7 +1201,7 @@ def run_expand_pipeline(
                 with _span("query-generation", research_id=research_id, question=question):
                     _, search_queries = scoring_svc.suggest_subreddits(question)
                 web_queries = search_queries if search_queries else [question]
-                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES, page=web_page)
+                article_urls = web_search_svc.search_web_articles(web_queries, max_results=config.WEB_MAX_ARTICLES, page=web_page, time_filter=time_filter)
                 for url in article_urls:
                     result = article_svc.fetch_article(url)
                     if result:
@@ -1217,15 +1237,16 @@ def run_expand_pipeline(
                     "progress": base_pct + max(1, discovery_step // 2),
                 })
                 web_reddit_threads = web_search_svc.search_reddit_threads(
-                    [question], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT
+                    [question], max_results=10, subreddits=subreddits, max_total=config.MAX_THREADS_LIMIT, time_filter=time_filter
                 )
                 for thd in reddit_threads + web_reddit_threads:
                     if thd.id not in seen_candidate_ids:
                         candidates.append(thd)
                         seen_candidate_ids.add(thd.id)
 
-        # Remove threads already collected
+        # Remove threads already collected and outside time range
         new_threads = [thd for thd in candidates if thd.id not in existing_thread_ids]
+        new_threads = _filter_by_time_range(new_threads, time_filter)
         q.put({
             "stage": "searching",
             "message": f"Found {len(new_threads)} new threads — filtering for relevancy...",
@@ -1337,7 +1358,7 @@ def run_product_expand_pipeline(
                 for category, query_templates in category_list:
                     queries = [t.format(product=product_name) for t in query_templates]
                     try:
-                        for thd in hn_svc.search_stories(queries, max_results=3, page=hn_page):
+                        for thd in hn_svc.search_stories(queries, max_results=3, page=hn_page, time_filter=time_filter):
                             if thd.id not in seen_candidate_ids:
                                 thd.category = category
                                 candidates.append(thd)
@@ -1352,7 +1373,7 @@ def run_product_expand_pipeline(
                 for category, query_templates in category_list:
                     queries = [t.format(product=product_name) for t in query_templates]
                     try:
-                        article_urls = web_search_svc.search_web_articles(queries, max_results=3, page=web_page)
+                        article_urls = web_search_svc.search_web_articles(queries, max_results=3, page=web_page, time_filter=time_filter)
                         for url in article_urls:
                             result = article_svc.fetch_article(url)
                             if result:
@@ -1372,7 +1393,7 @@ def run_product_expand_pipeline(
                 q.put({"stage": "searching", "message": f"Searching review sites{page_label}...", "progress": base_pct})
                 try:
                     review_urls = web_search_svc.search_review_sites(
-                        product_name, sites=REVIEW_SITES, max_per_site=2,
+                        product_name, sites=REVIEW_SITES, max_per_site=2, time_filter=time_filter,
                     )
                     for url in review_urls:
                         result = article_svc.fetch_article(url)
@@ -1406,7 +1427,7 @@ def run_product_expand_pipeline(
                     except Exception:
                         pass
                     try:
-                        web_reddit = web_search_svc.search_reddit_threads(queries, max_results=5, max_total=5)
+                        web_reddit = web_search_svc.search_reddit_threads(queries, max_results=5, max_total=5, time_filter=time_filter)
                         for thd in web_reddit:
                             if thd.id not in seen_candidate_ids:
                                 thd.category = category
@@ -1415,8 +1436,9 @@ def run_product_expand_pipeline(
                     except Exception:
                         pass
 
-        # Remove threads already collected
+        # Remove threads already collected and outside time range
         new_threads = [thd for thd in candidates if thd.id not in existing_thread_ids]
+        new_threads = _filter_by_time_range(new_threads, time_filter)
         q.put({"stage": "searching", "message": f"Found {len(new_threads)} new threads — filtering for relevancy...", "progress": 20})
 
         if not new_threads:
@@ -1972,7 +1994,7 @@ def run_product_research_pipeline(
                 # Web-augmented Reddit
                 try:
                     web_reddit = web_search_svc.search_reddit_threads(
-                        queries, max_results=5, max_total=5,
+                        queries, max_results=5, max_total=5, time_filter=time_filter,
                     )
                     for t in web_reddit:
                         if t.id not in seen_ids:
@@ -1985,7 +2007,7 @@ def run_product_research_pipeline(
             # Hacker News
             if "hackernews" in sources:
                 try:
-                    hn_stories = hn_svc.search_stories(queries, max_results=3)
+                    hn_stories = hn_svc.search_stories(queries, max_results=3, time_filter=time_filter)
                     for t in hn_stories:
                         if t.id not in seen_ids:
                             t.category = category
@@ -1997,7 +2019,7 @@ def run_product_research_pipeline(
             # Web articles
             if "web" in sources:
                 try:
-                    article_urls = web_search_svc.search_web_articles(queries, max_results=3)
+                    article_urls = web_search_svc.search_web_articles(queries, max_results=3, time_filter=time_filter)
                     for url in article_urls:
                         result = article_svc.fetch_article(url)
                         if result:
@@ -2015,7 +2037,7 @@ def run_product_research_pipeline(
             if "reviews" in sources:
                 try:
                     review_urls = web_search_svc.search_review_sites(
-                        product_name, sites=REVIEW_SITES, max_per_site=2,
+                        product_name, sites=REVIEW_SITES, max_per_site=2, time_filter=time_filter,
                     )
                     for url in review_urls:
                         result = article_svc.fetch_article(url)
@@ -2061,6 +2083,8 @@ def run_product_research_pipeline(
             "message": f"Found {len(threads)} threads total — filtering for relevancy...",
             "progress": 40,
         })
+
+        threads = _filter_by_time_range(threads, time_filter)
 
         if not threads:
             storage_svc.update_research_status(research_id, "complete", 0, 0)

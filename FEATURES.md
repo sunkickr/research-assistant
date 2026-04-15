@@ -20,7 +20,7 @@ This document tracks all features and their functionality. Update this file when
 - **Details**:
   - Uses PRAW to search within validated subreddits joined with `+` (e.g. `r/databricks+r/dataengineering`), or r/all as fallback
   - Supports configurable max threads (5–25, default 15)
-  - Supports time range filtering (all time, past year, month, week, day)
+  - Supports time range filtering (all time, past year, month, week, day) — applied across all search sources, not just Reddit API
   - Collects thread metadata: title, subreddit, score, comment count, author, date, URL
 
 ### 3. Web Search Thread Discovery
@@ -28,6 +28,7 @@ This document tracks all features and their functionality. Update this file when
 - **Location**: `services/web_search_service.py` - `search_reddit_threads()`
 - **Details**:
   - Uses the `ddgs` package to search DuckDuckGo with LLM-generated keyword query variants
+  - Respects time range filter via DuckDuckGo's `timelimit` parameter (d/w/m/y)
   - Runs two passes: broad `site:reddit.com` search and per-subreddit `site:reddit.com/r/<sub>` searches
   - Extracts Reddit thread IDs from result URLs via regex, fetches full thread data via PRAW
   - Results are deduplicated by thread ID and merged with Reddit API results before scoring
@@ -305,8 +306,8 @@ This document tracks all features and their functionality. Update this file when
 - **Location**: `app.py`, `services/hn_service.py`, `services/article_service.py`, `services/web_search_service.py`, `static/js/tables.js`, `static/js/app.js`, `templates/index.html`, `templates/results.html`
 - **Details**:
   - **Source selection**: Three checkboxes in the search settings panel (Reddit, Hacker News, Web Articles), all checked by default
-  - **Hacker News**: Uses the free HN Algolia API (no auth, 10k req/hr) to search stories and collect comment trees. IDs prefixed `hn_` to avoid PK collisions
-  - **Web articles**: DuckDuckGo search finds non-Reddit/non-HN articles. `trafilatura` extracts article text. LLM extracts 3-8 relevant quotes as synthetic "comments" with `source="web"`. IDs prefixed `web_`
+  - **Hacker News**: Uses the free HN Algolia API (no auth, 10k req/hr) to search stories and collect comment trees. IDs prefixed `hn_` to avoid PK collisions. Respects time range filter via `numericFilters=created_at_i>{cutoff}`
+  - **Web articles**: DuckDuckGo search finds non-Reddit/non-HN articles, respecting time range filter via `timelimit`. `trafilatura` extracts article text. LLM extracts 3-8 relevant quotes as synthetic "comments" with `source="web"`. IDs prefixed `web_`
   - **Source tabs**: Both the threads and comments tables have source tabs (All | Reddit | HN | Web) for filtering. Tabs only appear when multiple sources have data
   - **Pipeline integration**: All three sources map into existing `RedditThread`/`RedditComment` data models with a `source` field (default `"reddit"` for backward compatibility). Scoring, storage, and summary pipelines work unchanged
   - **Seed URLs**: Support Reddit, HN (`news.ycombinator.com/item?id=...`), and arbitrary web article URLs

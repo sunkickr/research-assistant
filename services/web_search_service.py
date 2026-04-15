@@ -4,6 +4,16 @@ from ddgs import DDGS
 from models.data_models import RedditThread
 
 
+DDG_TIME_MAP = {
+    "hour": "d",   # DDG minimum is day
+    "day": "d",
+    "week": "w",
+    "month": "m",
+    "year": "y",
+    "all": None,
+}
+
+
 EXCLUDED_DOMAINS = {
     "reddit.com", "www.reddit.com", "old.reddit.com",
     "news.ycombinator.com",
@@ -25,6 +35,7 @@ class WebSearchService:
         max_results: int = 15,
         subreddits: Optional[List[str]] = None,
         max_total: int = 25,
+        time_filter: str = "all",
     ) -> List[RedditThread]:
         """
         Search DuckDuckGo for Reddit threads using multiple query variants.
@@ -42,7 +53,7 @@ class WebSearchService:
             if len(thread_ids) >= max_total:
                 break
             # Broad search
-            thread_ids.update(self._search_ids(ddgs, f"{query} site:reddit.com", max_results))
+            thread_ids.update(self._search_ids(ddgs, f"{query} site:reddit.com", max_results, time_filter=time_filter))
             # Per-subreddit search for each known relevant subreddit
             if subreddits:
                 per_sub = max(5, max_results // len(subreddits))
@@ -50,7 +61,7 @@ class WebSearchService:
                     if len(thread_ids) >= max_total:
                         break
                     thread_ids.update(
-                        self._search_ids(ddgs, f"{query} site:reddit.com/r/{sub}", per_sub)
+                        self._search_ids(ddgs, f"{query} site:reddit.com/r/{sub}", per_sub, time_filter=time_filter)
                     )
 
         # Hard cap before PRAW fetches to keep response time predictable
@@ -59,10 +70,10 @@ class WebSearchService:
 
         return self._fetch_threads(thread_ids)
 
-    def _search_ids(self, ddgs: DDGS, query: str, max_results: int) -> set:
+    def _search_ids(self, ddgs: DDGS, query: str, max_results: int, time_filter: str = "all") -> set:
         """Run a single DuckDuckGo search and return the set of Reddit thread IDs found."""
         try:
-            results = ddgs.text(query, max_results=max_results)
+            results = ddgs.text(query, max_results=max_results, timelimit=DDG_TIME_MAP.get(time_filter))
         except Exception:
             return set()
 
@@ -104,6 +115,7 @@ class WebSearchService:
         queries: List[str],
         max_results: int = 8,
         page: int = 0,
+        time_filter: str = "all",
     ) -> List[str]:
         """
         Search DuckDuckGo for web articles (non-Reddit, non-HN).
@@ -124,7 +136,7 @@ class WebSearchService:
             if len(urls) >= max_results:
                 break
             try:
-                results = ddgs.text(query, max_results=fetch_per_query)
+                results = ddgs.text(query, max_results=fetch_per_query, timelimit=DDG_TIME_MAP.get(time_filter))
             except Exception:
                 continue
 
@@ -153,6 +165,7 @@ class WebSearchService:
         product_name: str,
         sites: List[str] = None,
         max_per_site: int = 3,
+        time_filter: str = "all",
     ) -> List[str]:
         """
         Search DuckDuckGo for product reviews on specific sites.
@@ -170,6 +183,7 @@ class WebSearchService:
                 results = ddgs.text(
                     f"{product_name} site:{site}",
                     max_results=max_per_site,
+                    timelimit=DDG_TIME_MAP.get(time_filter),
                 )
             except Exception:
                 continue

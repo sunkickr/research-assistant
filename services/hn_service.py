@@ -1,7 +1,17 @@
 import re
+import time
 import requests
 from typing import List
 from models.data_models import RedditThread, RedditComment
+
+
+HN_TIME_SECONDS = {
+    "hour": 3600,
+    "day": 86400,
+    "week": 604800,
+    "month": 2592000,
+    "year": 31536000,
+}
 
 
 HN_SEARCH_URL = "https://hn.algolia.com/api/v1/search"
@@ -12,7 +22,7 @@ class HNService:
     """Discovers Hacker News stories and collects comments via the Algolia API."""
 
     def search_stories(
-        self, queries: List[str], max_results: int = 10, page: int = 0
+        self, queries: List[str], max_results: int = 10, page: int = 0, time_filter: str = "all",
     ) -> List[RedditThread]:
         """
         Search HN stories via Algolia for each query variant.
@@ -24,14 +34,18 @@ class HNService:
 
         for query in queries:
             try:
+                params = {
+                    "query": query,
+                    "tags": "story",
+                    "hitsPerPage": max_results,
+                    "page": page,
+                }
+                if time_filter in HN_TIME_SECONDS:
+                    cutoff = int(time.time()) - HN_TIME_SECONDS[time_filter]
+                    params["numericFilters"] = f"created_at_i>{cutoff}"
                 resp = requests.get(
                     HN_SEARCH_URL,
-                    params={
-                        "query": query,
-                        "tags": "story",
-                        "hitsPerPage": max_results,
-                        "page": page,
-                    },
+                    params=params,
                     timeout=10,
                 )
                 resp.raise_for_status()

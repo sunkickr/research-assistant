@@ -410,13 +410,30 @@ This document tracks all features and their functionality. Update this file when
 
 ### 33. Phoenix Observability
 - **Description**: Opt-in LLM call tracing via Arize Phoenix, providing visibility into prompts, responses, token usage, latency, and errors for all OpenAI calls
-- **Location**: `app.py` (initialization + pipeline parent spans), `services/scoring_service.py`, `services/summary_service.py`, `services/article_service.py` (agent tags)
+- **Location**: `app.py` (initialization + pipeline parent spans), `agent/cli.py` + `agent/harness.py` (terminal agent spans), `services/scoring_service.py`, `services/summary_service.py`, `services/article_service.py` (agent tags)
 - **Details**:
   - Enabled via `PHOENIX_ENABLED=true` environment variable; zero overhead when disabled
   - Auto-instruments all OpenAI SDK calls (both `chat.completions.create` and `beta.chat.completions.parse`) via `openinference-instrumentation-openai`
   - **Agent tags**: Each LLM call is tagged with agent type (`agent:scoring`, `agent:summary`, `agent:collection`) and task type (`task:comment_scoring`, `task:general_summary`, `task:quote_extraction`, etc.) — filterable in Phoenix UI
   - **Pipeline parent spans**: Pipeline stages (`query-generation`, `thread-scoring`, `comment-scoring`, `summarize`, etc.) are wrapped in OpenTelemetry spans so auto-instrumented OpenAI calls appear as children in a trace hierarchy
-  - `_span()` helper returns a no-op `nullcontext()` when Phoenix is disabled
+  - **Terminal agent spans**: The CLI agent adds `chat_turn` (CHAIN) spans wrapping each conversation turn, with child `tool:<name>` (TOOL) spans for each tool execution. Auto-instrumented OpenAI calls appear as children of these spans. Traces appear under the "research-assistant-agent" project in Phoenix
+  - `_span()` helper returns a no-op `nullcontext()` when Phoenix is disabled (used in both `app.py` and `agent/harness.py`)
   - `using_tags()` imports use `try/except ImportError` fallbacks so the app works without Phoenix installed
-  - All traces appear under the "research-assistant" project in the Phoenix UI at http://localhost:6006
+  - All web app traces appear under the "research-assistant" project and terminal agent traces under "research-assistant-agent" in the Phoenix UI at http://localhost:6006
   - Future providers (Anthropic, Google) can be traced by installing the corresponding `openinference-instrumentation-*` package — no code changes needed
+
+## Terminal Agent
+
+### 34. Terminal Chat Agent
+- **Description**: Interactive terminal-based chat agent that can run research operations through natural language conversation using the same service layer as the web UI
+- **Location**: `agent/cli.py` (terminal adapter), `agent/harness.py` (agent loop), `agent/tools/` (tool implementations), `agent/system_prompt.md` (instructions)
+- **Details**:
+  - **Transport-agnostic harness**: `AgentHarness` drives the LLM → tool call → result → LLM cycle via an `emit: Callable[[AgentEvent], None]` callback. The CLI uses a Rich-based terminal adapter; the same harness can power web chat (SSE) or WebSocket transports
+  - **Tool registry**: `ToolRegistry` auto-generates OpenAI function-calling JSON schemas from Python type hints and docstrings. Internal parameters (`emit`, `services`) are hidden from the LLM and injected at execution time
+  - **Available tools**: `collect_research`, `score_comments`, `summarize`, `retrieve_research`, `analyze_research`, `update_state` — all calling the same service layer used by the web app
+  - **Research state**: `update_state` / `load_state` persist findings, conclusions, and follow-up questions to `data/states/<research_id>.json` so conversations can resume across sessions
+  - **Startup protocol**: System prompt instructs the agent to call `retrieve_research(action="list")` first, offer to resume existing sessions, and confirm parameters before starting new research
+  - **Keyword search**: `retrieve_research` supports a `search` parameter for filtering research sessions by keyword, preventing truncation issues when many sessions exist
+  - **Tool result cap**: Tool outputs are capped at 3,000 characters before appending to LLM conversation history to prevent context window bloat
+  - **Rich terminal UI**: Tool calls show with args, progress bars for long-running operations, final responses rendered in panels with markdown formatting
+  - Run via `python agent/cli.py` (interactive REPL) or `python agent/cli.py --question "..."` (single-turn mode)

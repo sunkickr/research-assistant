@@ -48,6 +48,18 @@ Research Assistant is a Python Flask web application that searches Reddit, Hacke
 research-assistant/
 ├── app.py                    # Flask application, routes, pipeline orchestration
 ├── config.py                 # Configuration from environment variables
+├── agent/
+│   ├── cli.py                # Terminal adapter (Rich UI, Phoenix init, REPL)
+│   ├── harness.py            # Transport-agnostic agent loop (LLM → tool → result cycle)
+│   ├── system_prompt.md      # Agent instructions (startup protocol, tool usage policy)
+│   └── tools/
+│       ├── __init__.py       # ToolRegistry, AgentEvent, ServiceContainer, schema generation
+│       ├── collect.py        # collect_research tool
+│       ├── score.py          # score_comments tool
+│       ├── summarize.py      # summarize tool
+│       ├── retrieve.py       # retrieve_research tool (list, get, comments, threads)
+│       ├── analyze.py        # analyze_research tool
+│       └── state_tool.py     # update_state / load_state tools
 ├── models/
 │   └── data_models.py        # Python dataclasses for domain objects
 ├── services/
@@ -579,3 +591,62 @@ JavaScript is split into two files:
 - `tables.js`: Table rendering, sorting, filtering, pagination, comment expansion
 
 All table data is loaded once via `GET /api/research/{id}` and manipulated client-side for sorting, filtering, and pagination (no server round-trips for table interactions).
+
+## Terminal Agent Architecture
+
+The terminal agent (`agent/`) provides a chat-based interface to the same research capabilities as the web UI. It uses OpenAI function calling to let the LLM decide which tools to invoke.
+
+### Transport-Agnostic Design
+
+```
+                  AgentHarness
+                  (agent loop)
+                 ┌────────────┐
+                 │ LLM call   │
+                 │ ↓           │
+                 │ tool_call?──┼──► ToolRegistry.execute()
+                 │ ↓           │         │
+                 │ append      │◄────────┘
+                 │ result      │
+                 │ ↓           │
+                 │ loop or     │
+                 │ final msg   │
+                 └──────┬──────┘
+                        │
+                   emit(AgentEvent)
+                        │
+          ┌─────────────┼─────────────┐
+          │             │             │
+    Terminal CLI   Flask SSE     WebSocket
+    (Rich)         (queue)       (future)
+```
+
+The `AgentHarness` accepts an `emit: Callable[[AgentEvent], None]` callback. The harness itself knows nothing about Rich, Flask, or any transport — it just emits events. Each transport adapter converts events to its output format:
+- **Terminal**: `terminal_emit` in `agent/cli.py` renders with Rich (panels, progress bars, markdown)
+- **Flask SSE**: `flask_emit` puts events into a `queue.Queue` drained by an SSE generator (planned)
+
+### Tool Registry & Schema Generation
+
+`ToolRegistry` in `agent/tools/__init__.py` auto-generates OpenAI function-calling schemas from Python function signatures:
+
+1. `inspect.signature()` + `get_type_hints()` extract parameter names, types, and defaults
+2. `_annotation_to_schema()` converts Python types to JSON Schema (`str` → `"string"`, `list[str]` → `{"type": "array", "items": {"type": "string"}}`, `Optional[X]` → unwraps to `X`, `Literal["a", "b"]` → `{"enum": [...]}`)
+3. `_parse_docstring_params()` extracts per-parameter descriptions from Google-style docstrings
+4. Internal parameters (`emit`, `services`) are excluded from the LLM-visible schema and injected at execution time
+
+Tool results are capped at `MAX_RESULT_CHARS = 3000` to prevent conversation history bloat.
+
+### Agent Event Types
+
+| Type | When emitted | Content |
+|------|-------------|---------|
+| `tool_call` | Before executing a tool | Tool name + arguments |
+| `tool_progress` | During long-running tools | Progress percentage + description |
+| `tool_result` | After tool completes | Result summary |
+| `message` | Final LLM response | Assistant's text response |
+| `error` | On failure | Error description |
+| `thinking` | LLM reasoning (if exposed) | Thinking text |
+
+### Service Reuse
+
+The agent tools call the same service instances as the web app — `StorageService`, `ScoringService`, `SummaryService`, `RedditService`, etc. A `ServiceContainer` dataclass holds all service instances and is injected into the `ToolRegistry` at startup. This ensures agent-created research appears identically in the web UI.

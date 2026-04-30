@@ -43,3 +43,9 @@ class Config:
     HN_MAX_EXPAND_PAGES = 3
     WEB_MAX_EXPAND_PAGES = 3
     REVIEWS_MAX_EXPAND_PAGES = 2
+
+    # Job search settings
+    JOB_SEARCH_DIR = os.environ.get("JOB_SEARCH_DIR", "data/job_searches")
+    COMPANY_LISTS_DIR = os.environ.get("COMPANY_LISTS_DIR", "data/company_lists")
+    JOB_SEARCH_BATCH_SIZE = int(os.environ.get("JOB_SEARCH_BATCH_SIZE", "15"))
+    JOB_SEARCH_MAX_COMPANIES = int(os.environ.get("JOB_SEARCH_MAX_COMPANIES", "100"))

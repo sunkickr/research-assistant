@@ -59,7 +59,13 @@ research-assistant/
 │       ├── summarize.py      # summarize tool
 │       ├── retrieve.py       # retrieve_research tool (list, get, comments, threads)
 │       ├── analyze.py        # analyze_research tool
-│       └── state_tool.py     # update_state / load_state tools
+│       ├── state_tool.py     # update_state / load_state tools
+│       ├── create_job_search.py  # create_job_search tool
+│       ├── save_job_search.py    # save_job_search tool
+│       ├── search_jobs.py        # search_jobs tool (long-running)
+│       ├── retrieve_jobs.py      # retrieve_jobs tool (list, get, jobs, job_detail)
+│       ├── mark_applied.py       # mark_applied tool
+│       └── discover_companies.py # discover_companies tool
 ├── models/
 │   └── data_models.py        # Python dataclasses for domain objects
 ├── services/
@@ -71,7 +77,8 @@ research-assistant/
 │   ├── llm_provider.py       # Abstract LLM interface + OpenAI implementation
 │   ├── scoring_service.py    # Subreddit suggestion, thread scoring, comment scoring, category classification
 │   ├── summary_service.py    # Research summarization + per-category product summaries
-│   └── storage_service.py    # SQLite + CSV persistence
+│   ├── storage_service.py    # SQLite + CSV persistence
+│   └── job_search_service.py # ATS API clients, job normalization, recency filtering, LLM scoring
 ├── templates/
 │   ├── base.html             # Shared layout (nav, sidebar)
 │   ├── index.html            # Landing page (general + product research modes)
@@ -84,9 +91,12 @@ research-assistant/
 │       ├── app.js            # Form, SSE, summarize, find-more, add-thread logic
 │       └── tables.js         # Table rendering, sorting, filtering, pagination
 ├── published/                # Published HTML reports (git-tracked)
-└── data/                     # Runtime data (auto-created, git-ignored)
-    ├── research.db           # SQLite database
-    └── exports/              # CSV files
+├── data/                     # Runtime data (auto-created, git-ignored)
+│   ├── research.db           # SQLite database
+│   ├── exports/              # CSV files
+│   ├── job_searches/         # Job search profile JSON files
+│   └── company_lists/        # ATS company slug lists (greenhouse.json, lever.json, ashby.json)
+
 ```
 
 ## Data Flow
@@ -646,6 +656,71 @@ Tool results are capped at `MAX_RESULT_CHARS = 3000` to prevent conversation his
 | `message` | Final LLM response | Assistant's text response |
 | `error` | On failure | Error description |
 | `thinking` | LLM reasoning (if exposed) | Thinking text |
+
+### Job Search Data Flow
+
+```
+User asks agent to find jobs
+   │
+   ├─► Agent calls create_job_search (or resume existing via retrieve_jobs)
+   │   └─► Creates data/job_searches/<id>.json with profile + empty jobs array
+   │
+   ├─► Agent calls search_jobs(search_id)
+   │   └─► Pipeline:
+   │       ├─► Load profile from JSON
+   │       ├─► For each ATS platform (greenhouse, lever, ashby):
+   │       │   └─► Fetch jobs from max_companies companies (shuffled, parallel via ThreadPoolExecutor)
+   │       │       ├─► Greenhouse: GET boards-api.greenhouse.io/v1/boards/{slug}/jobs
+   │       │       ├─► Lever: GET api.lever.co/v0/postings/{slug}
+   │       │       └─► Ashby: POST api.ashbyhq.com/posting-api/job-board/{slug}
+   │       ├─► Normalize to common format (title, company, location, url, posted_date, description)
+   │       ├─► Filter by max_age_hours recency (default 48h)
+   │       ├─► Deduplicate against already-found jobs (by URL)
+   │       ├─► LLM score in batches of 15 (Pydantic structured output, 1-10 scale)
+   │       ├─► Filter to min_relevancy threshold (default 6)
+   │       └─► Append new jobs to JSON, record search_history entry
+   │
+   ├─► Agent calls retrieve_jobs to show results
+   │   └─► Reads JSON, filters/sorts, returns formatted list
+   │
+   ├─► Agent calls mark_applied when user applies
+   │   └─► Sets applied=true + timestamp on job entry in JSON
+   │
+   └─► Agent calls discover_companies for niche industries
+       └─► DDG site: searches → extract slugs → optionally save to company lists
+```
+
+### Job Search Data Model
+
+Job search data is stored as self-contained JSON files (not SQLite):
+
+```json
+data/job_searches/<id>.json
+├── id, created_at, updated_at
+├── profile
+│   ├── title, description, experience_level
+│   ├── skills: [...], locations: [...]
+│   └── resume_text
+├── search_history: [{timestamp, ats_platforms, companies_checked, jobs_scanned, jobs_matched}]
+└── jobs: [{id, title, company, ats, location, url, posted_date, description,
+            relevancy_score, reasoning, found_at, applied, applied_at, applied_notes}]
+```
+
+Job IDs use the format `{ats}_{company_slug}_{api_id}` for global uniqueness.
+
+### Job Search Service
+
+`JobSearchService` in `services/job_search_service.py` handles ATS API communication, normalization, and LLM scoring:
+
+| Method | Purpose |
+|--------|---------|
+| `fetch_greenhouse_jobs(slug)` | GET Greenhouse public API, return normalized jobs |
+| `fetch_lever_jobs(slug)` | GET Lever public API, return normalized jobs |
+| `fetch_ashby_jobs(slug)` | POST Ashby posting API, return normalized jobs |
+| `fetch_all_jobs(platforms, max_companies, progress_cb)` | Parallel fetch across all companies via ThreadPoolExecutor(5) |
+| `filter_recent(jobs, max_age_hours)` | Filter to jobs posted within the time window |
+| `score_jobs(jobs, profile, batch_size, progress_cb)` | LLM batch scoring with Pydantic structured output |
+| `add_companies(ats, slugs)` | Append new slugs to bundled company list JSON files |
 
 ### Service Reuse
 

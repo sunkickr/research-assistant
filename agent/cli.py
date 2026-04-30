@@ -60,6 +60,12 @@ from agent.tools.summarize import summarize
 from agent.tools.retrieve import retrieve_research
 from agent.tools.analyze import analyze_research
 from agent.tools.state_tool import update_state, load_state
+from agent.tools.create_job_search import create_job_search
+from agent.tools.save_job_search import save_job_search
+from agent.tools.search_jobs import search_jobs
+from agent.tools.retrieve_jobs import retrieve_jobs
+from agent.tools.mark_applied import mark_applied
+from agent.tools.discover_companies import discover_companies
 from config import Config
 from services.llm_provider import OpenAIProvider
 from services.reddit_service import RedditService
@@ -70,6 +76,7 @@ from services.web_search_service import WebSearchService
 from services.hn_service import HNService
 from services.article_service import ArticleService
 from services.producthunt_service import ProductHuntService
+from services.job_search_service import JobSearchService
 
 console = Console()
 
@@ -173,6 +180,7 @@ def build_services(config: Config) -> ServiceContainer:
     hn_svc = HNService()
     article_svc = ArticleService(llm)
     ph_svc = ProductHuntService(config.PRODUCT_HUNT_API_TOKEN)
+    job_search_svc = JobSearchService(llm, config.COMPANY_LISTS_DIR)
 
     return ServiceContainer(
         storage_svc=storage_svc,
@@ -185,6 +193,7 @@ def build_services(config: Config) -> ServiceContainer:
         ph_svc=ph_svc,
         llm=llm,
         config=config,
+        job_search_svc=job_search_svc,
     )
 
 
@@ -197,6 +206,12 @@ def build_registry(container: ServiceContainer) -> ToolRegistry:
     registry.register(retrieve_research)
     registry.register(analyze_research)
     registry.register(update_state)
+    registry.register(create_job_search)
+    registry.register(save_job_search)
+    registry.register(search_jobs)
+    registry.register(retrieve_jobs)
+    registry.register(mark_applied)
+    registry.register(discover_companies)
     return registry
 
 

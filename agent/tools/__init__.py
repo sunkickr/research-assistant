@@ -52,6 +52,7 @@ class ServiceContainer:
     ph_svc: object
     llm: object
     config: object
+    job_search_svc: object = None
 
 
 # ---------------------------------------------------------------------------

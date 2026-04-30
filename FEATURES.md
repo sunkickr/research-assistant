@@ -437,3 +437,56 @@ This document tracks all features and their functionality. Update this file when
   - **Tool result cap**: Tool outputs are capped at 3,000 characters before appending to LLM conversation history to prevent context window bloat
   - **Rich terminal UI**: Tool calls show with args, progress bars for long-running operations, final responses rendered in panels with markdown formatting
   - Run via `python agent/cli.py` (interactive REPL) or `python agent/cli.py --question "..."` (single-turn mode)
+
+## Job Search
+
+### 35. Job Search Profile Management
+- **Description**: Create and update job search profiles describing the user's ideal role, skills, experience level, and optionally a resume for better LLM matching
+- **Location**: `agent/tools/create_job_search.py`, `agent/tools/save_job_search.py`
+- **Details**:
+  - Profiles stored as self-contained JSON files in `data/job_searches/<id>.json`
+  - Fields: title, description, experience_level, skills, locations, resume_text
+  - `save_job_search` merges only non-empty fields into existing profile (partial updates)
+  - UUID-based IDs generated at creation time
+  - Resume text is optional but significantly improves LLM scoring accuracy
+
+### 36. ATS Job Search
+- **Description**: Searches Greenhouse, Lever, and Ashby public career page APIs for recently-posted jobs matching a user's profile, then uses LLM scoring to surface the best matches
+- **Location**: `agent/tools/search_jobs.py`, `services/job_search_service.py`
+- **Details**:
+  - **ATS APIs**: Greenhouse (`boards-api.greenhouse.io`), Lever (`api.lever.co`), Ashby (`api.ashbyhq.com`) — all public, free, no auth required
+  - **Company lists**: Curated seed lists in `data/company_lists/` (~100-200 slugs per ATS), shuffled each run so `max_companies` covers different companies over time
+  - **Parallel fetching**: `ThreadPoolExecutor(max_workers=5)` for concurrent API calls across companies
+  - **Recency filtering**: Only jobs with `updated_at`/`publishedDate` within `max_age_hours` (default 48) are kept — ATS APIs only return currently-published jobs, so presence = active
+  - **LLM scoring**: Batches of 15 jobs scored 1-10 using Pydantic structured output (`JobScore` model), with profile context (title, skills, experience, resume)
+  - **Deduplication**: Jobs already found in previous searches (matched by URL) are skipped
+  - **Progress events**: Emits progress during fetching and scoring phases via `emit` callback
+  - **Phoenix tags**: `["agent:job_search", "task:job_scoring"]` on all LLM scoring calls
+  - **HTML stripping**: Job descriptions cleaned of HTML tags before scoring; truncated to 500 chars in prompts, full text stored in JSON
+
+### 37. Job Search Data Retrieval
+- **Description**: Query stored job search profiles and found jobs with filtering and detail views
+- **Location**: `agent/tools/retrieve_jobs.py`
+- **Details**:
+  - Four actions: `list_searches` (all profiles), `get_search` (profile details + stats), `jobs` (filtered job list), `job_detail` (full job description)
+  - Filters: `min_relevancy` (score threshold), `location_filter` (keyword match)
+  - Jobs sorted by relevancy score descending
+  - Data read directly from JSON files in `data/job_searches/`
+
+### 38. Application Tracking
+- **Description**: Mark jobs as applied with optional notes, tracking application history within the job search profile
+- **Location**: `agent/tools/mark_applied.py`
+- **Details**:
+  - Sets `applied: true`, `applied_at` (UTC timestamp), and `applied_notes` on the job entry
+  - Returns job title and company for confirmation
+  - Applied status persists in the JSON file across sessions
+
+### 39. Company Discovery
+- **Description**: Discover company career pages on ATS platforms using DuckDuckGo web search, expanding beyond the bundled company lists
+- **Location**: `agent/tools/discover_companies.py`
+- **Details**:
+  - Searches DDG with `site:boards.greenhouse.io`, `site:jobs.lever.co`, `site:jobs.ashbyhq.com` queries
+  - Extracts company slugs from result URLs via regex
+  - Identifies which slugs are new (not already in bundled lists)
+  - Optionally appends new slugs to the bundled JSON lists for future searches via `save_to_lists=True`
+  - Useful for targeting specific industries or niches (e.g., "AI startups", "fintech NYC")

@@ -9,7 +9,7 @@ import re
 from typing import Callable
 from urllib.parse import urlparse
 
-from agent.tools import AgentEvent, ServiceContainer
+from agent.tools import AgentEvent, ServiceContainer, tool_span
 
 _ATS_SEARCH_PATTERNS = {
     "greenhouse": {
@@ -86,20 +86,21 @@ def discover_companies(
         search_query = f'{query} site:{site}'
         discovered = set()
 
-        try:
-            ddg_results = ddgs.text(search_query, max_results=max_results * 2)
-            for r in ddg_results:
-                href = r.get("href", "")
-                match = re.search(slug_re, href)
-                if match:
-                    slug = match.group(1).lower()
-                    # Skip generic pages
-                    if slug not in ("embed", "api", "docs", "help", "about"):
-                        discovered.add(slug)
-                if len(discovered) >= max_results:
-                    break
-        except Exception:
-            pass
+        with tool_span(f"discover-{ats}", query=search_query):
+            try:
+                ddg_results = ddgs.text(search_query, max_results=max_results * 2)
+                for r in ddg_results:
+                    href = r.get("href", "")
+                    match = re.search(slug_re, href)
+                    if match:
+                        slug = match.group(1).lower()
+                        # Skip generic pages
+                        if slug not in ("embed", "api", "docs", "help", "about"):
+                            discovered.add(slug)
+                    if len(discovered) >= max_results:
+                        break
+            except Exception:
+                pass
 
         # Identify which are new (not already in bundled lists)
         existing = set(services.job_search_svc.companies.get(ats, []))

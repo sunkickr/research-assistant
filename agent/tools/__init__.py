@@ -10,10 +10,37 @@ to keep conversation history from growing unbounded.
 import inspect
 import json
 import re
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Callable, get_type_hints
 
 MAX_RESULT_CHARS = 3000  # cap tool output before appending to LLM history
+
+# ---------------------------------------------------------------------------
+# Shared tracer for tools (set by harness.init_tracer at startup)
+# ---------------------------------------------------------------------------
+
+_tracer = None
+
+
+def set_tracer(tracer) -> None:
+    """Set the module-level tracer. Called by harness.init_tracer."""
+    global _tracer
+    _tracer = tracer
+
+
+def tool_span(name, kind="CHAIN", **attrs):
+    """Create an OpenTelemetry span if Phoenix is active, otherwise a no-op.
+
+    Import and use in tool files:
+        from agent.tools import tool_span
+        with tool_span("fetch-greenhouse", search_id=sid):
+            ...
+    """
+    if _tracer:
+        attrs["openinference.span.kind"] = kind
+        return _tracer.start_as_current_span(name, attributes=attrs)
+    return nullcontext()
 
 # Internal sentinel to mark params excluded from the LLM-visible schema
 _INTERNAL_PARAMS = frozenset({"emit", "services"})

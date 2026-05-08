@@ -11,7 +11,7 @@ import os
 from datetime import datetime, timezone
 from typing import Callable
 
-from agent.tools import AgentEvent, ServiceContainer
+from agent.tools import AgentEvent, ServiceContainer, tool_span
 
 _JOB_SEARCHES_DIR = "data/job_searches"
 
@@ -103,11 +103,12 @@ def search_jobs(
             pct = _base + int(platform_pct * (completed / max(total, 1)))
             _emit(emit, f"Checked {completed}/{total} {_ats.title()} companies...", pct)
 
-        raw_jobs = svc.fetch_all_jobs(
-            ats, max_companies=max_companies,
-            exclude_slugs=all_excludes, include_slugs=extra_includes,
-            progress_callback=fetch_progress,
-        )
+        with tool_span(f"fetch-{ats}", search_id=search_id, max_companies=max_companies):
+            raw_jobs = svc.fetch_all_jobs(
+                ats, max_companies=max_companies,
+                exclude_slugs=all_excludes, include_slugs=extra_includes,
+                progress_callback=fetch_progress,
+            )
         _emit(emit, f"Found {len(raw_jobs)} total postings on {ats.title()}", base_pct + platform_pct)
         all_candidates.extend(raw_jobs)
 
@@ -125,7 +126,9 @@ def search_jobs(
 
     # Stage 2: Filter by recency
     _emit(emit, f"Filtering {len(all_candidates)} jobs by recency ({max_age_hours}h)...", 62)
-    recent_jobs = svc.filter_recent(all_candidates, max_age_hours=max_age_hours)
+    with tool_span("recency-filter", search_id=search_id,
+                   total_candidates=total_scanned, max_age_hours=max_age_hours):
+        recent_jobs = svc.filter_recent(all_candidates, max_age_hours=max_age_hours)
     _emit(emit, f"{len(recent_jobs)} jobs posted in the last {max_age_hours} hours", 65)
 
     if not recent_jobs:
@@ -165,7 +168,8 @@ def search_jobs(
         pct = 70 + int(25 * (batch_num / max(total_batches, 1)))
         _emit(emit, f"Scoring batch {batch_num}/{total_batches}", pct)
 
-    scored_jobs = svc.score_jobs(new_jobs, profile, progress_callback=score_progress)
+    with tool_span("job-scoring", search_id=search_id, job_count=len(new_jobs)):
+        scored_jobs = svc.score_jobs(new_jobs, profile, progress_callback=score_progress)
 
     # Stage 5: Filter by minimum relevancy
     matched = [j for j in scored_jobs if (j.get("relevancy_score") or 0) >= min_relevancy]

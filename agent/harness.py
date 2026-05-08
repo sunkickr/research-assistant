@@ -31,6 +31,9 @@ def init_tracer(tracer) -> None:
     """Set the module-level tracer. Called by the entry point after Phoenix setup."""
     global _tracer
     _tracer = tracer
+    # Share the tracer with tool modules so they can create child spans
+    from agent.tools import set_tracer
+    set_tracer(tracer)
 
 
 def _span(name, kind="CHAIN", **attrs):
@@ -103,8 +106,13 @@ class AgentHarness:
                         {"tool": tc.name, "args": tc.arguments},
                     ))
 
-                    with _span(f"tool:{tc.name}", kind="TOOL",
-                               **{"tool.name": tc.name}):
+                    # Build span attributes from tool arguments (stringify for OTel)
+                    tool_attrs = {"tool.name": tc.name}
+                    for k, v in (tc.arguments or {}).items():
+                        attr_val = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+                        tool_attrs[f"tool.arg.{k}"] = attr_val[:500]
+
+                    with _span(f"tool:{tc.name}", kind="TOOL", **tool_attrs):
                         result_str = self.registry.execute(tc.name, tc.arguments, emit)
 
                     # Track the active research_id when a new collection completes

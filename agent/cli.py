@@ -29,18 +29,22 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 # Phoenix observability (optional) — must run before OpenAI client is created
 _tracer = None
+_tracer_provider = None
 if os.environ.get("PHOENIX_ENABLED", "").lower() == "true":
     try:
+        import atexit
         from phoenix.otel import register
         from openinference.instrumentation.openai import OpenAIInstrumentor
         from opentelemetry import trace as _otel_trace
         phoenix_endpoint = os.environ.get("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
-        tracer_provider = register(
+        _tracer_provider = register(
             project_name="research-assistant-agent",
             endpoint=f"{phoenix_endpoint}/v1/traces",
         )
-        OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+        OpenAIInstrumentor().instrument(tracer_provider=_tracer_provider)
         _tracer = _otel_trace.get_tracer("research-assistant-agent")
+        # Ensure spans are flushed on any exit path (Ctrl+C, quit, crash)
+        atexit.register(lambda: _tracer_provider.force_flush())
     except ImportError:
         pass  # Phoenix not installed, skip
 
@@ -290,10 +294,12 @@ Examples:
         console.print("[bold red]Error:[/bold red] OPENAI_API_KEY is not set. Add it to your .env file.")
         sys.exit(1)
 
-    # Pass tracer to the harness module if Phoenix was initialized
+    # Pass tracer to the harness module + shared services if Phoenix was initialized
     if _tracer:
         from agent.harness import init_tracer
+        from services.article_service import set_article_tracer
         init_tracer(_tracer)
+        set_article_tracer(_tracer)
         console.print("[dim]Phoenix observability enabled.[/dim]")
 
     try:
@@ -306,6 +312,13 @@ Examples:
         sys.exit(1)
 
     run_repl(harness, initial_message=args.question)
+
+    # Flush any pending traces before exit
+    if _tracer_provider:
+        try:
+            _tracer_provider.force_flush()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

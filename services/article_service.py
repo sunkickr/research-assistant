@@ -16,11 +16,13 @@ except ImportError:
     def using_tags(tags):
         yield
 
-try:
-    from opentelemetry import trace as _otel_trace
-    _tracer = _otel_trace.get_tracer("research-assistant")
-except ImportError:
-    _tracer = None
+_tracer = None
+
+
+def set_article_tracer(tracer) -> None:
+    """Set the tracer for article service spans. Called by the entry point."""
+    global _tracer
+    _tracer = tracer
 
 
 QUOTE_EXTRACTION_SYSTEM_PROMPT = """You are extracting research-relevant quotes from a web article. Given the article text and a research question, identify 3-8 distinct factual claims, opinions, or first-hand accounts from the article that are relevant to the research question.

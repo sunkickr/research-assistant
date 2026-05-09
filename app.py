@@ -78,6 +78,9 @@ storage_svc = StorageService(config.DB_PATH, config.EXPORT_DIR)
 web_search_svc = WebSearchService(reddit_svc.reddit)
 hn_svc = HNService()
 article_svc = ArticleService(llm)
+if _tracer:
+    from services.article_service import set_article_tracer
+    set_article_tracer(_tracer)
 ph_svc = ProductHuntService(config.PRODUCT_HUNT_API_TOKEN)
 
 # Active research streams: research_id -> queue.Queue

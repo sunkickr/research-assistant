@@ -1,0 +1,14 @@
+inputSet:
+  name: Build_sunkickr_research_assistant_1778795580147-push-trigger-input-set
+  identifier: Build_sunkickr_research_assistant_1778795580147pushtriggerinputset
+  orgIdentifier: default
+  projectIdentifier: default_project
+  pipeline:
+    identifier: Build_sunkickr_research_assistant_1778795580147
+    properties:
+      ci:
+        codebase:
+          build:
+            type: branch
+            spec:
+              branch: <+trigger.branch>

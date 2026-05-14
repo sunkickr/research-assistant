@@ -1,0 +1,14 @@
+inputSet:
+  name: Build_sunkickr_research_assistant_1778795580147-pr-trigger-input-set
+  identifier: Build_sunkickr_research_assistant_1778795580147prtriggerinputset
+  orgIdentifier: default
+  projectIdentifier: default_project
+  pipeline:
+    identifier: Build_sunkickr_research_assistant_1778795580147
+    properties:
+      ci:
+        codebase:
+          build:
+            type: PR
+            spec:
+              number: <+trigger.prNumber>

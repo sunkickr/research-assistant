@@ -39,6 +39,13 @@ pipeline:
                       python3 -m pip install -e .
                   timeout: ""
                   type: Run
+              - step:
+                  type: Run
+                  name: tests
+                  identifier: tests
+                  spec:
+                    shell: Sh
+                    command: pytest -v
           platform:
             arch: Amd64
             os: Linux

@@ -23,8 +23,10 @@ pipeline:
                   identifier: setupvirtualenvironment
                   name: setup virtual environment
                   spec:
+                    image: python:3.12
+                    shell: Sh
                     command: |-
-                      python3.12 -m venv .venv
+                      python3 -m venv .venv
                       . .venv/bin/activate
                       python3 -m pip install --upgrade pip
                       python3 -m pip install -r requirements.lock
@@ -36,8 +38,11 @@ pipeline:
                   name: tests
                   identifier: tests
                   spec:
+                    image: python:3.12
                     shell: Sh
-                    command: pytest -v
+                    command: |-
+                      . .venv/bin/activate
+                      pytest -v
           platform:
             arch: Amd64
             os: Linux

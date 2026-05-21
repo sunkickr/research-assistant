@@ -5,6 +5,13 @@ Route tests use a mocked storage + all-mocked external services.
 Storage tests use a real StorageService backed by a tmp_path SQLite file.
 """
 
+import os
+
+# openai>=2.0 raises at client construction if the key is missing or empty.
+# app.py builds an OpenAIProvider at import time, so set a dummy before any test
+# imports app. setdefault preserves a real key if one is already in the env.
+os.environ.setdefault("OPENAI_API_KEY", "test-key-for-tests")
+
 import threading
 import pytest
 from unittest.mock import MagicMock
